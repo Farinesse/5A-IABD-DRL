@@ -1,109 +1,65 @@
 import sys
 import os
+from environment.tictactoe import TicTacToe
+from outils import human_move, play
+from rand.random import random_agent, random_agent_line_world, random_agent_grid_world
+
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from environment.line_word import LineWorld
 from environment.grid_word import GridWorld
-
 from environment.tictactoe import TicTacToe
-import random
+import rand
+from outils import human_move_line_world, play_line_world, human_move_grid_world, play_grid_world
 
-def main():
-    line_world = LineWorld(length=5)
-    line_world.display()
+def choose_single_player_agent(game_name):
+    """
+    Fonction qui permet à l'utilisateur de choisir s'il veut jouer en tant qu'humain ou laisser un agent aléatoire jouer.
+    """
+    choice = input(f"Choisissez l'agent pour {game_name} (1: Humain, 2: Random) : ")
+    if choice == '1':
+        return 'human'
+    elif choice == '2':
+        return 'random'
+    else:
+        print("Choix invalide, par défaut l'agent sera Random.")
+        return 'random'
 
-    # Boucle de jeu principale
-    while True:
-        print("\nChoisissez une action :")
-        print("0: Rester sur place")
-        print("1: Aller à gauche")
-        print("2: Aller à droite")
-        action = int(input("Votre choix (0, 1, 2) : "))
+if __name__ == "__main__":
+    # Choix du jeu
+    game_choice = input("Choisissez le jeu (1: LineWorld, 2: GridWorld) : ")
 
-        if action not in line_world.available_actions():
-            print("Action invalide ! Veuillez choisir parmi les actions disponibles.")
-            continue
+    if game_choice == '1':
+        # Initialiser l'environnement LineWorld avec une longueur de 5
+        line_world = LineWorld(length=5)
 
-        next_state, reward, done = line_world.step(action)
-        print(f"État suivant: {next_state}, Récompense: {reward}, Terminé: {done}")
-        line_world.display()
+        # Choisir pour un seul joueur
+        player_choice = choose_single_player_agent("LineWorld")
 
-        if done:
-            print("Jeu terminé ! L'agent est dans un état terminal.")
-            break
-
-            # Initialiser l'environnement GridWorld avec une grille de 4x4
-
-
-    grid_world = GridWorld(width=5, height=5)
-
-    # Afficher l'état initial de l'agent
-    grid_world.display()
-
-    # Boucle de jeu principale
-    while True:
-        print("\nChoisissez une action :")
-        print("0: Aller en haut")
-        print("1: Aller en bas")
-        print("2: Aller à gauche")
-        print("3: Aller à droite")
-        action = int(input("Votre choix (0, 1, 2, 3) : "))
-
-        if action not in grid_world.available_actions():
-            print("Action invalide ! Veuillez choisir parmi les actions disponibles.")
-            continue
-
-        next_state, reward, done = grid_world.step(action)
-        print(f"État suivant: {next_state}, Récompense: {reward}, Terminé: {done}")
-        grid_world.display()
-
-        if done:
-            print("Jeu terminé ! L'agent est dans un état terminal.")
-            break
-
-def play(game: TicTacToe, player_x, player_o, print_game=True):
-    if print_game:
-        game.print_board_nums()
-
-    letter = 'X'  # Premier joueur est X
-    while game.empty_squares():
-        if letter == 'O':
-            square = random.choice(game.available_moves())  # IA aléatoire
+        if player_choice == 'human':
+            # Jouer à LineWorld avec un humain contre un agent random
+            play_line_world(line_world, human_move_line_world, random_agent_line_world)
         else:
-            square = player_x(game)  # Joueur humain choisit une case
+            # Jouer à LineWorld avec deux agents random
+            play_line_world(line_world, random_agent_line_world, random_agent_line_world)
 
-        if game.make_move(square, letter):
-            if print_game:
-                print(f'{letter} a joué sur la case {square}')
-                game.print_board()
-                print('')
+    elif game_choice == '2':
+        # Initialiser l'environnement GridWorld avec une grille de 5x5
+        grid_world = GridWorld(width=5, height=5)
 
-            if game.current_winner:
-                if print_game:
-                    print(f'{letter} a gagné!')
-                return letter  # Retourner le gagnant
-            letter = 'O' if letter == 'X' else 'X'  # Switch joueur
+        # Choisir pour un seul joueur
+        player_choice = choose_single_player_agent("GridWorld")
 
-    if print_game:
-        print('C\'est un match nul!')
+        if player_choice == 'human':
+            # Jouer à GridWorld avec un humain contre un agent random
+            play_grid_world(grid_world, human_move_grid_world, random_agent_grid_world)
+        else:
+            # Jouer à GridWorld avec deux agents random
+            play_grid_world(grid_world, random_agent_grid_world, random_agent_grid_world)
 
-
-def human_move(game: TicTacToe):
-    valid_square = False
-    val = None
-    while not valid_square:
-        square = input('Entrez un choix de case (0-8) : ')
-        try:
-            val = int(square)
-            if val not in game.available_moves():
-                raise ValueError
-            valid_square = True
-        except ValueError:
-            print("Case invalide, essayez à nouveau.")
-    return val
-
+    else:
+        print("Choix invalide. Veuillez entrer 1 ou 2.")
 
 
 if __name__ == "__main__":
-    #main()
     t = TicTacToe()
-    play(t, human_move, random.choice, print_game=True)
+    play(t, human_move, random_agent, print_game=True)  # Utilisation de random_agent pour le joueur O
