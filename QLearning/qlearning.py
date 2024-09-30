@@ -31,7 +31,7 @@ def tabular_q_learning(env_type,
             if s not in Q:
                 Q[s] = {a: 0.0 for a in aa}
 
-            # Choix de l'action selon la stratégie epsilon-greedy
+            # Choix de l'action selon la stratégie epsilon greedy
             if np.random.random() < epsilon:
                 a = np.random.choice(aa)
             else:

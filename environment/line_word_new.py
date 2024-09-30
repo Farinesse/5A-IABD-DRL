@@ -74,3 +74,6 @@ class LineWorld:
         print(f"Joueur à jouer : {self.agent_position}")
         print(f"Jeu terminé : {self.game_over}")
 
+    def state_id(self) -> int:
+        return self.agent_position
+

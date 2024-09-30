@@ -1,16 +1,24 @@
 import sys
 import os
 import numpy as np
+import tensorflow as tf
+from tensorflow import keras
+import time
+from tqdm import tqdm
+
+# Importer les modules nécessaires
+from QLearning.deep_qlearning import deep_q_learning
 from environment.tictactoe_new import TicTacToe_new
 from environment.line_word_new import LineWorld
 from environment.grid_word_new import GridWorld
 from outils import human_move, play, human_move_line_world, play_line_world, human_move_grid_world, play_grid_world
-from rand.random import random_agent, random_agent_line_world, random_agent_grid_world, play_with_q_agent
-from QLearning.qlearning import tabular_q_learning   # Assurez-vous que la fonction tabular_q_learning est définie
+from rand.random import random_agent, random_agent_line_world, random_agent_grid_world, play_with_q_agent, \
+    play_with_dqn, play_dqn_vs_random
 
 # Ajouter le chemin absolu au système
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
+# Fonction pour choisir l'agent avec lequel jouer
 def choose_single_player_agent(game_name):
     """
     Fonction qui permet à l'utilisateur de choisir s'il veut jouer en tant qu'humain, avec un agent aléatoire ou un agent Q-Learning.
@@ -26,7 +34,27 @@ def choose_single_player_agent(game_name):
         print("Choix invalide, par défaut l'agent sera Random.")
         return 'random'
 
+# Fonction pour encoder l'état du jeu
+def encode_state(board):
+    """
+    Encode l'état du jeu en un vecteur. Par exemple, pour TicTacToe, un vecteur de 9 éléments est généré.
+    """
+    return np.array(board.flatten())
 
+# Fonction pour l'agent aléatoire
+def random_agent(env):
+    # Sélectionne une action aléatoire parmi les actions disponibles
+    return np.random.choice(env.available_actions_ids())
+
+# Calculer le nombre de parties par seconde
+def calculate_games_per_second(env, model, random_agent_func, num_games=1000):
+    start_time = time.time()
+    play_dqn_vs_random(env, model, random_agent_func=random_agent_func, episodes=num_games)
+    end_time = time.time()
+    elapsed_time = end_time - start_time
+    games_per_second = num_games / elapsed_time
+    print(f"Nombre de parties par seconde : {games_per_second}")
+    return games_per_second
 
 if __name__ == "__main__":
     # Choix du jeu
@@ -76,8 +104,41 @@ if __name__ == "__main__":
             # Jouer à TicTacToe avec un humain contre un agent random
             play(tic_tac_toe, human_move, random_agent)
         elif player_choice == 'q_learning':
-            # Jouer à TicTacToe avec un agent Q-Learning contre un agent random
-            play_with_q_agent(TicTacToe_new, random_agent)
+            # Initialiser les dimensions pour le modèle DQN
+            input_dim = 27  # TicTacToe a 9 cases
+            output_dim = 9  # 9 actions possibles
+
+            # Créer le modèle principal et le modèle cible avec normalisation batch
+            model = keras.Sequential([
+                keras.layers.InputLayer(input_shape=(input_dim,)),
+                keras.layers.Dense(128, activation='relu'),  # Less neurons since the game is simple
+                keras.layers.Dense(64, activation='relu'),
+                keras.layers.Dense(32, activation='relu'),
+                keras.layers.Dense(output_dim)  # No activation on output layer
+            ])
+
+            target_model = keras.models.clone_model(model)
+            target_model.set_weights(model.get_weights())
+
+            # Entraîner l'agent Deep Q-Learning
+            trained_model = deep_q_learning(
+                model=model,
+                target_model=target_model,
+                env=tic_tac_toe,
+                num_episodes=2000,
+                gamma=0.95,
+                alpha=0.0001,  # Taux d'apprentissage plus bas pour stabiliser l'entraînement
+                start_epsilon=1.0,
+                end_epsilon=0.01,  # Réduction à un epsilon plus faible pour favoriser l'exploitation
+                memory_size=5000,  # Augmentation de la taille de la mémoire
+                batch_size=128  # Augmentation de la taille du mini-lot pour de meilleures mises à jour
+            )
+
+            # Jouer une partie avec l'agent DQN contre un agent random
+            play_dqn_vs_random(tic_tac_toe, trained_model, random_agent_func=random_agent, episodes=100)
+
+            # Calculer le nombre de parties par seconde
+            calculate_games_per_second(tic_tac_toe, trained_model, random_agent)
         else:
             # Jouer à TicTacToe avec deux agents random
             play(tic_tac_toe, random_agent, random_agent)
