@@ -47,18 +47,32 @@ class FarkleEnv:
 
     def calculate_score(self, dice_roll):
         """Calcule les points selon les dés lancés."""
+
         if not dice_roll:
             return 0
 
         counts = [dice_roll.count(i) for i in range(1, 7)]
         score = 0
-        score += counts[0] * 100  # 1 vaut 100 points
-        score += counts[4] * 50  # 5 vaut 50 points
 
-        for i in range(6):
-            if counts[i] >= 3:
-                score += (i + 1) * 100 if i > 0 else 1000  # Trois dés identiques
+        if sorted(dice_roll) == [1, 2, 3, 4, 5, 6]:
+            return 1500
+        
+        if list(counts.values()).count(2) == 3:
+            return 1000
+        
+        for die in range(3, 7):
+            if die in counts.values():
+                for num in counts:
+                    if counts[num] == die:
+                        coef = 1000 if num == 1 else 500 if num == 5 else 100
+                        score += num * coef * 2**(die-3)
+
+        score += counts[0] * 100 if counts[0] < 3 else 0
+        score += counts[4] * 50 if counts[4] < 3 else 0
+
         return score
+    
+
 
     def step(self, action):
         """Exécute une action dans l'environnement."""
