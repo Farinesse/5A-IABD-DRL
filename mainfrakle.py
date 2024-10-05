@@ -1,60 +1,66 @@
 import random
 
-from environment.farkle import FarkleEnv
+from environment.farkel_env import FarkleDQNEnv
 
 
-def human_agent(env):
-    """Agent humain qui choisit les actions et les dés à garder."""
-    while True:
-        try:
-            action = int(input("Choisissez votre action (0 = S'arrêter et prendre les points, 1 = Continuer à lancer les dés) : "))
-            if action in [0, 1]:
-                return action
-            else:
-                print("Action invalide. Veuillez choisir 0 ou 1.")
-        except ValueError:
-            print("Entrée invalide. Veuillez entrer 0 ou 1.")
+def human_vs_random():
+    env = FarkleDQNEnv(num_players=2)  # Jeu à 2 joueurs : 1 humain et 1 agent random
+    done = False
+    current_player = 0  # 0 = Humain, 1 = Agent Random
 
-def random_agent(env):
-    """Agent aléatoire qui choisit de manière aléatoire."""
-    return random.choice([0, 1])
+    while not env.is_game_over():
+        print(f"\n==== Tour du Joueur {current_player + 1} ====")
 
-def play_farkle(env, agent1, agent2, num_episodes=1):
-    """Jouer à Farkle avec deux agents."""
-    for episode in range(num_episodes):
-        print(f"\n--- Épisode {episode + 1} ---")
-        done = False
-        env.reset()
+        # Lancer les dés au début du tour
+        env.roll_dice(env.remaining_dice)
+        env.render()
 
-        while not env.is_game_over():
-            env.render()
+        if current_player == 0:  # Tour du joueur humain
+            print("\nVotre tour!")
+            while True:
+                print(f"Dés disponibles : {env.dice_roll}")
+                # Demander à l'utilisateur quels dés garder
+                kept_dice_input = input(f"Quels dés voulez-vous garder ? (ex: 110000 pour garder les 2 premiers dés) : ")
+                if len(kept_dice_input) == len(env.dice_roll):
+                    try:
+                        kept_dice = [int(c) for c in kept_dice_input]
+                        break
+                    except ValueError:
+                        print("Entrée invalide. Veuillez entrer une séquence de 0 et 1.")
+                else:
+                    print("Longueur d'entrée invalide. Réessayez.")
 
-            if env.current_player == 0:
-                action = agent1(env)  # Tour du premier agent (peut être un humain ou aléatoire)
-            else:
-                action = agent2(env)  # Tour du second agent (peut être un humain ou aléatoire)
+            stop = input("Voulez-vous arrêter ce tour ? (oui/non) : ").strip().lower() == "oui"
+            action = kept_dice + [1 if stop else 0]  # Combinaison de dés gardés et de l'action stop ou continue
 
-            _, reward, done, _ = env.step(action)
-            print(f"Récompense: {reward}")
+            # Utiliser directement l'action binaire pour le joueur humain
+            _, reward, done, info = env.step(action)
 
-        print(f"Fin de l'épisode {episode + 1}.\n")
+        else:  # Tour de l'agent random
+            print("\nTour de l'agent Random!")
+            available_actions = env.available_actions_ids()
+            action_id = random.choice(available_actions)
+            action = env.decode_action(action_id)
 
-    print("Le jeu est terminé.")
+            # Utiliser l'ID d'action pour l'agent random
+            _, reward, done, info = env.step(action_id)
+
+        if 'farkle' in info:
+            print("FARKLE! Vous avez perdu les points du tour.")
+        elif 'win' in info:
+            print(f"Joueur {current_player + 1} a gagné la partie!")
+
+        # Passer au joueur suivant si le joueur a choisi de s'arrêter ou s'il y a un Farkle
+        if env.last_action_stop or 'farkle' in info:
+            current_player = (current_player + 1) % 2
+
+    # Fin de la partie
+    print("\nPartie terminée!")
     env.render()
 
 
+
+
+
 if __name__ == "__main__":
-    # Initialiser l'environnement Farkle
-    env = FarkleEnv(num_players=2, target_score=10000)
-
-    # Choisir les agents (humain ou aléatoire)
-    print("Bienvenue dans le jeu de Farkle !")
-
-    agent1_type = input("Agent 1: Choisissez le type d'agent (1 = Humain, 2 = Aléatoire) : ")
-    agent2_type = input("Agent 2: Choisissez le type d'agent (1 = Humain, 2 = Aléatoire) : ")
-
-    agent1 = human_agent if agent1_type == '1' else random_agent
-    agent2 = human_agent if agent2_type == '1' else random_agent
-
-    # Jouer le jeu
-    play_farkle(env, agent1, agent2, num_episodes=1)
+    human_vs_random()

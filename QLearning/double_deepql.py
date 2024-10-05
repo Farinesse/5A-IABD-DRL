@@ -26,6 +26,7 @@ def epsilon_greedy_action(q_s, mask, available_actions, epsilon):
     :param available_actions: Les actions disponibles.
     :param epsilon: Le taux d'exploration (epsilon).
     :return: L'action choisie.
+
     """
     if np.random.rand() < epsilon:
         return np.random.choice(available_actions)

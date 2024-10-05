@@ -8,7 +8,6 @@ class FarkleEnv:
         self.target_score = target_score
         self.reset()
 
-
     def reset(self):
         """Réinitialise l'environnement pour un nouvel épisode."""
         self.scores = [0] * self.num_players
@@ -75,7 +74,6 @@ class FarkleEnv:
 
         return score
 
-    # Modification de la méthode step dans la classe FarkleEnv
     def step(self, action):
         """Exécute une action dans l'environnement."""
         if len(action) != 7:
@@ -85,23 +83,22 @@ class FarkleEnv:
 
         # Bonus de 500 points pour un Farkle avec tous les dés
         if initial_score == 0 and self.remaining_dice == 6:
-            self.round_score += 500
+            self.round_score += 500  # Ajout du bonus de 500 points
             self.next_player()
             return self.get_observation(), 500, False, {"farkle": True}
-
-        # Validation de la sélection des dés
-        dice_action = action[:len(self.dice_roll)]
-        if not validate_dice_selection(self.dice_roll, dice_action):
-            self.round_score = 0
-            self.next_player()
-            return self.get_observation(), -1, False, {"invalid_selection": True}
 
         # Sélection des dés gardés
         kept_dice = [self.dice_roll[i] for i in range(len(self.dice_roll)) if action[i] == 1]
         new_score = self.calculate_score(kept_dice)
 
         # Mise à jour du nombre de dés restants
-        self.remaining_dice -= sum(dice_action)
+        self.remaining_dice -= sum(action[:len(self.dice_roll)])
+
+        # Farkle normal (pas de points avec moins de 6 dés)
+        if new_score == 0:
+            self.round_score = 0
+            self.next_player()
+            return self.get_observation(), -1, False, {"farkle": True}
 
         self.round_score += new_score
 
@@ -117,6 +114,7 @@ class FarkleEnv:
             self.next_player()
 
         return self.get_observation(), new_score, False, {}
+
     def next_player(self):
         """Passe au joueur suivant."""
         self.scores[self.current_player] += self.round_score
@@ -186,58 +184,19 @@ def random_agent(env, dice_roll):
     return [random.choice([0, 1]) for _ in range(len(dice_roll) + 1)]
 
 
-
-def validate_dice_selection(dice_roll, action):
-    """Valide que seuls les dés ayant une valeur peuvent être sélectionnés."""
-    counts = [dice_roll.count(i) for i in range(1, 7)]
-    valid_singles = {1, 5}  # Dés qui peuvent être sélectionnés individuellement
-
-    selected_dice = [d for i, d in enumerate(dice_roll) if action[i] == 1]
-    if not selected_dice:
-        return False
-
-    # Vérification de la suite
-    if sorted(selected_dice) == [1, 2, 3, 4, 5, 6]:
-        return True
-
-    # Vérification des trois paires
-    selected_counts = [selected_dice.count(i) for i in range(1, 7)]
-    if len(selected_dice) == 6 and selected_counts.count(2) == 3:
-        return True
-
-    # Vérification des sélections invalides
-    for value, count in enumerate(selected_counts, start=1):
-        if count > 0:  # Si le dé est sélectionné
-            original_count = dice_roll.count(value)
-            if value not in valid_singles and count < 3 and original_count < 3:
-                # On ne peut pas sélectionner moins de 3 dés pour les valeurs autres que 1 et 5
-                return False
-
-    return True
-
 def human_agent(env, dice_roll):
     """Agent humain pour choisir les dés à garder ou relancer."""
     print(f"Résultat des dés actuels : {dice_roll}")
-    print("Rappel des règles :")
-    print("- Vous pouvez sélectionner les 1 et les 5 individuellement")
-    print("- Pour les autres chiffres, vous devez sélectionner au moins trois dés identiques")
-    print("- Vous pouvez sélectionner une suite (1-2-3-4-5-6)")
-    print("- Vous pouvez sélectionner trois paires")
-
     while True:
         try:
             action_str = input(
-                f"Entrez une action binaire de 7 chiffres (0 = relancer, 1 = garder) et le dernier chiffre pour arrêter le tour : ")
+                f"Entrez une action binaire de {len(dice_roll)} chiffres (0 = relancer, 1 = garder) et 1 pour arrêter le tour : ")
             if len(action_str) == 7 and all(c in '01' for c in action_str):
-                action = [int(x) for x in action_str]
-                if validate_dice_selection(dice_roll, action[:len(dice_roll)]):
-                    return action
-                else:
-                    print("Sélection invalide. Veuillez respecter les règles du jeu.")
+                return [int(x) for x in action_str]
             else:
-                print("Action invalide. Veuillez entrer une séquence binaire de 7 chiffres.")
+                print(f"Action invalide. Veuillez entrer une séquence binaire de {len(dice_roll) + 1} chiffres.")
         except ValueError:
-            print("Entrée invalide. Veuillez entrer une séquence binaire de 7 chiffres.")
+            print(f"Entrée invalide. Veuillez entrer une séquence binaire de {len(dice_roll) + 1} chiffres.")
 
 
 if __name__ == "__main__":
