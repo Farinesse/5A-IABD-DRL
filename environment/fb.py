@@ -1,7 +1,3 @@
-import random
-import numpy as np
-
-
 class FarkleEnv:
     def __init__(self, num_players=1, target_score=10000):
         self.num_players = num_players
@@ -16,18 +12,13 @@ class FarkleEnv:
         self.remaining_dice = 6
         self.dice_roll = []
         self.game_over = False
-        self.last_action_stop = False
+        self.last_action_stop = False  # Changed to boolean
         return self.get_observation()
 
     def get_observation(self):
         """Retourne une observation de l'état actuel sous forme de vecteur."""
-        # Assurons-nous que dice_roll a toujours 6 éléments
-        padded_dice = self.dice_roll + [0] * (6 - len(self.dice_roll))
-        obs = np.array([
-                           self.current_player,
-                           self.round_score,
-                           self.remaining_dice
-                       ] + self.scores + padded_dice + [int(self.last_action_stop)])
+        obs = np.array([self.current_player, self.round_score, self.remaining_dice] +
+                       self.scores + self.dice_roll + [int(self.last_action_stop)])
         return obs
 
     def roll_dice(self, num_dice):
@@ -35,85 +26,72 @@ class FarkleEnv:
         self.dice_roll = [random.randint(1, 6) for _ in range(num_dice)]
         return self.dice_roll
 
-    def calculate_score(self, dice_roll, use_restriction=True):
+    def calculate_score(self, dice_roll, use_restriction = True):
         """Calcule les points selon les dés lancés."""
+
         if not dice_roll:
             return 0
 
         counts = [dice_roll.count(i) for i in range(1, 7)]
         score = 0
-
-        # Vérification de la suite
         if sorted(dice_roll) == [1, 2, 3, 4, 5, 6]:
             return 1500
 
-        # Vérification des trois paires
-        if len(dice_roll) == 6 and counts.count(2) == 3:
+        if counts.count(2) == 3:
             return 1000
 
-        # Calcul des scores pour les groupes de 3 ou plus
-        for value, count in enumerate(counts, start=1):
-            if count >= 3:
-                if value == 1:
-                    score += 1000 * (2 ** (count - 3))
-                else:
-                    score += value * 100 * (2 ** (count - 3))
+        for die in range(3, 7):
+            if die in counts:
+                for i,num in enumerate(counts):
+                    if counts[i] == die:
+                        coef = 1000 if (i+1) == 1 else 100
+                        score += (i+1) * coef * 2 ** (die - 3)
 
-        # Ajout des points pour les 1 et 5 individuels
-        ones_count = counts[0] % 3  # Nombre de 1 restants après les triplets
-        fives_count = counts[4] % 3  # Nombre de 5 restants après les triplets
+        score += counts[0] * 100 if counts[0] < 3 else 0
+        score += counts[4] * 50 if counts[4] < 3 else 0
 
-        score += ones_count * 100
-        score += fives_count * 50
-
-        if use_restriction:
-            # Vérification des dés inutilisables
-            for i, count in enumerate(counts):
-                if i not in [0, 4] and count > 0 and count < 3:
-                    return 0
+        if  use_restriction:
+            score = 0 if counts[1] < 3 and counts[1] != 0 else score
+            score = 0 if counts[2] < 3 and counts[2] != 0 else score
+            score = 0 if counts[3] < 3 and counts[3] != 0 else score
+            score = 0 if counts[5] < 3 and counts[5] != 0 else score
 
         return score
 
     def step(self, action):
         """Exécute une action dans l'environnement."""
-        if len(action) != 7:
-            raise ValueError("Action invalide. Vous devez entrer une séquence binaire de 7 chiffres.")
+        if len(action) != 7:  # Toujours 6 dés + l'action de stop
+            raise ValueError(f"Action invalide. Vous devez entrer une séquence binaire de 7 chiffres.")
 
-        initial_score = self.calculate_score(self.dice_roll, False)
-
-        # Bonus de 500 points pour un Farkle avec tous les dés
-        if initial_score == 0 and self.remaining_dice == 6:
-            self.round_score += 500  # Ajout du bonus de 500 points
+        score = self.calculate_score(self.dice_roll,False)
+        if score == 0 and self.remaining_dice == 6:
+            self.round_score = self.round_score + 500
             self.next_player()
-            return self.get_observation(), 500, False, {"farkle": True}
+            return self.get_observation(), self.round_score, False, {"farkle": True}
 
-        # Sélection des dés gardés
         kept_dice = [self.dice_roll[i] for i in range(len(self.dice_roll)) if action[i] == 1]
-        new_score = self.calculate_score(kept_dice)
+        score = self.calculate_score(kept_dice)
+        self.remaining_dice = len([self.dice_roll[i] for i in range(len(self.dice_roll)) if action[i] == 0])
 
-        # Mise à jour du nombre de dés restants
-        self.remaining_dice -= sum(action[:len(self.dice_roll)])
-
-        # Farkle normal (pas de points avec moins de 6 dés)
-        if new_score == 0:
+        if score == 0 and  self.remaining_dice < 6:
             self.round_score = 0
             self.next_player()
             return self.get_observation(), -1, False, {"farkle": True}
 
-        self.round_score += new_score
+        self.round_score += score
 
-        # Vérification de la victoire
-        if self.scores[self.current_player] + self.round_score >= self.target_score:
+        done = self.scores[self.current_player] + self.round_score >= self.target_score
+
+        if done:
             self.scores[self.current_player] += self.round_score
             self.game_over = True
-            return self.get_observation(), new_score, True, {"win": True}
+            return self.get_observation(), score, True, {"win": True}
 
-        # Gestion de l'action "stop"
         self.last_action_stop = bool(action[-1])
         if self.last_action_stop:
             self.next_player()
 
-        return self.get_observation(), new_score, False, {}
+        return self.get_observation(), score, False, {}
 
     def next_player(self):
         """Passe au joueur suivant."""
@@ -127,57 +105,13 @@ class FarkleEnv:
     def render(self):
         """Affiche l'état du jeu."""
         print(f"Joueur {self.current_player + 1}:")
-        print(f"Dés lancés: {self.dice_roll}")
-        print(f"Score du tour: {self.round_score}")
-        print(f"Dés restants: {self.remaining_dice}")
+        print(f"Score du tour: {self.round_score}, Dés restants: {self.remaining_dice}")
         print(f"Scores actuels: {self.scores}")
 
     def is_game_over(self):
         """Vérifie si la partie est terminée."""
         return self.game_over
 
-
-# Les fonctions d'agents restent inchangées
-
-def main():
-    env = FarkleEnv(num_players=2)
-    env.reset()
-
-    while not env.is_game_over():
-        print(f"\nTour du joueur {env.current_player + 1}...")
-
-        while True:
-            env.dice_roll = env.roll_dice(env.remaining_dice)
-            env.render()
-
-            initial_score = env.calculate_score(env.dice_roll, False)
-
-            if initial_score == 0 and env.remaining_dice < 6:
-                print("Farkle! Passage au joueur suivant.")
-                env.round_score = 0
-                env.next_player()
-                break
-
-            if env.current_player == 0:
-                action = human_agent(env, env.dice_roll)
-            else:
-                action = random_agent(env, env.dice_roll)
-
-            observation, reward, done, info = env.step(action)
-            print(f"Points gagnés ce lancer : {reward}")
-
-            if done:
-                print(f"Le joueur {env.current_player + 1} a gagné!")
-                break
-
-            if env.last_action_stop or env.remaining_dice == 0:
-                break
-
-        if done:
-            break
-
-    print(f"\nScores finaux: {env.scores}")
-    print(f"Le joueur {env.current_player + 1} a gagné!")
 
 def random_agent(env, dice_roll):
     """Agent aléatoire qui choisit une action binaire aléatoire."""
@@ -200,5 +134,44 @@ def human_agent(env, dice_roll):
 
 
 if __name__ == "__main__":
-    main()
+    env = FarkleEnv(num_players=2)
+    env.reset()
 
+    while not env.is_game_over():
+        print(f"\nTour du joueur {env.current_player + 1}...\n")
+
+        while True:
+            dice_roll = env.roll_dice(env.remaining_dice)
+            env.render()
+            score = env.calculate_score(env.dice_roll, False )
+            print("avant step", score, env.remaining_dice, env.dice_roll)
+            if score == 0 and env.remaining_dice < 6 :
+
+                print("arret", score,env.remaining_dice )
+                observation, reward, done, _ = env.get_observation(), -1, False, {"farkle": True}
+                env.last_action_stop = True
+                env.round_score = 0
+                env.next_player()
+
+            else :
+                if env.current_player == 0:
+                    action = human_agent(env, dice_roll)
+                else:
+                    action = random_agent(env, dice_roll)
+                observation, reward, done, _ = env.step(action)
+
+
+            print(f"Récompense: {reward}")
+
+            if done:
+                print(f"Le joueur {env.current_player + 1} a terminé le jeu !")
+                break
+
+            if env.last_action_stop or env.remaining_dice == 0:
+                break
+
+        if done:
+            break
+
+    print(f"Scores finaux: {env.scores}")
+    print(f"Le joueur {env.current_player + 1} a gagné!")
