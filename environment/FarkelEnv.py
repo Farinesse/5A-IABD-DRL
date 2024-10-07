@@ -4,11 +4,11 @@ from gymnasium import spaces
 
 class FarkleEnv:
     def __init__(self, num_players=2, target_score=10000):
-        self.num_players = num_players
+        self.num_players = int(num_players)
         self.target_score = target_score
         self.observation_space = spaces.Box(
-            low=np.array([0, 0, 0] + [0] * num_players + [0] * 6 + [0]),
-            high=np.array([num_players - 1, target_score, 6] + [target_score] * num_players + [6] * 6 + [1]),
+            low=np.array([0, 0, 0] + [0] * self.num_players + [0] * 6 + [0]),
+            high=np.array([self.num_players - 1, target_score, 6] + [target_score] * self.num_players + [6] * 6 + [1]),
             dtype=np.int32
         )
         self.action_space = spaces.Discrete(128)
@@ -44,10 +44,12 @@ class FarkleEnv:
 
             if self._validate_dice_selection(self.dice_roll, action_list[:len(self.dice_roll)]):
                 valid_mask[action] = 1
+                print(action)
 
         return valid_mask
 
     def _validate_dice_selection(self, dice_roll, action):
+
         if len(action) < len(dice_roll):
             return False
 
@@ -58,7 +60,7 @@ class FarkleEnv:
         if sorted(selected_dice) == [1, 2, 3, 4, 5, 6]:
             return True
 
-        if (self.stop) :
+        if (self.stop or action == [1,1,1,1,1,1,1]) :
             print(self.stop)
             return True
 
@@ -110,14 +112,16 @@ class FarkleEnv:
         return score
 
     def step(self, action):
+        print(self.get_valid_actions())
         action_list = action
-
+        print(self.dice_roll)
+        print(action)
         if not self._validate_dice_selection(self.dice_roll, action_list[:len(self.dice_roll)]):
             return self.get_observation(), -100, True, False, {"invalid_action": True}
 
         kept_dice = [self.dice_roll[i] for i in range(len(self.dice_roll)) if action_list[i] == 1]
         print(kept_dice)
-        print(self.dice_roll)
+
         new_score = self._calculate_score(self.dice_roll, False)
 
         if new_score == 0 and self.remaining_dice == 6:

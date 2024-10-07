@@ -1,18 +1,23 @@
 import tkinter as tk
 from tkinter import messagebox
-from PIL import Image, ImageTk
+from PIL import Image, ImageTk, ImageOps
 from environment.FarkelEnv import FarkleEnv
 
 class FarkleGUI:
-    def __init__(self, master):
+    def __init__(self, master, players=2):
         self.master = master
         self.master.title("Farkle - Jeu de Dés")
         self.master.geometry("800x600")
         self.master.configure(bg='#E0E0E0')
 
-        self.env = FarkleEnv(num_players=2)
+        self.env = FarkleEnv(num_players=players)
         self.dice_images = {}
         self.selected_dice = []
+
+        # Ajout de l'initialisation de action_received
+
+        self.action_received = tk.BooleanVar(value=False)
+        self.action = None
 
         self.create_widgets()
         self.load_dice_images()
@@ -75,7 +80,10 @@ class FarkleGUI:
             img = Image.open(f"C:\\Users\\farin\\PycharmProjects\\5A-IABD-DRL\\Images\\dice{i}.png")
             img = img.resize((60, 60))
             self.dice_images[i] = ImageTk.PhotoImage(img)
-            self.dice_images[f"{i}_selected"] = ImageTk.PhotoImage(img)
+
+            # Créer une version "sélectionnée" de l'image avec un contour
+            selected_img = ImageOps.expand(img, border=3, fill='red')
+            self.dice_images[f"{i}_selected"] = ImageTk.PhotoImage(selected_img)
 
     def toggle_dice(self, index):
         if index < len(self.env.dice_roll):
@@ -87,7 +95,7 @@ class FarkleGUI:
             self.update_selection_info()
 
     def update_selection_info(self):
-        if not self.selected_dice:
+        if not self.selected_dice :
             self.info_var.set("Sélectionnez des dés qui rapportent des points")
             self.continue_button.config(state=tk.DISABLED)
             return
@@ -101,6 +109,7 @@ class FarkleGUI:
             potential_score = self.env._calculate_score(selected_dice)
             self.info_var.set(f"Sélection valide - Points potentiels : {potential_score}")
             self.continue_button.config(state=tk.NORMAL)
+
         else:
             self.info_var.set("Sélection invalide")
             self.continue_button.config(state=tk.DISABLED)
@@ -142,6 +151,16 @@ class FarkleGUI:
         if done:
             self.game_over()
 
+    def wait_for_action(self):
+        self.action_received.set(False)
+        self.continue_button.config(state=tk.NORMAL)
+        self.stop_button.config(state=tk.NORMAL)
+        self.master.wait_variable(self.action_received)
+        self.continue_button.config(state=tk.DISABLED)
+        self.stop_button.config(state=tk.DISABLED)
+        return self.action
+
+
     def update_display(self):
         self.player_var.set(f"Joueur {self.env.current_player + 1}")
         self.round_score_var.set(f"Score du tour: {self.env.round_score}")
@@ -172,10 +191,10 @@ class FarkleGUI:
         else:
             self.master.quit()
 
-def main():
+def main_gui(players=2):
     root = tk.Tk()
-    app = FarkleGUI(root)
+    app = FarkleGUI(root,players)
     root.mainloop()
 
 if __name__ == "__main__":
-    main()
+    main_gui()
