@@ -1,5 +1,5 @@
 {
-  "name": "my-project-devcontainer",
+  "name": "drl_space",
   "image": "mcr.microsoft.com/devcontainers/base:ubuntu",
   "features": {
     "ghcr.io/devcontainers/features/desktop-lite:1": {
