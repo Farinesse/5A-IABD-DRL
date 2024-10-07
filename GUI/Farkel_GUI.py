@@ -85,8 +85,7 @@ class FarkleGUI:
 
     def load_dice_images(self):
         for i in range(1, 7):
-
-            img = Image.open(f"../Images/dice{i}.png")
+            img = Image.open(f"./Images/dice{i}.png")
             img = img.resize((60, 60))
             self.dice_images[i] = ImageTk.PhotoImage(img)
 
@@ -107,17 +106,6 @@ class FarkleGUI:
         if not self.selected_dice:
             self.info_var.set("Sélectionnez des dés qui rapportent des points")
             self.continue_button.config(state=tk.DISABLED)
-            return
-
-        action = self.get_action_from_selection()
-        is_valid = self.env._validate_dice_selection(self.env.dice_roll, action[:len(self.env.dice_roll)])
-
-        if is_valid:
-            selected_dice = [self.env.dice_roll[i] for i in self.selected_dice]
-            potential_score = self.env._calculate_score(selected_dice)
-            self.info_var.set(f"Sélection valide - Points potentiels : {potential_score}")
-            self.continue_button.config(state=tk.NORMAL)
-
         else:
             # Calculer le score potentiel des dés sélectionnés
             selected_dice_values = [self.env.dice_roll[i] for i in self.selected_dice]
@@ -126,6 +114,7 @@ class FarkleGUI:
             self.continue_button.config(state=tk.NORMAL)
 
     def take_action(self, stop):
+
         self.env.stop = stop
 
         if self.env.current_player == 1:
@@ -184,7 +173,12 @@ class FarkleGUI:
 
             self.master.after(1000)
 
+        # Mettre à jour l'affichage après l'action
         self.update_display()
+
+        # Vérifier si la partie est terminée
+        if done:
+            self.game_over()
 
     def update_display(self):
         """Met à jour l'interface graphique avec l'état actuel du jeu."""
@@ -214,6 +208,16 @@ class FarkleGUI:
         for i, progress_bar in enumerate(self.progress_bars):
             progress = (self.env.scores[i] / self.env.target_score) * 100
             progress_bar['value'] = progress
+
+    def get_action_from_selection(self):
+        action = [0] * 7
+        for i in self.selected_dice:
+            if i < len(self.env.dice_roll):
+                action[i] = 1
+        action[-1] = int(self.env.stop)
+        if self.env.stop :
+            action = [1] * 7
+        return action
 
     def game_over(self):
         winner = self.env.current_player + 1
