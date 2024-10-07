@@ -170,6 +170,9 @@ class FarkleGUI:
             self.update_display()
             self.master.update()
 
+
+
+
             if done:
                 self.game_over()
                 break
