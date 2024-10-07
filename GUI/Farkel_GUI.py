@@ -85,7 +85,6 @@ class FarkleGUI:
 
     def load_dice_images(self):
         for i in range(1, 7):
-
             img = Image.open(f"../Images/dice{i}.png")
             img = img.resize((60, 60))
             self.dice_images[i] = ImageTk.PhotoImage(img)
@@ -107,17 +106,6 @@ class FarkleGUI:
         if not self.selected_dice:
             self.info_var.set("Sélectionnez des dés qui rapportent des points")
             self.continue_button.config(state=tk.DISABLED)
-            return
-
-        action = self.get_action_from_selection()
-        is_valid = self.env._validate_dice_selection(self.env.dice_roll, action[:len(self.env.dice_roll)])
-
-        if is_valid:
-            selected_dice = [self.env.dice_roll[i] for i in self.selected_dice]
-            potential_score = self.env._calculate_score(selected_dice)
-            self.info_var.set(f"Sélection valide - Points potentiels : {potential_score}")
-            self.continue_button.config(state=tk.NORMAL)
-
         else:
             # Calculer le score potentiel des dés sélectionnés
             selected_dice_values = [self.env.dice_roll[i] for i in self.selected_dice]
@@ -126,62 +114,30 @@ class FarkleGUI:
             self.continue_button.config(state=tk.NORMAL)
 
     def take_action(self, stop):
-        self.env.stop = stop
+        # Créer une action en fonction des dés sélectionnés
+        action = [1 if i in self.selected_dice else 0 for i in range(len(self.env.dice_roll))]
+        action.append(int(stop))  # Ajouter l'action d'arrêt
 
-        if self.env.current_player == 1:
-            self.play_random()
-        else:
-            action = self.get_action_from_selection()
+        # Exécuter l'action dans l'environnement
+        observation, reward, done, _, info = self.env.step(action)
 
-            if not stop and not self.selected_dice:
-                messagebox.showinfo("Action invalide", "Vous devez sélectionner des dés valides avant de continuer.")
-                return
+        if info.get("invalid_action", False):
+            messagebox.showinfo("Action invalide", "Sélection de dés non valide")
+        elif info.get("farkle", False):
+            lost_points = info.get("lost_points", 0)
+            messagebox.showinfo("Farkle", f"Pas de points! Vous perdez {lost_points} points. Tour terminé.")
+        elif info.get("stopped", False):
+            messagebox.showinfo("Tour terminé", f"Points marqués : {reward}")
 
-            observation, reward, done, _, info = self.env.step(action)
+        # Réinitialiser les dés sélectionnés
+        self.selected_dice = []
 
-            if info.get("invalid_action", False):
-                messagebox.showinfo("Action invalide", "Sélection de dés non valide")
-            elif info.get("farkle", False):
-                lost_points = info.get("lost_points", 0)
-                messagebox.showinfo("Farkle", f"Pas de points! Vous perdez {lost_points} points. Tour terminé.")
-            elif info.get("stopped", False):
-                messagebox.showinfo("Tour terminé", f"Points marqués : {reward}")
-
-            self.selected_dice = []
-            self.update_display()
-
-            if done:
-                self.game_over()
-            elif self.env.current_player == 1:
-                self.master.after(1000, self.play_random)
-
-    def wait_for_action(self):
-        self.action_received.set(False)
-        self.continue_button.config(state=tk.NORMAL)
-        self.stop_button.config(state=tk.NORMAL)
-        self.master.wait_variable(self.action_received)
-        self.continue_button.config(state=tk.DISABLED)
-        self.stop_button.config(state=tk.DISABLED)
-        return self.action
-
-    def play_random(self):
-        while self.env.current_player == 1:
-            action = self.env.get_random_action()
-            observation, reward, done, _, info = self.env.step(action)
-
-            self.update_display()
-            self.master.update()
-
-            if done:
-                self.game_over()
-                break
-
-            if info.get("farkle", False) or info.get("stopped", False):
-                break
-
-            self.master.after(1000)
-
+        # Mettre à jour l'affichage après l'action
         self.update_display()
+
+        # Vérifier si la partie est terminée
+        if done:
+            self.game_over()
 
     def update_display(self):
         """Met à jour l'interface graphique avec l'état actuel du jeu."""

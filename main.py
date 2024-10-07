@@ -149,21 +149,32 @@ if __name__ == "__main__":
     elif game_choice == '4':
         # Farkel
         print("Choisissez le mode de jeu Farkel :")
-        print("1: Humain vs Random")
-        print("2: Humain vs Q-learning")
-        print("3: Entraîner l'agent Q-learning")
+        print("1: Humain vs Humain")
+        print("2: Humain vs Random")
+        print("3: Humain vs Q-learning")
+        print("4: Entraîner l'agent Q-learning")
 
         farkel_choice = input("Votre choix : ")
         if farkel_choice == '1':
             players = int(input("number of players : "))
             main_gui(players)
         elif farkel_choice == '2':
+
+            env = FarkleEnv(num_players=2)
+            root = tk.Tk()
+            gui = FarkleGUI(root, env)
+            play_farkel_human_vs_random(env, gui, root)
+            root.mainloop()
+
+        elif farkel_choice == '3':
+
             print("Entraînement de l'agent Q-learning...")
             env = FarkleEnv()
             agent = FarkleDQNAgent(env)
             trained_agent, _ = train(episodes=100)
 
-        elif farkel_choice == '3':
+            #play_farkel_human_vs_qlearning(trained_agent)
+        elif farkel_choice == '4':
 
             print("Entraînement de l'agent Q-learning...")
             env = FarkleEnv()
