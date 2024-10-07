@@ -15,6 +15,8 @@ class FarkleGUI:
         self.dice_images = {}
         self.selected_dice = []
 
+
+
         # Ajout de l'initialisation de action_received
         self.action_received = tk.BooleanVar(value=False)
         self.action = None
