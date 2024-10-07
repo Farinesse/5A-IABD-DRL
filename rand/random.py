@@ -220,3 +220,85 @@ def play_dqn_vs_random(env, dqn_model, random_agent_func, episodes):
     print(f"Il y a eu {draws} match(s) nul(s).")
     print(f"Nombre total d'actions invalides prises par l'agent DQN : {invalid_actions}")
     print(f"Score total de l'agent DQN : {total_dqn_score}")
+
+
+def farkel_random_player(env):
+    """
+    Crée un joueur qui joue de manière aléatoire au jeu Farkel.
+
+    :param env: L'environnement FarkleEnv
+    :return: Une action aléatoire valide sous forme de liste de 7 bits
+    """
+    valid_actions = env.get_valid_actions()
+    valid_indices = np.where(valid_actions == 1)[0]
+
+    if len(valid_indices) == 0:
+        print("Aucune action valide disponible, retour à l'action par défaut.")
+        return [0, 0, 0, 0, 0, 0, 0]  # Action par défaut si aucune action valide n'est disponible
+
+    # Choisir un index d'action aléatoire parmi les actions valides
+    random_action_index = random.choice(valid_indices)
+
+    # Convertir l'index d'action en une liste de 7 bits
+    random_action = [int(b) for b in format(random_action_index, '07b')]
+
+    return random_action
+
+
+def play_farkel_human_vs_qlearning(agent, env, gui):
+
+    gui.env = env
+
+    while not env.game_over:
+        # Tour du joueur humain
+        print("Tour du joueur humain")
+        gui.update_display()
+        gui.master.update()
+        action = gui.wait_for_action()
+        state, reward, done, _, _ = env.step(action)
+        print(f"Récompense du joueur humain: {reward}")
+
+        if done:
+            break
+
+        # Tour de l'agent Q-learning
+        print("Tour de l'agent Q-learning")
+        action = agent.select_action(state)
+        state, reward, done, _, _ = env.step(action)
+        print(f"Récompense de l'agent Q-learning: {reward}")
+        gui.update_display()
+        gui.master.update()
+
+    print("Partie terminée")
+    print(f"Score final - Joueur: {env.scores[0]}, Agent Q-learning: {env.scores[1]}")
+    gui.master.mainloop()
+
+
+def play_farkel_human_vs_random(env, gui, root):
+    while not env.game_over:
+        # Tour du joueur humain
+        print("Tour du joueur humain")
+        gui.update_display()
+        root.update()
+        action = gui.wait_for_action()
+        observation, reward, done, _, info = env.step(action)
+        print(f"Récompense du joueur humain: {reward}")
+        gui.update_display()
+        root.update()
+
+        if done:
+            break
+
+        # Tour de l'agent aléatoire
+        print("Tour de l'agent aléatoire")
+        random_action = farkel_random_player(env)
+        observation, reward, done, _, info = env.step(random_action)
+        print(f"Récompense de l'agent aléatoire: {reward}")
+        gui.update_display()
+        root.update()
+
+        if done:
+            break
+
+    print("Partie terminée")
+    print(f"Score final - Joueur: {env.scores[0]}, Agent aléatoire: {env.scores[1]}")

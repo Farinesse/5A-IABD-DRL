@@ -5,15 +5,19 @@ import tensorflow as tf
 from tensorflow import keras
 import time
 from tqdm import tqdm
-
+import tkinter as tk
+from GUI.Farkel_GUI import FarkleGUI, main_gui
+from QLearning.Fakel_dql import train, evaluate, FarkleDQNAgent
 # Importer les modules nécessaires
 from QLearning.deep_qlearning import deep_q_learning
+from environment.FarkelEnv import FarkleEnv
 from environment.tictactoe_new import TicTacToe_new
 from environment.line_word_new import LineWorld
 from environment.grid_word_new import GridWorld
 from outils import human_move, play, human_move_line_world, play_line_world, human_move_grid_world, play_grid_world
 from rand.random import random_agent, random_agent_line_world, random_agent_grid_world, play_with_q_agent, \
-    play_with_dqn, play_dqn_vs_random
+    farkel_random_player, \
+    play_with_dqn, play_dqn_vs_random, play_farkel_human_vs_random
 
 # Ajouter le chemin absolu au système
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -58,7 +62,7 @@ def calculate_games_per_second(env, model, random_agent_func, num_games=1000):
 
 if __name__ == "__main__":
     # Choix du jeu
-    game_choice = input("Choisissez le jeu (1: LineWorld, 2: GridWorld, 3: TicTacToe) : ")
+    game_choice = input("Choisissez le jeu (1: LineWorld, 2: GridWorld, 3: TicTacToe, 4: Farkel(GUI) : ")
 
     if game_choice == '1':
         # Initialiser l'environnement LineWorld avec une longueur de 5
@@ -127,21 +131,52 @@ if __name__ == "__main__":
                 env=tic_tac_toe,
                 num_episodes=2000,
                 gamma=0.95,
-                alpha=0.0001,  # Taux d'apprentissage plus bas pour stabiliser l'entraînement
+                alpha=0.0001,
                 start_epsilon=1.0,
-                end_epsilon=0.01,  # Réduction à un epsilon plus faible pour favoriser l'exploitation
-                memory_size=5000,  # Augmentation de la taille de la mémoire
-                batch_size=128  # Augmentation de la taille du mini-lot pour de meilleures mises à jour
+                end_epsilon=0.01,  #
+                memory_size=5000,
+                batch_size=128  #
             )
 
             # Jouer une partie avec l'agent DQN contre un agent random
             play_dqn_vs_random(tic_tac_toe, trained_model, random_agent_func=random_agent, episodes=100)
+
+
+
 
             # Calculer le nombre de parties par seconde
             calculate_games_per_second(tic_tac_toe, trained_model, random_agent)
         else:
             # Jouer à TicTacToe avec deux agents random
             play(tic_tac_toe, random_agent, random_agent)
+    elif game_choice == '4':
+        # Farkel
+        print("Choisissez le mode de jeu Farkel :")
+        print("1: Humain vs Random")
+        print("2: Humain vs Q-learning")
+        print("3: Entraîner l'agent Q-learning")
+
+        farkel_choice = input("Votre choix : ")
+        if farkel_choice == '1':
+            players = int(input("number of players : "))
+            main_gui(players)
+        elif farkel_choice == '2':
+            print("Entraînement de l'agent Q-learning...")
+            env = FarkleEnv()
+            agent = FarkleDQNAgent(env)
+            trained_agent, _ = train(episodes=100)
+
+        elif farkel_choice == '3':
+
+            print("Entraînement de l'agent Q-learning...")
+            env = FarkleEnv()
+            agent = FarkleDQNAgent(env)
+            trained_agent, trained_model = train(episodes=1000)
+            mean_score, std_score = evaluate(trained_agent)
+            print(f"Évaluation - Score moyen : {mean_score:.2f}, Écart-type : {std_score:.2f}")
+
+        else:
+            print("Choix invalide. Retour au menu principal.")
 
     else:
-        print("Choix invalide. Veuillez entrer 1, 2 ou 3.")
+        print("Choix invalide. Veuillez entrer 1, 2, 3 ou 4.")
