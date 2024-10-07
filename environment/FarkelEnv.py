@@ -3,7 +3,7 @@ import random
 from gymnasium import spaces
 
 class FarkleEnv:
-    def __init__(self, num_players=2, target_score=10000):
+    def __init__(self, num_players=2, target_score=1000):
         self.num_players = int(num_players)
         self.target_score = target_score
         self.observation_space = spaces.Box(
@@ -78,7 +78,7 @@ class FarkleEnv:
         return True
 
     def _calculate_score(self, dice_roll, use_restriction = True):
-        """Calcule les points selon les dés lancés."""
+
 
         if not dice_roll:
             return 0
@@ -112,6 +112,9 @@ class FarkleEnv:
         return score
 
     def step(self, action):
+        if self.current_player == 1:
+            action = self.get_random_action()
+
         print(self.get_valid_actions())
         action_list = action
         print(self.dice_roll)
@@ -129,7 +132,7 @@ class FarkleEnv:
             self.next_player()
             return self.get_observation(), 500, False, False, {"stopped": True}
 
-        new_score = self._calculate_score(kept_dice,not(self.stop))
+        new_score = self._calculate_score(kept_dice, not (self.stop))
         if new_score == 0:
             lost_points = self.round_score
             self.round_score = 0
@@ -161,3 +164,12 @@ class FarkleEnv:
         self.remaining_dice = 6
         self.dice_roll = self.roll_dice(self.remaining_dice)
         self.last_action_stop = False
+
+    def get_random_action(self):
+        valid_actions = self.get_valid_actions()
+        valid_indices = np.where(valid_actions == 1)[0]
+        if len(valid_indices) > 0:
+            random_action = random.choice(valid_indices)
+            return [int(b) for b in format(random_action, '07b')]
+        else:
+            return [0] * 6 + [1]
