@@ -141,6 +141,9 @@ if __name__ == "__main__":
             # Jouer une partie avec l'agent DQN contre un agent random
             play_dqn_vs_random(tic_tac_toe, trained_model, random_agent_func=random_agent, episodes=100)
 
+
+
+
             # Calculer le nombre de parties par seconde
             calculate_games_per_second(tic_tac_toe, trained_model, random_agent)
         else:
