@@ -8,5 +8,6 @@
     "6080": {
       "label": "desktop"
     }
-  }
+  },
+  "runArgs": ["--shm-size=1g"]
 }
