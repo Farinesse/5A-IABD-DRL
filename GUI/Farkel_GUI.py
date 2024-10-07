@@ -168,6 +168,16 @@ class FarkleGUI:
             progress = (self.env.scores[i] / self.env.target_score) * 100
             progress_bar['value'] = progress
 
+    def get_action_from_selection(self):
+        action = [0] * 7
+        for i in self.selected_dice:
+            if i < len(self.env.dice_roll):
+                action[i] = 1
+        action[-1] = int(self.env.stop)
+        if self.env.stop :
+            action = [1] * 7
+        return action
+
     def game_over(self):
         winner = self.env.current_player + 1
         messagebox.showinfo("Fin du jeu",
