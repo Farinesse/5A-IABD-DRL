@@ -21,40 +21,78 @@ def model_predict(model, s):
     s = tf.ensure_shape(s, [None])  # Assurer une forme constante
     return model(tf.expand_dims(s, 0))[0]
 
+
 def epsilon_greedy_action(
-        q_s: tf.Tensor,
-        mask: tf.Tensor,
-        available_actions: np.ndarray,
-        epsilon: float
+    q_s: tf.Tensor,
+    mask: tf.Tensor,
+    available_actions: np.ndarray,
+    epsilon: float
 ) -> int:
-    """
-    Choisit une action avec une politique epsilon-greedy en s'assurant de ne pas choisir d'actions invalides.
-    """
     if np.random.rand() < epsilon:
-        # Choisir une action aléatoire parmi les actions disponibles
         return np.random.choice(available_actions)
     else:
-        # Appliquer le masque pour bloquer les actions invalides
-        masked_q_s = q_s * mask + (1.0 - mask) * tf.float32.min
-        action = int(tf.argmax(masked_q_s, axis=0))
+        inverted_mask = tf.constant(1.0) - mask
+        masked_q_s = q_s * mask + tf.float32.min * inverted_mask
+        return int(tf.argmax(masked_q_s, axis=0))
 
-        # S'assurer que l'action choisie est dans les actions valides
-        if action not in available_actions:
-            print(f"Action {action} invalide, prise aléatoire à la place.")
-            action = np.random.choice(available_actions)
+def debug_action_selection(env, model, epsilon):
+    s = env.state_description()
+    s_tensor = tf.convert_to_tensor(s, dtype=tf.float32)
+    mask = env.action_mask()
+    mask_tensor = tf.convert_to_tensor(mask, dtype=tf.float32)
+    available_actions = env.available_actions_ids()
+
+    q_s = model_predict(model, s_tensor)
+
+    print("État actuel:", s)
+    print("Masque d'action:", mask)
+    print("Actions disponibles:", available_actions)
+    print("Valeurs Q:", q_s.numpy())
+
+    action = epsilon_greedy_action(q_s, mask_tensor, available_actions, epsilon)
+
+    if action == -1:
+        print("Aucune action disponible. Le jeu est probablement terminé.")
         return action
 
+    print("Action choisie:", action)
+
+    assert action in available_actions, f"Action {action} non valide!"
+
+    return action
+
+
+def save_model(model, file_path):
+    """
+    Sauvegarde le modèle dans un fichier.
+
+    :param model: Le modèle à sauvegarder
+    :param file_path: Le chemin du fichier où sauvegarder le modèle
+    """
+    try:
+        model.save(file_path)
+        print(f"Modèle sauvegardé avec succès dans {file_path}")
+    except Exception as e:
+        print(f"Erreur lors de la sauvegarde du modèle : {e}")
+
+
 def deep_q_learning(model, target_model, env, num_episodes, gamma, alpha, start_epsilon, end_epsilon,
-                    memory_size=5000, batch_size=32, update_target_steps=500, epsilon_decay=0.999):
-    optimizer = keras.optimizers.SGD(learning_rate=alpha, weight_decay=1e-7)
+                    memory_size=512, batch_size=32, update_target_steps=1000, epsilon_decay=0.9,
+                    save_path='dqn_model_tictactoe.h5'):
+    optimizer = keras.optimizers.SGD(
+        learning_rate=0.001,  # Légèrement plus élevé que votre valeur précédente
+        momentum=0.9,  # Ajout de momentum pour une convergence plus rapide
+        nesterov=True,  # Utilisation de Nesterov momentum pour une meilleure performance
+        weight_decay=1e-5  # Légèrement augmenté pour une meilleure régularisation
+    )
     memory = deque(maxlen=memory_size)
     epsilon = start_epsilon
     total_score = 0.0
     total_loss = 0.0
 
     for ep_id in tqdm(range(num_episodes)):
-        if ep_id % 100 == 0 and ep_id > 0:
-            print(f"Mean Score: {total_score / 100}, Mean Loss: {total_loss / 100}, Epsilon: {epsilon}")
+        if ep_id % 1000 == 0 and ep_id > 0:
+            print(f"Mean Score: {total_score / 1000}, Mean Loss: {total_loss / 1000}, Epsilon: {epsilon}")
             total_score = 0.0
             total_loss = 0.0
 
@@ -80,7 +118,6 @@ def deep_q_learning(model, target_model, env, num_episodes, gamma, alpha, start_
             prev_score = env.score()
             env.step(a)
             r = env.score() - prev_score
-
             s_prime = env.state_description()
             s_prime_tensor = tf.convert_to_tensor(s_prime, dtype=tf.float32)
 
@@ -96,7 +133,7 @@ def deep_q_learning(model, target_model, env, num_episodes, gamma, alpha, start_
                         next_mask = env.action_mask()
                         next_mask_tensor = tf.convert_to_tensor(next_mask, dtype=tf.float32)
                         q_next = model_predict(target_model, next_state)
-                        target = reward + gamma * tf.reduce_max(q_next*next_mask_tensor)
+                        target = reward + gamma * tf.reduce_max(q_next * next_mask_tensor)
 
                     loss = gradient_step(model, state, action, target, optimizer)
                     total_loss += loss.numpy()
@@ -104,9 +141,13 @@ def deep_q_learning(model, target_model, env, num_episodes, gamma, alpha, start_
             s_tensor = s_prime_tensor
 
         total_score += env.score()
-        epsilon = max(end_epsilon, epsilon * epsilon_decay)
+        progress = ep_id / num_episodes
+        epsilon = (1.0 - progress) * start_epsilon + progress * end_epsilon
 
         if ep_id % update_target_steps == 0:
             target_model.set_weights(model.get_weights())
+
+    # Sauvegarde du modèle à la fin de l'entraînement
+    save_model(model, save_path)
 
     return model

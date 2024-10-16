@@ -16,8 +16,6 @@ def random_agent(game):
     """
     return random.choice(game.available_actions_ids())
 
-
-
 def random_agent_line_world(game):
     """
     Agent qui choisit une action de manière aléatoire dans LineWorld.
@@ -30,7 +28,6 @@ def random_agent_grid_world(game):
     """
     return random.choice(game.available_actions_ids())
 
-
 def play_with_q_agent(env_type, random_agent_fn, *env_args, if2X2=False):
     """
     Joue un match avec un agent Q-Learning contre un agent aléatoire.
@@ -40,35 +37,40 @@ def play_with_q_agent(env_type, random_agent_fn, *env_args, if2X2=False):
     """
     # Entraînement de l'agent Q-Learning
     print("Entraînement de l'agent Q-Learning...")
-    Pi, Q = tabular_q_learning(lambda: env_type(*env_args), alpha=0.1, epsilon=0.1, gamma=0.999, nb_iter=10000)
+    Pi, Q = tabular_q_learning(lambda: env_type(*env_args), alpha=0.1, epsilon=0.01, gamma=0.999, nb_iter=10000)
 
     # Jouer un match avec la politique apprise contre un agent aléatoire
     print("Jouer un match avec l'agent Q-Learning contre un agent aléatoire...")
     env = env_type(*env_args)
     env.reset()
 
-    while not env.is_game_over():
-        state = env.state_id()
+    score = 0
+    for episode in range(100):
 
-        # Agent Q-Learning utilise la politique apprise
-        if state in Pi:
-            action = Pi[state]
-        else:
-            action = np.random.choice(env.available_actions_ids())
+        while not env.is_game_over():
+            state = env.state_id()
 
-        env.step(action)  # L'agent Q-Learning joue
+            # Agent Q-Learning utilise la politique apprise
+            if state in Pi:
+                action = Pi[state]
+            else:
+                action = np.random.choice(env.available_actions_ids())
 
-        env.display()
-        if if2X2 :
-            if not env.is_game_over():
-                # L'agent aléatoire joue
-                random_action = random_agent_fn(env)
-                env.step(random_action)
-                env.display()
+            env.step(action)  # L'agent Q-Learning joue
 
-          # Affiche l'état du jeu après chaque action
+            env.display()
+            if if2X2 :
+                if not env.is_game_over():
+                    # L'agent aléatoire joue
+                    random_action = random_agent_fn(env)
+                    env.step(random_action)
+                    env.display()
 
-    print("Jeu terminé. Score final:", env.score())
+              # Affiche l'état du jeu après chaque action
+            score = score + env.score()
+
+    print("Jeu terminé. Score final:", score)
+
 
 def play_with_dqn(env, model, random_agent=None, episodes=1):
     total_rewards = 0  # Initialiser le total des récompenses pour calculer le score moyen
@@ -167,6 +169,8 @@ def play_dqn_vs_random(env, dqn_model, random_agent_func, episodes):
     print(f"Il y a eu {draws} match(s) nul(s).")
     print(f"Nombre total d'actions invalides prises par l'agent DQN : {invalid_actions}")
     print(f"Score total de l'agent DQN : {total_dqn_score}")'''
+
+
 def play_dqn_vs_random(env, dqn_model, random_agent_func, episodes):
     """
     Cette fonction permet de faire jouer un agent DQN contre un agent random sur plusieurs épisodes.
@@ -176,31 +180,39 @@ def play_dqn_vs_random(env, dqn_model, random_agent_func, episodes):
     random_wins = 0
     draws = 0
     total_dqn_score = 0
-    invalid_actions = 0  # Compteur d'actions invalides
+    invalid_actions = 0
+    total_steps = 0
 
     for episode in range(episodes):
         env.reset()
-
+        episode_steps = 0
         while not env.is_game_over():
             state = env.state_description()
             state_tensor = tf.convert_to_tensor([state], dtype=tf.float32)
 
             # Tour de l'agent DQN
-            q_values = dqn_model(state_tensor)
-            action = tf.argmax(q_values[0]).numpy()
+            q_values = dqn_model(state_tensor)[0].numpy()
 
-            # Vérifier si l'action est valide
+            # Appliquer le masque d'action
+            action_mask = env.action_mask()
+            masked_q_values = q_values * action_mask - 1e9 * (1 - action_mask)
+
+            action = np.argmax(masked_q_values)
+
             if action not in env.available_actions_ids():
-                print(f"Action {action} invalide, prise aléatoire par l'agent DQN.")
+                print(f"Erreur inattendue: Action {action} invalide malgré le masque.")
                 invalid_actions += 1
-                action = random_agent_func(env)  # Action aléatoire en cas d'invalidité
+                action = random_agent_func(env)
 
             print(f"Agent DQN choisit l'action {action}")
-            env.step(action)  # L'agent random joue automatiquement après le DQN dans 'step()'
 
-            total_reward = env.score()
-            total_dqn_score += total_reward  # Ajouter au score DQN uniquement si c'était son tour
+            env.step(action)
+            total_dqn_score += env.score()  # Cumuler le score à chaque étape
+
             env.display()
+            episode_steps += 1
+
+        total_steps += episode_steps
 
         # Résultat de la partie
         if env.score() > 0:
@@ -213,14 +225,16 @@ def play_dqn_vs_random(env, dqn_model, random_agent_func, episodes):
             draws += 1
             print(f"Match nul dans l'épisode {episode + 1}.")
 
+        print(f"Nombre de coups joués : {episode_steps}")
+
     # Résumé après tous les épisodes
     print(f"\nAprès {episodes} épisodes :")
-    print(f"Agent DQN a gagné {dqn_wins} fois.")
-    print(f"Agent Random a gagné {random_wins} fois.")
-    print(f"Il y a eu {draws} match(s) nul(s).")
+    print(f"Agent DQN a gagné {dqn_wins} fois ({dqn_wins / episodes * 100:.2f}%).")
+    print(f"Agent Random a gagné {random_wins} fois ({random_wins / episodes * 100:.2f}%).")
+    print(f"Il y a eu {draws} match(s) nul(s) ({draws / episodes * 100:.2f}%).")
     print(f"Nombre total d'actions invalides prises par l'agent DQN : {invalid_actions}")
     print(f"Score total de l'agent DQN : {total_dqn_score}")
-
+    print(f"Nombre moyen de coups par partie : {total_steps / episodes:.2f}")
 
 def farkel_random_player(env):
     """
@@ -302,3 +316,4 @@ def play_farkel_human_vs_random(env, gui, root):
 
     print("Partie terminée")
     print(f"Score final - Joueur: {env.scores[0]}, Agent aléatoire: {env.scores[1]}")
+

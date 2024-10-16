@@ -89,6 +89,7 @@ if __name__ == "__main__":
             # Jouer à GridWorld avec un humain contre un agent random
             grid_world = GridWorld(width=5, height=5)
             play_grid_world(grid_world, human_move_grid_world, random_agent_grid_world)
+
         elif player_choice == 'q_learning':
             # Jouer à GridWorld avec un agent Q-Learning contre un agent random
             play_with_q_agent(GridWorld, random_agent_grid_world, 5, 5)  # Passer width=5 et height=5
@@ -115,10 +116,10 @@ if __name__ == "__main__":
             # Créer le modèle principal et le modèle cible avec normalisation batch
             model = keras.Sequential([
                 keras.layers.InputLayer(input_shape=(input_dim,)),
-                keras.layers.Dense(128, activation='relu'),  # Less neurons since the game is simple
+                keras.layers.Dense(256, activation='relu'),
+                keras.layers.Dense(128, activation='relu'),
                 keras.layers.Dense(64, activation='relu'),
-                keras.layers.Dense(32, activation='relu'),
-                keras.layers.Dense(output_dim)  # No activation on output layer
+                keras.layers.Dense(output_dim)
             ])
 
             target_model = keras.models.clone_model(model)
@@ -129,13 +130,14 @@ if __name__ == "__main__":
                 model=model,
                 target_model=target_model,
                 env=tic_tac_toe,
-                num_episodes=2000,
-                gamma=0.95,
-                alpha=0.0001,
+                num_episodes=20000,
+                gamma=0.99,
+                alpha=0.0005,
                 start_epsilon=1.0,
-                end_epsilon=0.01,  #
+                end_epsilon=0.01, #
                 memory_size=5000,
-                batch_size=128  #
+                batch_size=256,
+                update_target_steps=1000
             )
 
             # Jouer une partie avec l'agent DQN contre un agent random

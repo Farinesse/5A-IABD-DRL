@@ -60,7 +60,7 @@ def create_dqn_model(input_dim=10, output_dim=128):
 
 
 def deep_q_learning(model, target_model, env, num_episodes, gamma, alpha, start_epsilon, end_epsilon,
-                    memory_size=5000, batch_size=32, update_target_steps=500, epsilon_decay=0.999):
+                    memory_size=500, batch_size=32, update_target_steps=500, epsilon_decay=0.999):
     optimizer = tf.keras.optimizers.Adam(learning_rate=alpha)
     memory = deque(maxlen=memory_size)
     epsilon = start_epsilon

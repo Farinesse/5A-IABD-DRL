@@ -22,18 +22,31 @@ def play(game, player_x, player_o, print_game=True):
     if print_game:
         game.display()
 
+        print("state")
+        game.state_description()
+        print("ACTION")
+        game.available_actions_ids()
+        print("ACTION MASK")
+        game.action_mask()
     letter = 'X'  # Le premier joueur commence avec 'X'
     while not game.is_game_over():
-        if letter == 'O':
+        ''' if letter == 'O':
             print("Joueur O à jouer")
             # Utilisation de l'agent random pour O
             square = player_o(game)
+            game.step(square)  # Exécute l'action
         else:
             print("Joueur X à jouer")
             # Utilisation du joueur humain pour X
-            square = player_x(game)
-
+            #square = player_x(game)
+            '''
+        square = player_x(game)
         game.step(square)  # Exécute l'action
+        print("state : ",game.state_description())
+        print("ACTION : " , game.available_actions_ids())
+
+        print("ACTION MASK : ",game.action_mask())
+
 
         if print_game:
             print(f'{letter} a joué sur la case {square}')

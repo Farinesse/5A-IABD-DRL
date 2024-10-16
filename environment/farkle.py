@@ -1,9 +1,13 @@
 import random
 import numpy as np
+import time
+
+import numpy as np
+from tqdm import tqdm
 
 
 class FarkleEnv:
-    def __init__(self, num_players=1, target_score=10000):
+    def __init__(self, num_players=1, target_score=2000):
         self.num_players = num_players
         self.target_score = target_score
         self.reset()
@@ -141,49 +145,13 @@ class FarkleEnv:
 
 # Les fonctions d'agents restent inchangées
 
-def main():
-    env = FarkleEnv(num_players=2)
-    env.reset()
 
-    while not env.is_game_over():
-        print(f"\nTour du joueur {env.current_player + 1}...")
-
-        while True:
-            env.dice_roll = env.roll_dice(env.remaining_dice)
-            env.render()
-
-            initial_score = env.calculate_score(env.dice_roll, False)
-
-            if initial_score == 0 and env.remaining_dice < 6:
-                print("Farkle! Passage au joueur suivant.")
-                env.round_score = 0
-                env.next_player()
-                break
-
-            if env.current_player == 0:
-                action = human_agent(env, env.dice_roll)
-            else:
-                action = random_agent(env, env.dice_roll)
-
-            observation, reward, done, info = env.step(action)
-            print(f"Points gagnés ce lancer : {reward}")
-
-            if done:
-                print(f"Le joueur {env.current_player + 1} a gagné!")
-                break
-
-            if env.last_action_stop or env.remaining_dice == 0:
-                break
-
-        if done:
-            break
-
-    print(f"\nScores finaux: {env.scores}")
-    print(f"Le joueur {env.current_player + 1} a gagné!")
 
 def random_agent(env, dice_roll):
-    """Agent aléatoire qui choisit une action binaire aléatoire."""
-    return [random.choice([0, 1]) for _ in range(len(dice_roll) + 1)]
+    """Agent aléatoire qui choisit une action binaire aléatoire de 7 chiffres."""
+    action = [random.choice([0, 1]) for _ in range(6)]  # Pour les 6 dés
+    action.append(random.choice([0, 1]))  # Pour l'action "stop"
+    return action
 
 
 
@@ -240,6 +208,57 @@ def human_agent(env, dice_roll):
             print("Entrée invalide. Veuillez entrer une séquence binaire de 7 chiffres.")
 
 
+def random_agent(env, dice_roll):
+    """Agent aléatoire qui choisit une action binaire aléatoire de 7 chiffres."""
+    action = [random.choice([0, 1]) for _ in range(6)]  # Pour les 6 dés
+    action.append(random.choice([0, 1]))  # Pour l'action "stop"
+    return action
+
+
+def play_one_game(env):
+    env.reset()
+    done = False
+    while not done:
+        while True:
+            env.dice_roll = env.roll_dice(env.remaining_dice)
+            action = random_agent(env, env.dice_roll)
+            _, _, done, _ = env.step(action)
+            if done or env.last_action_stop or env.remaining_dice == 0:
+                break
+    return max(env.scores)  # Retourne le score gagnant
+
+
+def simulate_games_for_30_seconds(num_players=2, target_score=10000):
+    env = FarkleEnv(num_players=num_players, target_score=target_score)
+    start_time = time.time()
+    total_score = 0
+    num_games = 0
+
+    with tqdm(total=30, desc="Simulation en cours", unit="s") as pbar:
+        while time.time() - start_time < 30:
+            winning_score = play_one_game(env)
+            total_score += winning_score
+            num_games += 1
+
+            # Mise à jour de la barre de progression
+            pbar.update(time.time() - start_time - pbar.n)
+
+    end_time = time.time()
+    total_elapsed_time = end_time - start_time
+    games_per_second = num_games / total_elapsed_time
+    average_score = total_score / num_games
+
+    return num_games, games_per_second, average_score
+
+
+def main():
+    print("Simulation de parties de Farkle pendant 30 secondes...")
+    num_games, games_per_second, average_score = simulate_games_for_30_seconds()
+    print(f"\nRésultats après 30 secondes de simulation :")
+    print(f"Nombre de parties jouées : {num_games}")
+    print(f"Parties par seconde : {games_per_second:.2f}")
+    print(f"Score moyen : {average_score:.2f}")
+
+
 if __name__ == "__main__":
     main()
-
