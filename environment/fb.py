@@ -1,3 +1,8 @@
+import numpy as np
+
+from rand import random
+
+
 class FarkleEnv:
     def __init__(self, num_players=1, target_score=10000):
         self.num_players = num_players
