@@ -52,18 +52,15 @@ class FarkleEnv:
         if len(action) < len(dice_roll):
             return False
 
+        if action == [1] * 7:
+            return False
+        
         selected_dice = [d for i, d in enumerate(dice_roll) if action[i] == 1]
         if not selected_dice:
-            return True
+            return False
 
         if sorted(selected_dice) == [1, 2, 3, 4, 5, 6]:
             return True
-
-        """
-        if (self.stop or action == [1,1,1,1,1,1,1]) :
-            print(self.stop)
-            return True
-        """
 
         selected_counts = [selected_dice.count(i) for i in range(1, 7)]
 
@@ -187,7 +184,7 @@ class FarkleEnv:
 frkl = FarkleEnv()
 print(frkl.get_observation())
 frkl.dice_roll = [2, 3, 4, 3, 6, 2]
-frkl.dice_roll = [3, 3, 5, 5, 1, 3]
-frkl.dice_roll = frkl.roll_dice(frkl.remaining_dice)
+# frkl.dice_roll = [3, 3, 5, 5, 1, 3]
+# frkl.dice_roll = frkl.roll_dice(frkl.remaining_dice)
 print(frkl.get_observation())
 print(frkl.get_valid_actions())
