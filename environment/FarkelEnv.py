@@ -2,6 +2,7 @@ import numpy as np
 import random
 from gymnasium import spaces
 
+
 class FarkleEnv:
     def __init__(self, num_players=2, target_score=1000):
         self.num_players = int(num_players)
@@ -41,10 +42,11 @@ class FarkleEnv:
         for action in range(128):
             binary = format(action, '07b')
             action_list = [int(b) for b in binary]
-
-            if self._validate_dice_selection(self.dice_roll, action_list[:len(self.dice_roll)]):
+            if self._validate_dice_selection(self.dice_roll,
+                                             action_list[:len(self.dice_roll)] + [0] * (6 - len(self.dice_roll)) + [
+                                                 action_list[-1]]):
                 valid_mask[action] = 1
-                print(action)
+                print(action, action_list)
 
         return valid_mask
 
@@ -53,32 +55,39 @@ class FarkleEnv:
         if len(action) < len(dice_roll):
             return False
 
+        if action[-1] == 1 :
+           return True
+
         selected_dice = [d for i, d in enumerate(dice_roll) if action[i] == 1]
         if not selected_dice:
-            return True
+            return False
 
         if sorted(selected_dice) == [1, 2, 3, 4, 5, 6]:
             return True
 
-        if (self.stop or action == [1,1,1,1,1,1,1]) :
-            print(self.stop)
-            return True
-
         selected_counts = [selected_dice.count(i) for i in range(1, 7)]
+
         if len(selected_dice) == 6 and selected_counts.count(2) == 3:
             return True
 
         valid_singles = {1, 5}
+
+        f_counts = 0
         for value, count in enumerate(selected_counts, start=1):
             if count > 0:
-                original_count = dice_roll.count(value)
-                if value not in valid_singles and count < 3 and original_count < 3:
-                    return False
+                # original_count = dice_roll.count(value)
+                if value not in valid_singles and count < 3:  # and original_count < 3:
+                    f_counts += 1
 
-        return True
+        if f_counts > 0:
+            if f_counts == (6 - selected_counts.count(0)) and (action[:6] == [1] * 6 or action[:6] == [0] * 6):
+                return True
+            else:
+                return False
+        else:
+            return True
 
-    def _calculate_score(self, dice_roll, use_restriction = True):
-
+    def _calculate_score(self, dice_roll, use_restriction=True):
 
         if not dice_roll:
             return 0
@@ -107,23 +116,24 @@ class FarkleEnv:
             score = 0 if counts[3] < 3 and counts[3] != 0 else score
             score = 0 if counts[5] < 3 and counts[5] != 0 else score
 
-
-
         return score
 
     def step(self, action):
         if self.current_player == 1:
             action = self.get_random_action()
 
-        print(self.get_valid_actions())
-        action_list = action
+
+        print(self.current_player)
         print(self.dice_roll)
         print(action)
+        print(self.get_valid_actions())
+        action_list = action
+        print("*************************************************")
         if not self._validate_dice_selection(self.dice_roll, action_list[:len(self.dice_roll)]):
             return self.get_observation(), -100, True, False, {"invalid_action": True}
 
         kept_dice = [self.dice_roll[i] for i in range(len(self.dice_roll)) if action_list[i] == 1]
-        print(kept_dice)
+        #print(kept_dice)
 
         new_score = self._calculate_score(self.dice_roll, False)
 
@@ -173,3 +183,12 @@ class FarkleEnv:
             return [int(b) for b in format(random_action, '07b')]
         else:
             return [0] * 6 + [1]
+
+'''
+frkl = FarkleEnv()
+print(frkl.get_observation())
+frkl.dice_roll = [2, 3, 4, 3, 6, 2]
+# frkl.dice_roll = [3, 3, 5, 5, 1, 3]
+# frkl.dice_roll = frkl.roll_dice(frkl.remaining_dice)
+print(frkl.get_observation())
+print(frkl.get_valid_actions())'''
