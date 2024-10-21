@@ -55,6 +55,10 @@ class FarkleEnv:
         if action == [1] * 7:
             return False
         
+        for d, a in zip(dice_roll, action[:6]):
+            if d == 0 and a == 1:
+                return False
+        
         selected_dice = [d for i, d in enumerate(dice_roll) if action[i] == 1]
         if not selected_dice:
             return False
@@ -86,7 +90,6 @@ class FarkleEnv:
 
     def _calculate_score(self, dice_roll, use_restriction = True):
 
-
         if not dice_roll:
             return 0
 
@@ -113,8 +116,6 @@ class FarkleEnv:
             score = 0 if counts[2] < 3 and counts[2] != 0 else score
             score = 0 if counts[3] < 3 and counts[3] != 0 else score
             score = 0 if counts[5] < 3 and counts[5] != 0 else score
-
-
 
         return score
 
@@ -182,9 +183,11 @@ class FarkleEnv:
             return [0] * 6 + [1]
         
 frkl = FarkleEnv()
-print(frkl.get_observation())
-frkl.dice_roll = [2, 3, 4, 3, 6, 2]
-# frkl.dice_roll = [3, 3, 5, 5, 1, 3]
+# print(frkl.get_observation())
+frkl.dice_roll = [2, 3, 4, 3, 0, 0]
+frkl.dice_roll = [3, 3, 5, 5, 1, 3]
+frkl.dice_roll = [2, 3, 4, 6, 0, 0]
 # frkl.dice_roll = frkl.roll_dice(frkl.remaining_dice)
-print(frkl.get_observation())
-print(frkl.get_valid_actions())
+# print(frkl.get_observation())
+# print(frkl.get_valid_actions())
+print(frkl.get_random_action())
