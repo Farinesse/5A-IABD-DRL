@@ -6,6 +6,8 @@ import tensorflow as tf
 from keras import optimizers
 from tqdm import tqdm
 
+from outils import logarithmic_decay, custom_two_phase_decay
+
 
 @tf.function(reduce_retracing=True)
 def gradient_step(model, states, actions, targets, optimizer):
@@ -110,9 +112,9 @@ def double_dqn_with_replay(online_model, target_model, env, num_episodes, gamma,
                 total_loss += loss.numpy()
 
         total_score += env.score()
-        progress = ep_id / num_episodes
-        epsilon = max(end_epsilon, start_epsilon - (start_epsilon - end_epsilon) * progress)
-
+        #progress = ep_id / num_episodes
+        #epsilon = max(end_epsilon, start_epsilon - (start_epsilon - end_epsilon) * progress)
+        epsilon = custom_two_phase_decay(ep_id, start_epsilon, end_epsilon, num_episodes)
         if ep_id % update_target_steps == 0:
             target_model.set_weights(online_model.get_weights())
 

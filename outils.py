@@ -1,3 +1,25 @@
+
+import math
+
+def logarithmic_decay(episode, start_epsilon, end_epsilon, decay_rate=0.01):
+    return max(end_epsilon, start_epsilon - decay_rate * math.log(1 + episode))
+
+
+def custom_two_phase_decay(episode, start_epsilon, end_epsilon, total_episodes, midpoint=0.5):
+    # Point de transition entre phase lente et phase rapide
+    transition_point = int(total_episodes * midpoint)
+
+    if episode <= transition_point:
+        # Première moitié : décroissance très lente (quasi linéaire)
+        progress = episode / transition_point
+        return start_epsilon - (start_epsilon - 0.5) * (progress ** 3)
+    else:
+        # Seconde moitié : décroissance plus rapide (exponentielle)
+        remaining_episodes = total_episodes - transition_point
+        progress = (episode - transition_point) / remaining_episodes
+        return 0.5 * math.exp(-5 * progress)  # 0.5 est la valeur d'epsilon au point de transition
+
+
 def human_move(game):
     """
     Permet à l'humain de choisir une case sur le plateau (de 0 à 8).

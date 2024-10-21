@@ -156,15 +156,15 @@ if __name__ == "__main__":
                 online_model=model,
                 target_model=model,
                 env=tic_tac_toe,
-                num_episodes=100000,
+                num_episodes=500000,
                 gamma=0.99,
                 alpha=0.001,
                 start_epsilon=1.0,
                 end_epsilon=0.01,
-                update_target_steps=1000,
+                update_target_steps=5000,
                 batch_size=64,
                 memory_size=512,
-                save_path='models/TEST1_double_dqn_exp_replay_tictactoe_final.h5'
+                save_path='models/TEST2_double_dqn_exp_replay_tictactoe_final.h5'
             )
 
             # Jouer une partie avec l'agent DQN contre un agent random
