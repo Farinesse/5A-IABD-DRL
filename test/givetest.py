@@ -32,16 +32,23 @@ def saved_tictactoe_model(model_path, num_games=10000):
         done = False
         while not done:
             state = env.state_description()
-            action_mask = env.action_mask()
-            available_actions = env.available_actions_ids()
-
             state_tensor = tf.convert_to_tensor([state], dtype=tf.float32)
+
+            # Tour de l'agent DQN
             q_values = model(state_tensor)[0].numpy()
 
-            masked_q_values = q_values * action_mask + (1 - action_mask) * float('-inf')
+            # Appliquer le masque d'action
+            action_mask = env.action_mask()
+            masked_q_values = q_values * action_mask - 1e9 * (1 - action_mask)
+
             action = np.argmax(masked_q_values)
 
+
+
+            print(f"Agent DQN choisit l'action {action}")
+
             env.step(action)
+
             env.display()
             done = env.is_game_over()
 
@@ -67,7 +74,7 @@ def saved_tictactoe_model(model_path, num_games=10000):
 
 if __name__ == "__main__":
     # Utiliser un chemin absolu avec un raw string
-    model_path = r"/dqn_model_tictactoe_t1.h5"
+    model_path = r"C:\Users\farin\PycharmProjects\5A-IABD-DRL\double_dqn_tictactoe_final.h5"
 
     # Ou vous pouvez utiliser des doubles backslashes
     # model_path = "C:\\Users\\farin\\PycharmProjects\\5A-IABD-DRL\\dqn_model_tictactoe_t1.h5"

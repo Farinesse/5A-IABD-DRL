@@ -4,7 +4,6 @@ from tensorflow import keras
 from collections import deque
 import random
 from tqdm import tqdm
-
 from environment.FarkelEnv import FarkleEnv
 
 

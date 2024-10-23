@@ -130,7 +130,7 @@ class FarkleEnv:
 
         return score
 
-    def step(self, action):
+    def step(self, action ):
         if self.current_player == 1:
             action = self.get_random_action()
 
@@ -206,4 +206,10 @@ frkl = FarkleEnv()
 # frkl.dice_roll = frkl.roll_dice(frkl.remaining_dice)
 # print(frkl.get_observation())
 # print(frkl.get_valid_actions())
+#frkl.dice_roll = [1, 3, 4, 3, 0, 0]
+frkl.dice_roll = [3, 3, 5, 5, 1, 3]
+#frkl.dice_roll = [2, 3, 4, 6, 0, 0]
+#frkl.dice_roll = frkl.roll_dice(frkl.remaining_dice)
+print(frkl.get_observation())
+print(frkl.get_valid_actions())
 print(frkl.get_random_action())

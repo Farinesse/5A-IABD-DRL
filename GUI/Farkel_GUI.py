@@ -217,8 +217,8 @@ class FarkleGUI:
             if i < len(self.env.dice_roll):
                 action[i] = 1
         action[-1] = int(self.env.stop)
-        if self.env.stop :
-            action = [1] * 7
+        #if self.env.stop :
+         #   action = [1] * 7
         return action
 
     def game_over(self):

@@ -8,6 +8,8 @@ from tqdm import tqdm
 import tkinter as tk
 from GUI.Farkel_GUI import FarkleGUI, main_gui
 from QLearning.Fakel_dql import train, evaluate, FarkleDQNAgent
+from QLearning.ddqn import double_dqn_no_replay
+from QLearning.ddqn_exp_replay import double_dqn_with_replay
 # Importer les modules nécessaires
 from QLearning.deep_qlearning import deep_q_learning
 from environment.FarkelEnv import FarkleEnv
@@ -118,7 +120,7 @@ if __name__ == "__main__":
                 keras.layers.InputLayer(input_shape=(input_dim,)),
                 keras.layers.Dense(256, activation='relu'),
                 keras.layers.Dense(128, activation='relu'),
-                keras.layers.Dense(64, activation='relu'),
+                keras.layers.Dense(32, activation='relu'),
                 keras.layers.Dense(output_dim)
             ])
 
@@ -126,7 +128,7 @@ if __name__ == "__main__":
             target_model.set_weights(model.get_weights())
 
             # Entraîner l'agent Deep Q-Learning
-            trained_model = deep_q_learning(
+            '''trained_model = deep_q_learning(
                 model=model,
                 target_model=target_model,
                 env=tic_tac_toe,
@@ -138,16 +140,42 @@ if __name__ == "__main__":
                 memory_size=5000,
                 batch_size=256,
                 update_target_steps=1000
+            )'''
+            final_online_model, final_target_model = double_dqn_no_replay(
+                online_model=model,
+                target_model=model,
+                env=tic_tac_toe,
+                num_episodes=100000,
+                gamma=0.99,
+                alpha=0.001,
+                start_epsilon=1,
+                end_epsilon=0.001,
+                update_target_steps=1000,
+                save_path='double_dqn_tictactoe_final_test.h5'
             )
+            '''  final_online_model, _ = double_dqn_with_replay(
+                online_model=model,
+                target_model=model,
+                env=tic_tac_toe,
+                num_episodes=50000,
+                gamma=0.99,
+                alpha=0.001,
+                start_epsilon=1.0,
+                end_epsilon=0.01,
+                update_target_steps=100,
+                batch_size=64,
+                memory_size=1024,
+                save_path='models/TEST3_double_dqn_exp_replay_tictactoe_final.h5'
+            )'''
 
             # Jouer une partie avec l'agent DQN contre un agent random
-            play_dqn_vs_random(tic_tac_toe, trained_model, random_agent_func=random_agent, episodes=100)
+            play_dqn_vs_random(tic_tac_toe, final_online_model, random_agent_func=random_agent, episodes=100)
 
 
 
 
             # Calculer le nombre de parties par seconde
-            calculate_games_per_second(tic_tac_toe, trained_model, random_agent)
+            calculate_games_per_second(tic_tac_toe, final_online_model, random_agent)
         else:
             # Jouer à TicTacToe avec deux agents random
             play(tic_tac_toe, random_agent, random_agent)
