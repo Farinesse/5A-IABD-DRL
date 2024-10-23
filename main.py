@@ -118,8 +118,9 @@ if __name__ == "__main__":
             # Créer le modèle principal et le modèle cible avec normalisation batch
             model = keras.Sequential([
                 keras.layers.InputLayer(input_shape=(input_dim,)),
+                keras.layers.Dense(256, activation='relu'),
                 keras.layers.Dense(128, activation='relu'),
-                keras.layers.Dense(64, activation='relu'),
+                keras.layers.Dense(32, activation='relu'),
                 keras.layers.Dense(output_dim)
             ])
 
@@ -140,7 +141,7 @@ if __name__ == "__main__":
                 batch_size=256,
                 update_target_steps=1000
             )'''
-            '''final_online_model, final_target_model = double_dqn_no_replay(
+            final_online_model, final_target_model = double_dqn_no_replay(
                 online_model=model,
                 target_model=model,
                 env=tic_tac_toe,
@@ -150,22 +151,22 @@ if __name__ == "__main__":
                 start_epsilon=1,
                 end_epsilon=0.001,
                 update_target_steps=1000,
-                save_path='double_dqn_tictactoe_final.h5'
-            )'''
-            final_online_model, _ = double_dqn_with_replay(
+                save_path='double_dqn_tictactoe_final_test.h5'
+            )
+            '''  final_online_model, _ = double_dqn_with_replay(
                 online_model=model,
                 target_model=model,
                 env=tic_tac_toe,
-                num_episodes=500000,
+                num_episodes=50000,
                 gamma=0.99,
                 alpha=0.001,
                 start_epsilon=1.0,
                 end_epsilon=0.01,
-                update_target_steps=5000,
+                update_target_steps=100,
                 batch_size=64,
-                memory_size=512,
-                save_path='models/TEST2_double_dqn_exp_replay_tictactoe_final.h5'
-            )
+                memory_size=1024,
+                save_path='models/TEST3_double_dqn_exp_replay_tictactoe_final.h5'
+            )'''
 
             # Jouer une partie avec l'agent DQN contre un agent random
             play_dqn_vs_random(tic_tac_toe, final_online_model, random_agent_func=random_agent, episodes=100)

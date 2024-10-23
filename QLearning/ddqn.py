@@ -40,7 +40,7 @@ def save_model(model, file_path):
         print(f"Error saving the model: {e}")
 
 def double_dqn_no_replay(online_model, target_model, env, num_episodes, gamma, alpha, start_epsilon, end_epsilon,
-                         update_target_steps=10000, save_path='double_dqn_model_tictactoe.h5'):
+                         update_target_steps=10000, save_path='double_dqn_model_tictactoe_test1.h5'):
     optimizer = keras.optimizers.SGD(learning_rate=alpha, momentum=0.9, nesterov=True)
 
     epsilon = start_epsilon

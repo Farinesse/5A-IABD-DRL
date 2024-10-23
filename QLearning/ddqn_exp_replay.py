@@ -1,6 +1,7 @@
 import random
 from collections import deque
 
+import keras
 import numpy as np
 import tensorflow as tf
 from keras import optimizers
@@ -47,7 +48,7 @@ def save_model(model, file_path):
 def double_dqn_with_replay(online_model, target_model, env, num_episodes, gamma, alpha, start_epsilon, end_epsilon,
                            update_target_steps=10000, batch_size=32, memory_size=10000,
                            save_path='double_dqn_with_exp_rep_model_tictactoe.h5'):
-    optimizer = optimizers.Adam(learning_rate=alpha)
+    optimizer = keras.optimizers.SGD(learning_rate=alpha, momentum=0.9, nesterov=True)
 
     epsilon = start_epsilon
     total_score = 0.0
