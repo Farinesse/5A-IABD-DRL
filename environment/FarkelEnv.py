@@ -38,12 +38,23 @@ class FarkleEnv:
 
     def get_valid_actions(self):
         valid_mask = np.zeros(128, dtype=np.int8)
-        for action in range(128):
+
+        for action in [i for i in range(0, 128, 2)]:
             binary = format(action, '07b')
             action_list = [int(b) for b in binary]
             if self._validate_dice_selection(self.dice_roll, action_list[:len(self.dice_roll)] + [0] * (6 - len(self.dice_roll)) + [action_list[-1]]):
                 valid_mask[action] = 1
-                print(action, action_list)
+
+        for i, vm in enumerate(valid_mask[::-1]):
+            if vm == 1:
+                valid_mask[-i] = 1
+                break
+
+        if valid_mask[sum([2**(6-i) for i in range(self.remaining_dice)])] == 1:
+            valid_mask = np.zeros(128, dtype=np.int8)
+            valid_mask[sum([2**(6-i) for i in range(self.remaining_dice)])] = 1
+
+        valid_mask[-1] = 0
 
         return valid_mask
 
@@ -175,6 +186,7 @@ class FarkleEnv:
 
     def get_random_action(self):
         valid_actions = self.get_valid_actions()
+        print(valid_actions)
         valid_indices = np.where(valid_actions == 1)[0]
         if len(valid_indices) > 0:
             random_action = random.choice(valid_indices)
@@ -184,6 +196,16 @@ class FarkleEnv:
         
 frkl = FarkleEnv()
 # print(frkl.get_observation())
+# frkl.remaining_dice, frkl.dice_roll = 4, [2, 3, 4, 3, 0, 0]
+# frkl.remaining_dice, frkl.dice_roll = 2, [1, 1, 0, 0, 0, 0]
+# frkl.dice_roll = [3, 3, 5, 5, 1, 3]
+# frkl.remaining_dice, frkl.dice_roll = 3, [1, 5, 1, 0, 0, 0]
+# frkl.remaining_dice, frkl.dice_roll = 5, [2, 3, 4, 6, 2, 0]
+# frkl.dice_roll = [2, 3, 4, 6, 2, 3]
+# frkl.dice_roll = [3, 3, 1, 3, 5, 2]
+# frkl.dice_roll = frkl.roll_dice(frkl.remaining_dice)
+# print(frkl.get_observation())
+# print(frkl.get_valid_actions())
 #frkl.dice_roll = [1, 3, 4, 3, 0, 0]
 frkl.dice_roll = [3, 3, 5, 5, 1, 3]
 #frkl.dice_roll = [2, 3, 4, 6, 0, 0]
