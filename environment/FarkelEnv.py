@@ -202,13 +202,13 @@ frkl = FarkleEnv()
 # frkl.remaining_dice, frkl.dice_roll = 3, [1, 5, 1, 0, 0, 0]
 # frkl.remaining_dice, frkl.dice_roll = 5, [2, 3, 4, 6, 2, 0]
 # frkl.dice_roll = [2, 3, 4, 6, 2, 3]
-# frkl.dice_roll = [3, 3, 1, 3, 5, 2]
+#frkl.dice_roll = [3, 3, 1, 3, 5, 2]
 # frkl.dice_roll = frkl.roll_dice(frkl.remaining_dice)
 # print(frkl.get_observation())
 # print(frkl.get_valid_actions())
 #frkl.dice_roll = [1, 3, 4, 3, 0, 0]
-frkl.dice_roll = [3, 3, 5, 5, 1, 3]
-#frkl.dice_roll = [2, 3, 4, 6, 0, 0]
+#frkl.dice_roll = [3, 3, 5, 5, 1, 3]
+frkl.dice_roll = [2, 0, 0, 0, 0, 0]
 #frkl.dice_roll = frkl.roll_dice(frkl.remaining_dice)
 print(frkl.get_observation())
 print(frkl.get_valid_actions())

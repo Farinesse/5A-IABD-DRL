@@ -1,12 +1,13 @@
 import numpy as np
 import keras
 import tensorflow as tf
+from docutils.nodes import image
 from tqdm import tqdm
 
 @tf.function(reduce_retracing=True)
-def gradient_step(model, s, a, target, optimizer):
+def gradient_step(model, s, a, target, optimizer, input_dim ):
     with tf.GradientTape() as tape:
-        s = tf.ensure_shape(s, [27])  # Dynamically use input_dim
+        s = tf.ensure_shape(s, [input_dim])  # Dynamically use input_dim
         a = tf.cast(a, dtype=tf.int32)
         q_s_a = model(tf.expand_dims(s, 0))[0][a]
         loss = tf.square(q_s_a - target)
@@ -29,8 +30,32 @@ def epsilon_greedy_action(
         return np.random.choice(available_actions)
     else:
         inverted_mask = tf.constant(1.0) - mask
-        masked_q_s = q_s * mask + tf.float32.min * inverted_mask
+        masked_q_s = q_s * mask + (-1e8) * inverted_mask
         return int(tf.argmax(masked_q_s, axis=0))
+
+
+"""def epsilon_greedy_action(
+        q_s: tf.Tensor,
+        mask: tf.Tensor,
+        available_actions: np.ndarray,
+        epsilon: float
+) -> int:
+    if np.random.rand() < epsilon:
+        return np.random.choice(available_actions)
+    else:
+        # Convertir en numpy pour un meilleur contrôle
+        q_values = q_s.numpy()
+        mask_values = mask.numpy()
+
+        # Masquer les actions invalides avec -inf
+        masked_q_values = np.where(mask_values == 1, q_values, -np.inf)
+
+        # Vérification et sélection
+        best_action = int(np.argmax(masked_q_values))
+
+        print(best_action)
+
+        return best_action"""
 
 def save_model(model, file_path):
     try:
@@ -40,16 +65,17 @@ def save_model(model, file_path):
         print(f"Error saving the model: {e}")
 
 def double_dqn_no_replay(online_model, target_model, env, num_episodes, gamma, alpha, start_epsilon, end_epsilon,
-                         update_target_steps=10000, save_path='double_dqn_model_tictactoe_test1.h5'):
-    optimizer = keras.optimizers.SGD(learning_rate=alpha, momentum=0.9, nesterov=True)
+                         update_target_steps=10000, save_path='double_dqn_model_Farkel_test1.h5',input_dim = 12, output_dim = 128):
+    #optimizer = keras.optimizers.SGD(learning_rate=alpha, momentum=0.9, nesterov=True)
+    optimizer = tf.keras.optimizers.Adam(learning_rate=alpha)  # Ajuste le taux d'apprentissage
 
     epsilon = start_epsilon
     total_score = 0.0
     total_loss = 0.0
 
     for ep_id in tqdm(range(num_episodes)):
-        if ep_id % 1000 == 0 and ep_id > 0:
-            print(f"Mean Score: {total_score / 1000}, Mean Loss: {total_loss / 1000}, Epsilon: {epsilon}")
+        if ep_id % 100 == 0 and ep_id > 0:
+            print(f"Mean Score: {total_score / 100}, Mean Loss: {total_loss / 100}, Epsilon: {epsilon}")
             total_score = 0.0
             total_loss = 0.0
 
@@ -65,7 +91,6 @@ def double_dqn_no_replay(online_model, target_model, env, num_episodes, gamma, a
 
             q_s = model_predict(online_model, s_tensor)
             a = epsilon_greedy_action(q_s, mask_tensor, env.available_actions_ids(), epsilon)
-
             if a not in env.available_actions_ids():
                 print(f"Invalid action {a}, taking random action instead.")
                 a = np.random.choice(env.available_actions_ids())
@@ -88,12 +113,15 @@ def double_dqn_no_replay(online_model, target_model, env, num_episodes, gamma, a
                 q_next_target = model_predict(target_model, s_prime_tensor)
                 target = r + gamma * q_next_target[best_action]
 
-            loss = gradient_step(online_model, s_tensor, a, target, optimizer)
+            loss = gradient_step(online_model, s_tensor, a, target, optimizer, input_dim)
             total_loss += loss.numpy()
 
         total_score += env.score()
         progress = ep_id / num_episodes
         epsilon = (1.0 - progress) * start_epsilon + progress * end_epsilon
+
+        #print("state : ", env.state_description())
+        #print("Action: ",a)
 
         if ep_id % update_target_steps == 0:
             target_model.set_weights(online_model.get_weights())
