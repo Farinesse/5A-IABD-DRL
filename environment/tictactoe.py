@@ -1,93 +1,114 @@
 import random
+import numpy as np
 from typing import List, Tuple
 
-class TicTacToe:
+NUM_ACTIONS = 9
+NUM_STATE_FEATURES = 27
+
+
+class TicTacToe_new:
     def __init__(self):
-        self.all_position = [' ' for _ in range(9)]  # Plateau de jeu (9 cases)
-        self.terminal_position = [(0, 1, 2), (3, 4, 5), (6, 7, 8),  # Lignes
-                                  (0, 3, 6), (1, 4, 7), (2, 5, 8),  # Colonnes
-                                  (0, 4, 8), (2, 4, 6)]             # Diagonales
-        self.current_winner = None  # Suivi du gagnant (X ou O)
-        self.agent_position = random.randint(0, 8)  # Position initiale de l'agent
+        self._board = np.zeros((NUM_ACTIONS,))
+        self._player = 0
+        self._is_game_over = False
+        self._score = 0.0
 
-    def reset(self) -> List[str]:
-        """Réinitialise le plateau de jeu."""
-        self.all_position = [' ' for _ in range(9)]
-        self.current_winner = None
-        return self.all_position
+    def reset(self):
+        self._board = np.zeros((NUM_ACTIONS,))
+        self._player = 0
+        self._is_game_over = False
+        self._score = 0.0
 
-    def step(self, action: int, letter: str) -> Tuple[List[str], float, bool]:
-        """Effectue une action sur le plateau et retourne l'état, la récompense et si la partie est terminée."""
-        if self.all_position[action] == ' ':
-            self.all_position[action] = letter
-            if self.winner(action, letter):
-                self.current_winner = letter
-            reward = self.score(letter)
-            done = self.is_game_over()
-            return self.all_position, reward, done
-        return self.all_position, 0.0, False
+    def state_description(self) -> np.ndarray:
+        """
+        Encode l'état du plateau de TicTacToe dans un vecteur de 27 éléments (3 valeurs par case).
+        - [1, 0, 0] pour "X" (Joueur 1).
+        - [0, 1, 0] pour "O" (Joueur 2).
+        - [0, 0, 1] pour une case vide.
+        """
+        state_description = np.zeros((NUM_STATE_FEATURES,))
 
-    def available_actions(self) -> List[int]:
-        """Renvoie une liste des actions disponibles."""
-        return [i for i, spot in enumerate(self.all_position) if spot == ' ']
+        for i in range(NUM_ACTIONS):
+            if self._board[i] == 1.0:  # Case occupée par "X" (Joueur 1)
+                state_description[i * 3] = 1.0  # Première des trois valeurs pour "X"
+            elif self._board[i] == 2.0:  # Case occupée par "O" (Joueur 2)
+                state_description[i * 3 + 1] = 1.0  # Deuxième des trois valeurs pour "O"
+            else:
+                state_description[i * 3 + 2] = 1.0  # Troisième des trois valeurs pour une case vide
+        return state_description
 
-    def all_states(self) -> List[str]:
-        """Renvoie tous les états du plateau de jeu."""
-        return self.all_position
+    def available_actions_ids(self) -> np.ndarray:
+        return np.where(self._board == 0)[0]
 
-    def set_state(self, state: List[str]):
-        """Modifie l'état actuel du plateau."""
-        self.all_position = state
+    def action_mask(self) -> np.ndarray:
+        return np.where(self._board == 0, 1, 0).astype(np.float32)
+
+    def step(self, action: int):
+        if self._is_game_over:
+            raise ValueError("Game is over, please reset the environment.")
+
+        if action < 0 or action >= NUM_ACTIONS:
+            raise ValueError("Invalid move, action must be in [0, 8].")
+
+        if self._board[action] != 0:
+            raise ValueError("Invalid move, cell is already occupied.")
+
+        # Mise à jour du plateau
+        self._board[action] = self._player + 1
+
+        row = action // 3
+        col = action % 3
+
+        # Vérification des lignes
+        if self._board[row * 3] == self._board[row * 3 + 1] == self._board[row * 3 + 2]:
+            self._is_game_over = True
+            self._score = 1.0 if self._player == 0 else -1.0
+            return
+
+        # Vérification des colonnes
+        if self._board[col] == self._board[col + 3] == self._board[col + 6]:
+            self._is_game_over = True
+            self._score = 1.0 if self._player == 0 else -1.0
+            return
+
+        # Vérification des diagonales si l'action est dans une case de diagonale
+        if action in [0, 4, 8]:  # Diagonale principale
+            if self._board[0] == self._board[4] == self._board[8]:
+                self._is_game_over = True
+                self._score = 1.0 if self._player == 0 else -1.0
+                return
+
+        if action in [2, 4, 6]:  # Diagonale secondaire
+            if self._board[2] == self._board[4] == self._board[6]:
+                self._is_game_over = True
+                self._score = 1.0 if self._player == 0 else -1.0
+                return
+
+        # Vérification du match nul
+        if np.all(self._board != 0):
+            self._is_game_over = True
+            self._score = 0.0
+            return
+
+        # Changement de joueur
+        self._player = 1 if self._player == 0 else 0
+
+        # Si c'est au tour de l'adversaire aléatoire, il joue automatiquement
+        if self._player == 1:
+            random_action = np.random.choice(self.available_actions_ids())
+            self.step(random_action)
+
+    def is_game_over(self) -> bool:
+        return self._is_game_over
+
+    def score(self) -> float:
+        return self._score
+
 
     def display(self):
         """Affiche le plateau de jeu."""
-        for row in [self.all_position[i*3:(i+1)*3] for i in range(3)]:
-            print('| ' + ' | '.join(row) + ' |')
-
-    def state_id(self) -> List[str]:
-        """Renvoie l'état actuel du plateau de jeu."""
-        return self.all_position
-
-    def score(self, letter: str) -> float:
-        """Calcule la récompense en fonction de la lettre du joueur."""
-        if self.current_winner == letter:
-            return 1.0  # Récompense positive si le joueur a gagné
-        elif self.is_game_over() and not self.current_winner:
-            return 0.5  # Récompense neutre en cas de match nul
-        else:
-            return 0.0  # Récompense nulle si la partie n'est pas terminée
-
-    def is_game_over(self) -> bool:
-        """Renvoie True si le jeu est terminé."""
-        return self.current_winner is not None or ' ' not in self.all_position
-
-    def winner(self, square: int, letter: str) -> bool:
-        """Vérifie si un joueur a gagné."""
-        row_ind = square // 3
-        row = self.all_position[row_ind * 3:(row_ind + 1) * 3]
-        if all([s == letter for s in row]):
-            return True
-        col_ind = square % 3
-        column = [self.all_position[col_ind + i * 3] for i in range(3)]
-        if all([s == letter for s in column]):
-            return True
-        if square % 2 == 0:
-            diagonal1 = [self.all_position[i] for i in [0, 4, 8]]
-            if all([s == letter for s in diagonal1]):
-                return True
-            diagonal2 = [self.all_position[i] for i in [2, 4, 6]]
-            if all([s == letter for s in diagonal2]):
-                return True
-        return False
-
-    def terminal_states(self) -> List[Tuple[int]]:
-        """Renvoie les combinaisons gagnantes (états terminaux)."""
-        return self.terminal_position
-
-    def is_forbidden(self, state_or_action: int) -> bool:
-        """Retourne False car il n'y a pas d'actions interdites."""
-        return False
-
-    def transition_probability(self, state: int, action: int, next_state: int, reward: int) -> float:
-        """Retourne toujours 0, comme dans l'exemple LineWorld."""
-        return 0.0
+        for i in range(3):
+            print("|".join(["_" if self._board[i * 3 + j] == 0.0 else "X" if self._board[i * 3 + j] == 1.0 else "O" for j in range(3)]))
+        print(f"Score : {self._score}")
+        print(f"Joueur {'X' if self._player == 0 else 'O'} à jouer")
+        print(f"Jeu terminé : {self._is_game_over}")

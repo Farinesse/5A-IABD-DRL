@@ -1,5 +1,5 @@
 import tensorflow as tf
-from environment.tictactoe_new import TicTacToe_new
+from environment.tictactoe import TicTacToe_new
 import numpy as np
 import os
 

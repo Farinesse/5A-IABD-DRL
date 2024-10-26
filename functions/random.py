@@ -1,11 +1,17 @@
+from datetime import time
+
 import numpy as np
 
 import random
-from QLearning.qlearning import tabular_q_learning
+from algos.DQN.ddqn import model_predict, epsilon_greedy_action
+from algos.DQN.qlearning import tabular_q_learning
 import numpy as np
 import tensorflow as tf
 from tqdm import tqdm
 import numpy as np
+
+from environment.FarkelEnv import FarkleEnv
+
 
 def random_agent(game):
     """
@@ -81,24 +87,20 @@ def play_with_dqn(env, model, random_agent=None, episodes=1):
         total_reward = 0
 
         while not env.is_game_over():
-            state = env.state_description()  # Obtenez l'état actuel
-            state_tensor = tf.convert_to_tensor([state], dtype=tf.float32)  # Transformez l'état en tenseur
+            s = env.state_description()
+            s_tensor = tf.convert_to_tensor(s, dtype=tf.float32)
+            mask = env.action_mask()
+            mask_tensor = tf.convert_to_tensor(mask, dtype=tf.float32)
 
-            # L'agent DQN choisit une action
-            q_values = model(state_tensor)
-            action = tf.argmax(q_values[0]).numpy()  # Choisit l'action avec la plus haute valeur Q
-
-            if action not in env.available_actions_ids():
-                print(f"Action {action} invalide, prise aléatoire.")
-                if random_agent:
-                    action = random_agent(env)  # Utilisez un agent aléatoire si l'action est invalide
-                else:
-                    action = np.random.choice(
-                        env.available_actions_ids())  # Si pas de random_agent, choisissez aléatoirement
+            q_s = model_predict(model, s_tensor)
+            a = epsilon_greedy_action(q_s, mask_tensor, env.available_actions_ids(), 0.000001)
+            if a not in env.available_actions_ids():
+                print(f"Invalid action {a}, taking random action instead.")
+                a = np.random.choice(env.available_actions_ids())
 
             # Faites l'action dans l'environnement
             prev_score = env.score()
-            env.step(action)
+            env.step(a)
             reward = env.score() - prev_score
             total_reward += reward
 
@@ -316,4 +318,31 @@ def play_farkel_human_vs_random(env, gui, root):
 
     print("Partie terminée")
     print(f"Score final - Joueur: {env.scores[0]}, Agent aléatoire: {env.scores[1]}")
+
+
+def play_one_game(env):
+    pass
+
+
+def simulate_games_for_30_seconds(num_players=2, target_score=10000):
+    env = FarkleEnv(num_players=num_players, target_score=target_score)
+    start_time = time.time()
+    total_score = 0
+    num_games = 0
+
+    with tqdm(total=30, desc="Simulation en cours", unit="s") as pbar:
+        while time.time() - start_time < 30:
+            winning_score = play_one_game(env)
+            total_score += winning_score
+            num_games += 1
+
+            # Mise à jour de la barre de progression
+            pbar.update(time.time() - start_time - pbar.n)
+
+    end_time = time.time()
+    total_elapsed_time = end_time - start_time
+    games_per_second = num_games / total_elapsed_time
+    average_score = total_score / num_games
+
+    return num_games, games_per_second, average_score
 

@@ -1,6 +1,9 @@
 
 import math
 
+from environment.FarkelEnv import FarkleDQNEnv
+
+
 def logarithmic_decay(episode, start_epsilon, end_epsilon, decay_rate=0.01):
     return max(end_epsilon, start_epsilon - decay_rate * math.log(1 + episode))
 
@@ -188,3 +191,6 @@ def play_grid_world(game, player_human, player_random, print_game=True):
             if print_game:
                 print("Jeu terminé ! L'agent est dans un état terminal.")
             break
+
+
+

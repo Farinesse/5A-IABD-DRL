@@ -4,10 +4,9 @@ from collections import deque
 import keras
 import numpy as np
 import tensorflow as tf
-from keras import optimizers
 from tqdm import tqdm
 
-from outils import logarithmic_decay, custom_two_phase_decay
+from functions.outils import custom_two_phase_decay
 
 
 @tf.function(reduce_retracing=True)

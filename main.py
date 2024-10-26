@@ -1,25 +1,19 @@
 import sys
 import os
 import numpy as np
-import tensorflow as tf
 from tensorflow import keras
 import time
-from tqdm import tqdm
-import tkinter as tk
-from GUI.Farkel_GUI import FarkleGUI, main_gui
-from QLearning.Fakel_dql import train, evaluate, FarkleDQNAgent
-from QLearning.ddqn import double_dqn_no_replay
-from QLearning.ddqn_exp_replay import double_dqn_with_replay
+import tensorflow as tf
+from GUI.Farkel_GUI import main_gui
+from algos.DQN.ddqn import double_dqn_no_replay
 # Importer les modules nécessaires
-from QLearning.deep_qlearning import deep_q_learning
-from environment.FarkelEnv import FarkleEnv
-from environment.tictactoe_new import TicTacToe_new
-from environment.line_word_new import LineWorld
-from environment.grid_word_new import GridWorld
-from outils import human_move, play, human_move_line_world, play_line_world, human_move_grid_world, play_grid_world
-from rand.random import random_agent, random_agent_line_world, random_agent_grid_world, play_with_q_agent, \
-    farkel_random_player, \
-    play_with_dqn, play_dqn_vs_random, play_farkel_human_vs_random
+from environment.FarkelEnv import FarkleEnv, FarkleDQNEnv
+from environment.tictactoe import TicTacToe_new
+from environment.line_word import LineWorld
+from environment.grid_word import GridWorld
+from functions.outils import human_move, play, human_move_line_world, play_line_world, human_move_grid_world, play_grid_world
+from functions.random import random_agent_line_world, random_agent_grid_world, play_with_q_agent, \
+    play_dqn_vs_random, play_with_dqn
 
 # Ajouter le chemin absolu au système
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -171,9 +165,6 @@ if __name__ == "__main__":
             # Jouer une partie avec l'agent DQN contre un agent random
             play_dqn_vs_random(tic_tac_toe, final_online_model, random_agent_func=random_agent, episodes=100)
 
-
-
-
             # Calculer le nombre de parties par seconde
             calculate_games_per_second(tic_tac_toe, final_online_model, random_agent)
         else:
@@ -183,8 +174,8 @@ if __name__ == "__main__":
         # Farkel
         print("Choisissez le mode de jeu Farkel :")
         print("1: Humain vs Random")
-        print("2: Humain vs Q-learning")
-        print("3: Entraîner l'agent Q-learning")
+        print("2: random vs Agent")
+        print("3: Entraîner l'agent")
 
         farkel_choice = input("Votre choix : ")
         if farkel_choice == '1':
@@ -192,18 +183,20 @@ if __name__ == "__main__":
             main_gui(players)
         elif farkel_choice == '2':
             print("Entraînement de l'agent Q-learning...")
-            env = FarkleEnv()
-            agent = FarkleDQNAgent(env)
-            trained_agent, _ = train(episodes=100)
+            env = FarkleDQNEnv()
+            model_path = "models/models/double_dqn_model_Farkel_test1"
+            model = keras.layers.TFSMLayer(model_path, call_endpoint="serving_default")
+            play_with_dqn(env, model, random_agent=None, episodes=10)
+
+        #trained_agent, _ = train(episodes=100)
 
         elif farkel_choice == '3':
 
             print("Entraînement de l'agent Q-learning...")
             env = FarkleEnv()
-            agent = FarkleDQNAgent(env)
-            trained_agent, trained_model = train(episodes=1000)
-            mean_score, std_score = evaluate(trained_agent)
-            print(f"Évaluation - Score moyen : {mean_score:.2f}, Écart-type : {std_score:.2f}")
+            agent = FarkleDQNEnv(env)
+            trained_agent, trained_model = double_dqn_no_replay(episodes=1000)
+            print(f"Évaluation - Score moyen : , Écart-type : ")
 
         else:
             print("Choix invalide. Retour au menu principal.")

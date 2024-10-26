@@ -29,8 +29,8 @@ def epsilon_greedy_action(
     if np.random.rand() < epsilon:
         return np.random.choice(available_actions)
     else:
-        inverted_mask = tf.constant(1.0) - mask
-        masked_q_s = q_s * mask + (-1e8) * inverted_mask
+        #inverted_mask = tf.constant(1.0) - mask
+        masked_q_s = q_s * mask + (1 - mask) * tf.float32.min
         return int(tf.argmax(masked_q_s, axis=0))
 
 
@@ -40,7 +40,7 @@ def epsilon_greedy_action(
         available_actions: np.ndarray,
         epsilon: float
 ) -> int:
-    if np.random.rand() < epsilon:
+    if np.random.functions() < epsilon:
         return np.random.choice(available_actions)
     else:
         # Convertir en numpy pour un meilleur contrôle
@@ -59,13 +59,15 @@ def epsilon_greedy_action(
 
 def save_model(model, file_path):
     try:
-        model.save(file_path)
+        tf.saved_model.save(model, file_path)
+        #model.save(file_path)
         print(f"Model successfully saved to {file_path}")
     except Exception as e:
         print(f"Error saving the model: {e}")
 
+
 def double_dqn_no_replay(online_model, target_model, env, num_episodes, gamma, alpha, start_epsilon, end_epsilon,
-                         update_target_steps=10000, save_path='double_dqn_model_Farkel_test1.h5',input_dim = 12, output_dim = 128):
+                         update_target_steps=10000, save_path='models/double_dqn_model_Farkel_test1',input_dim = 12, output_dim = 128):
     #optimizer = keras.optimizers.SGD(learning_rate=alpha, momentum=0.9, nesterov=True)
     optimizer = tf.keras.optimizers.Adam(learning_rate=alpha)  # Ajuste le taux d'apprentissage
 
@@ -74,8 +76,8 @@ def double_dqn_no_replay(online_model, target_model, env, num_episodes, gamma, a
     total_loss = 0.0
 
     for ep_id in tqdm(range(num_episodes)):
-        if ep_id % 100 == 0 and ep_id > 0:
-            print(f"Mean Score: {total_score / 100}, Mean Loss: {total_loss / 100}, Epsilon: {epsilon}")
+        if ep_id % 1000 == 0 and ep_id > 0:
+            print(f"Mean Score: {total_score / 1000}, Mean Loss: {total_loss / 1000}, Epsilon: {epsilon}")
             total_score = 0.0
             total_loss = 0.0
 
