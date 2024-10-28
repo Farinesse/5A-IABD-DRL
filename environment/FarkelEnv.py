@@ -3,6 +3,9 @@ import random
 from gymnasium import spaces
 from tensorflow.python import keras
 from algos.DQN.ddqn import double_dqn_no_replay
+from algos.DQN.deep_qlearning import deep_q_learning
+
+
 def play_game_manual():
     """Fonction pour jouer manuellement contre un adversaire aléatoire."""
     env = FarkleDQNEnv(num_players=2, target_score=5000)
@@ -82,7 +85,7 @@ def play_game_manual():
 
 
 class FarkleEnv:
-    def __init__(self, num_players=2, target_score=1000):
+    def __init__(self, num_players=2, target_score=10000):
         self.num_players = int(num_players)
         self.target_score = target_score
         self.observation_space = spaces.Box(
@@ -126,10 +129,11 @@ class FarkleEnv:
         current_state = np.zeros(12)
 
         current_state[0] = self.current_player
-        current_state[1] = self.round_score
-        current_state[2] = self.remaining_dice
-        current_state[3:5] = self.scores
-        current_state[5:11] = self.dice_roll + [0] * (6 - len(self.dice_roll))
+        current_state[1] = self.round_score / self.target_score
+        current_state[2] = self.remaining_dice / 6
+        current_state[3:5] = [score / self.target_score for score in self.scores]  # Normalisation élément par élément
+        #current_state[5:11] = self.dice_roll + [0] * (6 - len(self.dice_roll))
+        current_state[5:11] = [roll / 6 for roll in self.dice_roll] + [0] * (6 - len(self.dice_roll))
         current_state[11] = int(self.last_action_stop)
 
         return current_state
@@ -387,18 +391,32 @@ def create_farkle_model():
 
         keras.layers.Dense(128, activation='relu', input_dim=12),  # 3 + num_players + 6 + 1
         keras.layers.Dense(512, activation='relu'),
-        keras.layers.Dense(128, activation='relu'),
-        keras.layers.Dense(256, activation='relu'),
         keras.layers.Dense(128)  # Nombre d'actions possibles dans Farkle
     ])
     return model
 
 if __name__ == "__main__":
-    play_game_manual()
-    """env = FarkleDQNEnv()
+    #play_game_manual()
+    env = FarkleDQNEnv()
 
     model = create_farkle_model()
-    final_online_model, final_target_model = double_dqn_no_replay(
+    target_model = keras.models.clone_model(model)
+    target_model.set_weights(model.get_weights())
+
+    trained_model = deep_q_learning(
+                model=model,
+                target_model=target_model,
+                env=env,
+                num_episodes=10000,
+                gamma=0.99,
+                alpha=0.0005,
+                start_epsilon=1.0,
+                end_epsilon=0.01, #
+                memory_size=128,
+                batch_size=32,
+                update_target_steps=100
+            )
+    '''final_online_model, final_target_model = double_dqn_no_replay(
         online_model=model,
         target_model=model,
         env=env,
@@ -407,5 +425,7 @@ if __name__ == "__main__":
         alpha=0.0001,
         start_epsilon=1,
         end_epsilon=0.0001,
-        update_target_steps=100
-    )"""
+        update_target_steps=1000,
+        save_path="ddqn_model_farkel_test2"
+
+    )'''

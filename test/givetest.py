@@ -69,6 +69,8 @@ def saved_tictactoe_model(model_path, num_games=10000):
     print(f"Défaites: {losses} ({loss_rate:.2%})")
     print(f"Matchs nuls: {draws} ({draw_rate:.2%})")
 
+
+
     return win_rate, loss_rate, draw_rate
 
 

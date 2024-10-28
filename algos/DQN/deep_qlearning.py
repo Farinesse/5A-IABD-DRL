@@ -31,8 +31,10 @@ def epsilon_greedy_action(
     if np.random.rand() < epsilon:
         return np.random.choice(available_actions)
     else:
-        inverted_mask = tf.constant(1.0) - mask
-        masked_q_s = q_s * mask + tf.float32.min * inverted_mask
+        # inverted_mask = tf.constant(1.0) - mask
+
+        masked_q_s = q_s * mask + (1.0 - mask) * tf.float32.min
+
         return int(tf.argmax(masked_q_s, axis=0))
 
 def debug_action_selection(env, model, epsilon):
@@ -70,6 +72,7 @@ def save_model(model, file_path):
     :param file_path: Le chemin du fichier où sauvegarder le modèle
     """
     try:
+        tf.saved_model.save(model, file_path)
         model.save(file_path)
         print(f"Modèle sauvegardé avec succès dans {file_path}")
     except Exception as e:
@@ -78,21 +81,23 @@ def save_model(model, file_path):
 
 def deep_q_learning(model, target_model, env, num_episodes, gamma, alpha, start_epsilon, end_epsilon,
                     memory_size=512, batch_size=32, update_target_steps=1000, epsilon_decay=0.9,
-                    save_path='dqn_model_tictactoe.h5'):
-    optimizer = keras.optimizers.SGD(
-        learning_rate=0.001,  # Légèrement plus élevé que votre valeur précédente
-        momentum=0.9,  # Ajout de momentum pour une convergence plus rapide
+                    save_path='dqn_model_farkel.h5'):
+    """optimizer = keras.optimizers.SGD(
+        learning_rate=alpha,  # Légèrement plus élevé que votre valeur précédente
+        momentum=0.999,  # Ajout de momentum pour une convergence plus rapide
         nesterov=True,  # Utilisation de Nesterov momentum pour une meilleure performance
-        weight_decay=1e-5  # Légèrement augmenté pour une meilleure régularisation
-    )
+        weight_decay=1e-4  # Légèrement augmenté pour une meilleure régularisation
+    )"""
+    optimizer = tf.keras.optimizers.Adam(learning_rate=alpha)  # Ajuste le taux d'apprentissage
+
     memory = deque(maxlen=memory_size)
     epsilon = start_epsilon
     total_score = 0.0
     total_loss = 0.0
 
     for ep_id in tqdm(range(num_episodes)):
-        if ep_id % 1000 == 0 and ep_id > 0:
-            print(f"Mean Score: {total_score / 1000}, Mean Loss: {total_loss / 1000}, Epsilon: {epsilon}")
+        if ep_id % 100 == 0 and ep_id > 0:
+            print(f"Mean Score: {total_score / 10  }, Mean Loss: {total_loss / 10}, Epsilon: {epsilon}")
             total_score = 0.0
             total_loss = 0.0
 
@@ -102,7 +107,7 @@ def deep_q_learning(model, target_model, env, num_episodes, gamma, alpha, start_
 
         s = env.state_description()
         s_tensor = tf.convert_to_tensor(s, dtype=tf.float32)
-
+        #print(s_tensor)
         while not env.is_game_over():
             mask = env.action_mask()
             mask_tensor = tf.convert_to_tensor(mask, dtype=tf.float32)

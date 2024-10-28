@@ -193,8 +193,7 @@ if __name__ == "__main__":
         elif farkel_choice == '3':
 
             print("Entraînement de l'agent Q-learning...")
-            env = FarkleEnv()
-            agent = FarkleDQNEnv(env)
+            agent = FarkleDQNEnv()
             trained_agent, trained_model = double_dqn_no_replay(episodes=1000)
             print(f"Évaluation - Score moyen : , Écart-type : ")
 

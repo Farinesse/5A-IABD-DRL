@@ -21,11 +21,39 @@ def epsilon_greedy_action(q_values, mask, available_actions, epsilon):
     return int(tf.argmax(masked_q_values))
 
 
+if __name__ == "__main__":
+    env = FarkleDQNEnv()
+    model_path = r"C:\Users\farin\PycharmProjects\5A-IABD-DRL\models\models\double_dqn_model_Farkel_test1"
+    model = tf.keras.layers.TFSMLayer(model_path, call_endpoint="serving_default")
+
+    print("Test initial...")
+    s = env.state_description()
+    mask = env.action_mask()
+
+    # Test pour voir les clés disponibles
+    result = model(tf.expand_dims(tf.convert_to_tensor(s, dtype=tf.float32), 0))
+    print("Type de result:", type(result))
+    print("Clés disponibles:", result.keys())
+
+    # Utiliser la première clé disponible
+    first_key = list(result.keys())[0]
+    print(f"Utilisation de la clé : {first_key}")
+    q_values = result[first_key].numpy()
+
+    print("Shape des Q-values:", q_values.shape)
+    print("Actions disponibles:", env.available_actions_ids())
+
+
 def play_with_dqn(env, model, random_agent=None, episodes=1):
     total_rewards = 0
     episode_scores = []
     episode_times = []
     total_time = 0
+
+    # Récupérer la clé correcte une fois au début
+    test_result = model(tf.expand_dims(tf.convert_to_tensor(env.state_description(), dtype=tf.float32), 0))
+    model_key = list(test_result.keys())[0]
+    print(f"Utilisation de la clé du modèle : {model_key}")
 
     print("\nDétails des épisodes :")
     print("----------------------")
@@ -43,7 +71,7 @@ def play_with_dqn(env, model, random_agent=None, episodes=1):
             mask_tensor = tf.convert_to_tensor(mask, dtype=tf.float32)
 
             result = model(tf.expand_dims(s_tensor, 0))
-            q_s = result['dense_4']
+            q_s = result[model_key]  # Utiliser la clé correcte
 
             a = epsilon_greedy_action(q_s.numpy(), mask_tensor, env.available_actions_ids(), 0.000001)
 
@@ -67,10 +95,12 @@ def play_with_dqn(env, model, random_agent=None, episodes=1):
         total_rewards += episode_reward
         total_time += episode_time
 
-        print(f"\nÉpisode {episode + 1}/{episodes}:")
-        print(f"  Score: {episode_reward}")
-        print(f"  Temps: {episode_time:.2f} secondes")
-        print(f"  Nombre de tours: {nb_turns}")
+        if episode % 10 == 0:  # Afficher les stats tous les 10 épisodes
+            print(f"\nÉpisode {episode + 1}/{episodes}:")
+            print(f"  Score: {episode_reward}")
+            print(f"  Temps: {episode_time:.2f} secondes")
+            print(f"  Nombre de tours: {nb_turns}")
+            print(f"  Score moyen actuel: {sum(episode_scores) / len(episode_scores):.2f}")
 
     # Statistiques finales
     print("\nStatistiques globales:")
@@ -81,25 +111,6 @@ def play_with_dqn(env, model, random_agent=None, episodes=1):
     print(f"Pire score: {min(episode_scores)}")
     print(f"Temps total: {total_time:.2f} secondes")
 
-    # Afficher l'évolution des scores
-    print("\nÉvolution des scores:")
-    for i, score in enumerate(episode_scores, 1):
-        print(f"Épisode {i}: {score}")
 
-
-if __name__ == "__main__":
-    env = FarkleDQNEnv()
-    model_path = "models/models/double_dqn_model_Farkel_test1"
-    model = tf.keras.layers.TFSMLayer(model_path, call_endpoint="serving_default")
-
-    print("Test initial...")
-    s = env.state_description()
-    mask = env.action_mask()
-    result = model(tf.expand_dims(tf.convert_to_tensor(s, dtype=tf.float32), 0))
-    q_values = result['dense_4'].numpy()
-    print("Shape des Q-values:", q_values.shape)
-    print("Actions disponibles:", env.available_actions_ids())
-
-    # Lancer le jeu avec statistiques détaillées
-    play_with_dqn(env, model, random_agent=None, episodes=1000
-                  )
+# Lancer le jeu
+play_with_dqn(env, model, random_agent=None, episodes=1000)
