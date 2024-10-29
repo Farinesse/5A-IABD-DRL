@@ -391,6 +391,7 @@ def create_farkle_model():
 
         keras.layers.Dense(128, activation='relu', input_dim=12),  # 3 + num_players + 6 + 1
         keras.layers.Dense(512, activation='relu'),
+        keras.layers.Dense(256, activation='relu'),
         keras.layers.Dense(128)  # Nombre d'actions possibles dans Farkle
     ])
     return model
@@ -407,13 +408,13 @@ if __name__ == "__main__":
                 model=model,
                 target_model=target_model,
                 env=env,
-                num_episodes=10000,
+                num_episodes=20000,
                 gamma=0.99,
-                alpha=0.0005,
+                alpha=0.0001,
                 start_epsilon=1.0,
                 end_epsilon=0.01, #
-                memory_size=128,
-                batch_size=32,
+                memory_size=512,
+                batch_size=64,
                 update_target_steps=100
             )
     '''final_online_model, final_target_model = double_dqn_no_replay(

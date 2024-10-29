@@ -85,14 +85,15 @@ def double_dqn_no_replay(online_model, target_model, env, num_episodes, gamma, a
         if env.is_game_over():
             continue
 
+        s = env.state_description()
+        s_tensor = tf.convert_to_tensor(s, dtype=tf.float32)
         while not env.is_game_over():
-            s = env.state_description()
-            s_tensor = tf.convert_to_tensor(s, dtype=tf.float32)
             mask = env.action_mask()
             mask_tensor = tf.convert_to_tensor(mask, dtype=tf.float32)
 
             q_s = model_predict(online_model, s_tensor)
             a = epsilon_greedy_action(q_s, mask_tensor, env.available_actions_ids(), epsilon)
+
             if a not in env.available_actions_ids():
                 print(f"Invalid action {a}, taking random action instead.")
                 a = np.random.choice(env.available_actions_ids())
@@ -122,8 +123,7 @@ def double_dqn_no_replay(online_model, target_model, env, num_episodes, gamma, a
         progress = ep_id / num_episodes
         epsilon = (1.0 - progress) * start_epsilon + progress * end_epsilon
 
-        #print("state : ", env.state_description())
-        #print("Action: ",a)
+
 
         if ep_id % update_target_steps == 0:
             target_model.set_weights(online_model.get_weights())

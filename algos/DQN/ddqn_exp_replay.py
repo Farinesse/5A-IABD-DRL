@@ -10,12 +10,12 @@ from functions.outils import custom_two_phase_decay
 
 
 @tf.function(reduce_retracing=True)
-def gradient_step(model, states, actions, targets, optimizer):
+def gradient_step(model, s, a, target, optimizer):
     with tf.GradientTape() as tape:
-        q_values = model(states)
-        one_hot_actions = tf.one_hot(actions, depth=q_values.shape[-1])
-        q_values_for_actions = tf.reduce_sum(q_values * one_hot_actions, axis=1)
-        loss = tf.reduce_mean(tf.square(targets - q_values_for_actions))
+        s = tf.ensure_shape(s, [12])  # Dynamically use input_dim
+        a = tf.cast(a, dtype=tf.int32)
+        q_s_a = model(tf.expand_dims(s, 0))[0][a]
+        loss = tf.square(q_s_a - target)
     gradients = tape.gradient(loss, model.trainable_variables)
     optimizer.apply_gradients(zip(gradients, model.trainable_variables))
     return loss
