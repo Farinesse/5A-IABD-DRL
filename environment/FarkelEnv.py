@@ -2,7 +2,7 @@ import numpy as np
 import random
 from gymnasium import spaces
 from tensorflow.python import keras
-from algos.DQN.ddqn import double_dqn_no_replay
+#from algos.DQN.ddqn import double_dqn_no_replay
 from algos.DQN.deep_qlearning import deep_q_learning
 
 
@@ -415,9 +415,10 @@ if __name__ == "__main__":
                 end_epsilon=0.01, #
                 memory_size=512,
                 batch_size=64,
-                update_target_steps=100
+                update_target_steps=500
             )
-    '''final_online_model, final_target_model = double_dqn_no_replay(
+    '''
+    final_online_model, final_target_model = double_dqn_no_replay(
         online_model=model,
         target_model=model,
         env=env,
@@ -429,4 +430,5 @@ if __name__ == "__main__":
         update_target_steps=1000,
         save_path="ddqn_model_farkel_test2"
 
-    )'''
+    )
+    '''

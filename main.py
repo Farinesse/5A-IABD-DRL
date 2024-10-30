@@ -8,7 +8,7 @@ from GUI.Farkel_GUI import main_gui
 from algos.DQN.ddqn import double_dqn_no_replay
 # Importer les modules nécessaires
 from environment.FarkelEnv import FarkleEnv, FarkleDQNEnv
-from environment.tictactoe import TicTacToe_new
+from environment.tictactoe import TicTacToe
 from environment.line_word import LineWorld
 from environment.grid_word import GridWorld
 from functions.outils import human_move, play, human_move_line_world, play_line_world, human_move_grid_world, play_grid_world
@@ -96,7 +96,7 @@ if __name__ == "__main__":
 
     elif game_choice == '3':
         # Initialiser l'environnement TicTacToe
-        tic_tac_toe = TicTacToe_new()
+        tic_tac_toe = TicTacToe()
 
         # Choisir pour un seul joueur
         player_choice = choose_single_player_agent("TicTacToe")

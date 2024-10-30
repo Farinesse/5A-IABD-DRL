@@ -6,7 +6,7 @@ NUM_ACTIONS = 9
 NUM_STATE_FEATURES = 27
 
 
-class TicTacToe_new:
+class TicTacToe:
     def __init__(self):
         self._board = np.zeros((NUM_ACTIONS,))
         self._player = 0

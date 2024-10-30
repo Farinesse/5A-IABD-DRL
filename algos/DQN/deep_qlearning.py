@@ -72,7 +72,11 @@ def save_model(model, file_path):
     :param file_path: Le chemin du fichier où sauvegarder le modèle
     """
     try:
-        tf.saved_model.save(model, file_path)
+        model.save(file_path)
+        print(f"Modèle sauvegardé avec succès dans {file_path}")
+    except Exception as e:
+        print(f"Erreur lors de la sauvegarde du modèle : {e}")
+    try:
         model.save(file_path)
         print(f"Modèle sauvegardé avec succès dans {file_path}")
     except Exception as e:
@@ -82,13 +86,15 @@ def save_model(model, file_path):
 def deep_q_learning(model, target_model, env, num_episodes, gamma, alpha, start_epsilon, end_epsilon,
                     memory_size=512, batch_size=32, update_target_steps=1000, epsilon_decay=0.9,
                     save_path='dqn_model_farkel.h5'):
-    """optimizer = keras.optimizers.SGD(
+
+    optimizer = keras.optimizers.SGD(
         learning_rate=alpha,  # Légèrement plus élevé que votre valeur précédente
         momentum=0.999,  # Ajout de momentum pour une convergence plus rapide
         nesterov=True,  # Utilisation de Nesterov momentum pour une meilleure performance
         weight_decay=1e-4  # Légèrement augmenté pour une meilleure régularisation
-    )"""
-    optimizer = tf.keras.optimizers.Adam(learning_rate=alpha)  # Ajuste le taux d'apprentissage
+    )
+
+    #optimizer = tf.keras.optimizers.Adam(learning_rate=alpha)  # Ajuste le taux d'apprentissage
 
     memory = deque(maxlen=memory_size)
     epsilon = start_epsilon
@@ -97,7 +103,7 @@ def deep_q_learning(model, target_model, env, num_episodes, gamma, alpha, start_
 
     for ep_id in tqdm(range(num_episodes)):
         if ep_id % 100 == 0 and ep_id > 0:
-            print(f"Mean Score: {total_score / 10  }, Mean Loss: {total_loss / 10}, Epsilon: {epsilon}")
+            print(f"Mean Score: {total_score / 10}, Mean Loss: {total_loss / 10}, Epsilon: {epsilon}")
             total_score = 0.0
             total_loss = 0.0
 

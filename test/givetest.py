@@ -1,5 +1,5 @@
 import tensorflow as tf
-from environment.tictactoe import TicTacToe_new
+from environment.tictactoe import TicTacToe
 import numpy as np
 import os
 
@@ -21,7 +21,7 @@ def saved_tictactoe_model(model_path, num_games=10000):
         return
 
     # Créer l'environnement
-    env = TicTacToe_new()
+    env = TicTacToe()
 
     wins = 0
     losses = 0
