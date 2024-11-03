@@ -119,11 +119,18 @@ class FarkleGUI:
     def take_action(self, stop):
 
         self.env.stop = stop
+        valid_actions = self.env.get_valid_actions()
 
         if self.env.current_player == 1:
             self.play_random()
         else:
-            action = self.get_action_from_selection()
+            if stop:
+                for i, va in enumerate(valid_actions[::-1]):
+                    if va == 1:
+                        action = [int(b) for b in format(127 - i, '07b')]
+                        break
+            else:
+                action = self.get_action_from_selection()
 
             if not stop and not self.selected_dice:
                 messagebox.showinfo("Action invalide", "Vous devez sélectionner des dés valides avant de continuer.")
