@@ -8,7 +8,7 @@ class FarkleGUI:
     def __init__(self, master, players=2):
         self.master = master
         self.master.title("Farkle - Jeu de Dés")
-        self.master.geometry("800x800")
+        self.master.geometry("800x600")
         self.master.configure(bg='#E0E0E0')
 
         self.env = FarkleEnv(num_players=players)
@@ -105,7 +105,8 @@ class FarkleGUI:
             self.update_selection_info()
 
     def update_selection_info(self):
-        if not self.selected_dice:
+
+        if not self.env._validate_dice_selection(self.env.dice_roll, self.get_action_from_selection()):
             self.info_var.set("Sélectionnez des dés qui rapportent des points")
             self.continue_button.config(state=tk.DISABLED)
         else:
@@ -217,8 +218,6 @@ class FarkleGUI:
             if i < len(self.env.dice_roll):
                 action[i] = 1
         action[-1] = int(self.env.stop)
-        #if self.env.stop :
-         #   action = [1] * 7
         return action
 
     def game_over(self):
