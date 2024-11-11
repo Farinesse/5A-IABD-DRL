@@ -1,8 +1,8 @@
 import keras
 import numpy as np
 import tensorflow as tf
-from keras.src.saving import load_model
-from tqdm import tqdm  # Importer tqdm
+from tqdm import tqdm
+
 
 
 class REINFORCE:
@@ -11,39 +11,17 @@ class REINFORCE:
         self.action_dim = action_dim
         self.alpha = alpha
         self.gamma = gamma
-
-        # Construction du réseau de politique
         self.policy = self._build_policy()
         self.optimizer = tf.keras.optimizers.Adam(learning_rate=self.alpha)
         self.reward_buffer = []
 
     def _build_policy(self):
-        model = keras.Sequential([
-            # Correction ici : enlever les parenthèses autour de state_dim
+        return keras.Sequential([
             keras.layers.Dense(128, activation='relu', input_dim=self.state_dim),
             keras.layers.Dense(256, activation='relu'),
-            keras.layers.Dense(128, activation='relu'),
+            #keras.layers.Dense(128, activation='relu'),
             keras.layers.Dense(self.action_dim)
         ])
-        return model
-
-    def get_action(self, state, valid_actions):
-        # Epsilon-greedy
-        if np.random.random() < 0.05:
-            return np.random.choice(valid_actions)
-        # Forward pass
-        logits = self.policy(state.reshape(1, -1), training=False)
-        logits = logits.numpy()[0]
-
-        # Masquer les actions invalides
-        mask = np.ones_like(logits) * float('-inf')
-        mask[valid_actions] = 0
-        masked_logits = logits + mask
-
-        # Softmax avec température
-        temperature = max(0.5, 1.0 - len(self.reward_buffer) / 5000)
-        probs = tf.nn.softmax(masked_logits / temperature).numpy()
-        return np.random.choice(self.action_dim, p=probs)
 
     def compute_returns(self, rewards):
         returns = []
@@ -67,10 +45,32 @@ class REINFORCE:
         state = env.state_description()
         done = False
 
+        # Liste pour stocker les time steps
+        time_steps = []
+        t = 0
+
         while not done:
             valid_actions = env.available_actions_ids()
-            action = self.get_action(state, valid_actions)
+            # Forward pass
+            logits = self.policy(np.array(state).reshape(1, -1), training=False)
+            logits = logits.numpy()[0]
 
+            # Masquer les actions invalides
+            mask = np.ones_like(logits) * float('-inf')
+            mask[valid_actions] = 0
+            masked_logits = logits + mask
+
+            # Softmax avec température
+            temperature = max(0.5, 1.0 - len(self.reward_buffer) / 5000)
+            probs = tf.nn.softmax(masked_logits / temperature).numpy()
+
+            # Sélection d'action
+            if np.random.random() < 0.05:  # epsilon-greedy
+                action = np.random.choice(valid_actions)
+            else:
+                action = np.random.choice(self.action_dim, p=probs)
+
+            # Exécution de l'action
             env.step(action)
             reward = env.score() if env.is_game_over() else 0
             next_state = env.state_description()
@@ -79,10 +79,15 @@ class REINFORCE:
             states.append(state)
             actions.append(action)
             rewards.append(reward)
-            state = next_state
+            time_steps.append(t)  # Stockage du time step
 
+            state = next_state
+            t += 1  # Incrément du time step
+
+        # Conversion en arrays
         states = np.array(states, dtype=np.float32)
         actions = np.array(actions, dtype=np.int32)
+        time_steps = np.array(time_steps, dtype=np.float32)
         returns = self.compute_returns(rewards)
 
         with tf.GradientTape() as tape:
@@ -93,9 +98,15 @@ class REINFORCE:
             action_masks = tf.one_hot(actions, self.action_dim)
             selected_logits = tf.reduce_sum(logits * action_masks, axis=1)
 
-            # Log probabilities et loss
+            # Log probabilities
             log_probs = selected_logits - tf.reduce_logsumexp(logits, axis=1)
-            basic_loss = -tf.reduce_mean(log_probs * returns)
+
+            # Application de gamma^t * G
+            gamma_t = tf.pow(self.gamma, time_steps)  # Calcul de gamma^t
+            time_discounted_returns = returns * gamma_t  # Application aux retours
+
+            # Loss avec gamma^t
+            basic_loss = -tf.reduce_mean(log_probs * time_discounted_returns)
 
             # Ajout de l'entropie
             probs = tf.nn.softmax(logits)
@@ -126,13 +137,72 @@ class REINFORCE:
                 print(f"Moyenne des récompenses: {avg_reward:.2f}")
                 print(f"Taux de victoire: {win_rate:.2%}")
                 print(f"Loss: {loss:.6f}\n")
-        self.save_model('reinforce_model_Farkel.h5')
 
+        self.save_model('reinforce_model.h5')
         return history
 
     def save_model(self, filepath):
         self.policy.save(filepath)
 
+def play_with_reinforce(env, model, episodes=1, display=True):
+    total_rewards = 0
+
+    for episode in range(episodes):
+        env.reset()
+        done = False
+        episode_reward = 0
+
+        while not done:
+            # Obtenir l'état actuel
+            state = env.state_description()
+            state_tensor = tf.convert_to_tensor(state, dtype=tf.float32)
+
+            # Obtenir les actions valides
+            valid_actions = env.available_actions_ids()
+
+            # Prédire les probabilités d'action
+            logits = model(tf.expand_dims(state_tensor, 0), training=False)[0]
+
+            # Masquer les actions invalides
+            mask = np.ones_like(logits.numpy()) * float('-inf')
+            mask[valid_actions] = 0
+            masked_logits = logits + mask
+
+            # Obtenir les probabilités
+            probs = tf.nn.softmax(masked_logits).numpy()
+
+            # Sélectionner l'action (en mode évaluation, on prend la meilleure action)
+            if len(valid_actions) > 0:
+                # Pendant le test, on prend l'action avec la plus haute probabilité
+                action = valid_actions[np.argmax(probs[valid_actions])]
+            else:
+                print("Aucune action valide disponible!")
+                break
+
+            # Exécuter l'action
+            prev_score = env.score()
+            env.step(action)
+            reward = env.score() - prev_score
+            episode_reward += reward
+            done = env.is_game_over()
+
+            # Afficher l'état du jeu si demandé
+            if display:
+                print("\nÉtat actuel:")
+                env.display()
+                print(f"Action choisie: {action}")
+                print(f"Récompense: {reward}")
+                print(f"Score cumulé: {episode_reward}")
+                print("Probabilités des actions:", probs[valid_actions])
+
+        total_rewards += episode_reward
+        print(f"\nÉpisode {episode + 1}/{episodes} terminé")
+        print(f"Récompense totale de l'épisode: {episode_reward}")
+
+    # Calculer et afficher le score moyen
+    mean_score = total_rewards / episodes
+    print(f"\nScore moyen sur {episodes} épisodes: {mean_score}")
+    return mean_score
 
 if __name__ == "__main__":
     from environment.tictactoe import TicTacToe
@@ -142,13 +212,19 @@ if __name__ == "__main__":
     tf.get_logger().setLevel('ERROR')
 
     env = TicTacToe()
-    env = FarkleDQNEnv()
+    #env = FarkleDQNEnv()
     agent = REINFORCE(
-        state_dim=12,
-        action_dim=128,
-        alpha=0.0001,
+        state_dim=27,
+        action_dim=9,
+        alpha=0.001,
         gamma=0.99
     )
 
-    history = agent.train(env, episodes=50000)
-    #model = load_model('reinforce_model_tictactoe.h5')
+    #history = agent.train(env, episodes=5000)
+    model = keras.models.load_model('reinforce_model.h5')
+    mean_score = play_with_reinforce(
+        env=env,
+        model=model,
+        episodes=100,
+        display=True
+    )

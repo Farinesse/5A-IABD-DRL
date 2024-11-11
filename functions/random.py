@@ -346,3 +346,5 @@ def simulate_games_for_30_seconds(num_players=2, target_score=10000):
 
     return num_games, games_per_second, average_score
 
+
+
