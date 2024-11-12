@@ -1,7 +1,6 @@
 import numpy as np
 import keras
 import tensorflow as tf
-from docutils.nodes import image
 from tqdm import tqdm
 
 @tf.function(reduce_retracing=True)
@@ -59,8 +58,8 @@ def epsilon_greedy_action(
 
 def save_model(model, file_path):
     try:
-        tf.saved_model.save(model, file_path)
-        #model.save(file_path)
+        tf.saved_model.save(model, file_path) # dossier
+        #model.save(file_path) # .h5
         print(f"Model successfully saved to {file_path}")
     except Exception as e:
         print(f"Error saving the model: {e}")

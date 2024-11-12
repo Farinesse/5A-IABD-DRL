@@ -300,7 +300,7 @@ class FarkleEnv:
 
 
 
-    """def get_random_action(self):
+    def get_random_action(self):
         valid_actions = self.get_valid_actions()
 
         valid_indices = np.where(valid_actions == 1)[0]
@@ -308,7 +308,7 @@ class FarkleEnv:
             random_action = random.choice(valid_indices)
             return [int(b) for b in format(random_action, '07b')]
         else:
-            return [0] * 6 + [1]"""
+            return [0] * 6 + [1]
 
 class FarkleDQNEnv(FarkleEnv):
     def __init__(self, num_players=2, target_score=1000):

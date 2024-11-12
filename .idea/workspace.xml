@@ -5,12 +5,11 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="5e8553dd-ceb4-49d4-b004-f400f565c127" name="Changes" comment="add reinforce">
-      <change afterPath="$PROJECT_DIR$/algos/PolicyGradientMethods/one_step_actor_critic.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/algos/PolicyGradientMethods/ppo.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/algos/PolicyGradientMethods/reinforce.py" beforeDir="false" afterPath="$PROJECT_DIR$/algos/PolicyGradientMethods/reinforce.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/algos/PolicyGradientMethods/reinforce_meanbase.py" beforeDir="false" afterPath="$PROJECT_DIR$/algos/PolicyGradientMethods/reinforce_meanbase.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/functions/random.py" beforeDir="false" afterPath="$PROJECT_DIR$/functions/random.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/GUI/Farkel_GUI.py" beforeDir="false" afterPath="$PROJECT_DIR$/GUI/Farkel_GUI.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/algos/DQN/ddqn.py" beforeDir="false" afterPath="$PROJECT_DIR$/algos/DQN/ddqn.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/algos/DQN/double_deepql.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/environment/FarkelEnv.py" beforeDir="false" afterPath="$PROJECT_DIR$/environment/FarkelEnv.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -40,20 +39,20 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "RunOnceActivity.OpenProjectViewOnStart": "true",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "WebServerToolWindowFactoryState": "false",
-    "ignore.virus.scanning.warn.message": "true",
-    "last_opened_file_path": "C:/Users/farin/PycharmProjects/5A-IABD-DRL/algos/PolicyGradientMethods/reunforce_baseline/tictactoe",
-    "node.js.detected.package.eslint": "true",
-    "node.js.detected.package.tslint": "true",
-    "node.js.selected.package.eslint": "(autodetect)",
-    "node.js.selected.package.tslint": "(autodetect)",
-    "vue.rearranger.settings.migration": "true"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;WebServerToolWindowFactoryState&quot;: &quot;false&quot;,
+    &quot;ignore.virus.scanning.warn.message&quot;: &quot;true&quot;,
+    &quot;last_opened_file_path&quot;: &quot;C:/Users/farin/PycharmProjects/5A-IABD-DRL/algos/PolicyGradientMethods/reunforce_baseline/tictactoe&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   }
-}]]></component>
+}</component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
       <recent name="C:\Users\farin\PycharmProjects\5A-IABD-DRL\algos\PolicyGradientMethods\reunforce_baseline\tictactoe" />
@@ -66,8 +65,8 @@
       <recent name="C:\Users\farin\PycharmProjects\5A-IABD-DRL\algos\PolicyGradientMethods\reunforce_baseline" />
     </key>
   </component>
-  <component name="RunManager" selected="Python.ppo">
-    <configuration name="FarkelEnv" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+  <component name="RunManager" selected="Python.main">
+    <configuration name="Farkel_GUI" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="5A-IABD-DRL" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
@@ -75,12 +74,34 @@
         <env name="PYTHONUNBUFFERED" value="1" />
       </envs>
       <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/environment" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/GUI" />
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
       <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/environment/FarkelEnv.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/GUI/Farkel_GUI.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="main" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="5A-IABD-DRL" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/main.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -133,28 +154,6 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration name="reinforce" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
-      <module name="5A-IABD-DRL" />
-      <option name="INTERPRETER_OPTIONS" value="" />
-      <option name="PARENT_ENVS" value="true" />
-      <envs>
-        <env name="PYTHONUNBUFFERED" value="1" />
-      </envs>
-      <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/algos/PolicyGradientMethods" />
-      <option name="IS_MODULE_SDK" value="true" />
-      <option name="ADD_CONTENT_ROOTS" value="true" />
-      <option name="ADD_SOURCE_ROOTS" value="true" />
-      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/algos/PolicyGradientMethods/reinforce.py" />
-      <option name="PARAMETERS" value="" />
-      <option name="SHOW_COMMAND_LINE" value="false" />
-      <option name="EMULATE_TERMINAL" value="false" />
-      <option name="MODULE_MODE" value="false" />
-      <option name="REDIRECT_INPUT" value="false" />
-      <option name="INPUT_FILE" value="" />
-      <method v="2" />
-    </configuration>
     <configuration name="reinforce_meanbase" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="5A-IABD-DRL" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -179,11 +178,11 @@
     </configuration>
     <recent_temporary>
       <list>
+        <item itemvalue="Python.main" />
+        <item itemvalue="Python.Farkel_GUI" />
         <item itemvalue="Python.ppo" />
         <item itemvalue="Python.one_step_actor_critic" />
         <item itemvalue="Python.reinforce_meanbase" />
-        <item itemvalue="Python.reinforce" />
-        <item itemvalue="Python.FarkelEnv" />
       </list>
     </recent_temporary>
   </component>
@@ -214,7 +213,7 @@
       <workItem from="1730248758701" duration="8455000" />
       <workItem from="1730649121643" duration="14000" />
       <workItem from="1731262292121" duration="2121000" />
-      <workItem from="1731322412387" duration="12400000" />
+      <workItem from="1731322412387" duration="19079000" />
     </task>
     <task id="LOCAL-00001" summary="add GUI Farkel with random2">
       <created>1728338767449</created>
@@ -300,7 +299,14 @@
       <option name="project" value="LOCAL" />
       <updated>1730330132590</updated>
     </task>
-    <option name="localTasksCounter" value="13" />
+    <task id="LOCAL-00013" summary="add reinforce">
+      <created>1731355564573</created>
+      <option name="number" value="00013" />
+      <option name="presentableId" value="LOCAL-00013" />
+      <option name="project" value="LOCAL" />
+      <updated>1731355564573</updated>
+    </task>
+    <option name="localTasksCounter" value="14" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -358,7 +364,7 @@
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
     <SUITE FILE_PATH="coverage/5A_IABD_DRL$deep_qlearning.coverage" NAME="deep_qlearning Coverage Results" MODIFIED="1729376362367" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/QLearning" />
     <SUITE FILE_PATH="coverage/5A_IABD_DRL$test.coverage" NAME="test Coverage Results" MODIFIED="1729976867968" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
-    <SUITE FILE_PATH="coverage/5A_IABD_DRL$Farkel_GUI.coverage" NAME="Farkel_GUI Coverage Results" MODIFIED="1728248688448" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/GUI" />
+    <SUITE FILE_PATH="coverage/5A_IABD_DRL$Farkel_GUI.coverage" NAME="Farkel_GUI Coverage Results" MODIFIED="1731450071622" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/GUI" />
     <SUITE FILE_PATH="coverage/5A_IABD_DRL$reinforce_meanbase.coverage" NAME="reinforce_meanbase Coverage Results" MODIFIED="1731333731967" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/algos/PolicyGradientMethods" />
     <SUITE FILE_PATH="coverage/5A_IABD_DRL$fb.coverage" NAME="fb Coverage Results" MODIFIED="1728160519739" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/environment" />
     <SUITE FILE_PATH="coverage/5A_IABD_DRL$reinforce.coverage" NAME="reinforce Coverage Results" MODIFIED="1731332440049" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/algos/PolicyGradientMethods" />
@@ -372,9 +378,9 @@
     <SUITE FILE_PATH="coverage/5A_IABD_DRL$farkle.coverage" NAME="farkle Coverage Results" MODIFIED="1728378520476" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/environment" />
     <SUITE FILE_PATH="coverage/5A_IABD_DRL$givetest.coverage" NAME="givetest Coverage Results" MODIFIED="1729434981657" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/test" />
     <SUITE FILE_PATH="coverage/5A_IABD_DRL$test__1_.coverage" NAME="test (1) Coverage Results" MODIFIED="1730025664253" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/test" />
-    <SUITE FILE_PATH="coverage/5A_IABD_DRL$ppo.coverage" NAME="ppo Coverage Results" MODIFIED="1731339542834" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/algos/PolicyGradientMethods" />
+    <SUITE FILE_PATH="coverage/5A_IABD_DRL$ppo.coverage" NAME="ppo Coverage Results" MODIFIED="1731362101051" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/algos/PolicyGradientMethods" />
     <SUITE FILE_PATH="coverage/5A_IABD_DRL$farkel_dql.coverage" NAME="farkel_dql Coverage Results" MODIFIED="1728002621608" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/QLearning" />
-    <SUITE FILE_PATH="coverage/5A_IABD_DRL$main.coverage" NAME="main Coverage Results" MODIFIED="1730024551980" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/5A_IABD_DRL$one_step_actor_critic.coverage" NAME="one_step_actor_critic Coverage Results" MODIFIED="1731336428926" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/algos/PolicyGradientMethods" />
+    <SUITE FILE_PATH="coverage/5A_IABD_DRL$main.coverage" NAME="main Coverage Results" MODIFIED="1731451002708" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
   </component>
 </project>

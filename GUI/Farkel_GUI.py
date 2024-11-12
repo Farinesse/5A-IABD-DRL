@@ -8,7 +8,7 @@ class FarkleGUI:
     def __init__(self, master, players=2):
         self.master = master
         self.master.title("Farkle - Jeu de Dés")
-        self.master.geometry("800x800")
+        self.master.geometry("800x600")
         self.master.configure(bg='#E0E0E0')
 
         self.env = FarkleEnv(num_players=players)
@@ -87,7 +87,7 @@ class FarkleGUI:
 
     def load_dice_images(self):
         for i in range(1, 7):
-            img = Image.open(f"./Images/dice{i}.png")
+            img = Image.open(f"C:/Users/farin/PycharmProjects/5A-IABD-DRL/Images/dice{i}.png")
             img = img.resize((60, 60))
             self.dice_images[i] = ImageTk.PhotoImage(img)
 
@@ -105,7 +105,8 @@ class FarkleGUI:
             self.update_selection_info()
 
     def update_selection_info(self):
-        if not self.selected_dice:
+
+        if not self.env._validate_dice_selection(self.env.dice_roll, self.get_action_from_selection()):
             self.info_var.set("Sélectionnez des dés qui rapportent des points")
             self.continue_button.config(state=tk.DISABLED)
         else:
@@ -118,11 +119,18 @@ class FarkleGUI:
     def take_action(self, stop):
 
         self.env.stop = stop
+        valid_actions = self.env.get_valid_actions()
 
         if self.env.current_player == 1:
             self.play_random()
         else:
-            action = self.get_action_from_selection()
+            if stop:
+                for i, va in enumerate(valid_actions[::-1]):
+                    if va == 1:
+                        action = [int(b) for b in format(127 - i, '07b')]
+                        break
+            else:
+                action = self.get_action_from_selection()
 
             if not stop and not self.selected_dice:
                 messagebox.showinfo("Action invalide", "Vous devez sélectionner des dés valides avant de continuer.")
@@ -217,8 +225,6 @@ class FarkleGUI:
             if i < len(self.env.dice_roll):
                 action[i] = 1
         action[-1] = int(self.env.stop)
-        #if self.env.stop :
-         #   action = [1] * 7
         return action
 
     def game_over(self):
