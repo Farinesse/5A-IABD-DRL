@@ -1,6 +1,7 @@
 import numpy as np
 from tqdm import tqdm  # Pour afficher la progression
 
+
 def tabular_q_learning(env_type,
                        alpha: float = 0.1,
                        epsilon: float = 0.1,

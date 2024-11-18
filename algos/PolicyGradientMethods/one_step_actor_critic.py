@@ -1,4 +1,3 @@
-
 import keras
 import numpy as np
 import tensorflow as tf
@@ -50,7 +49,6 @@ class REINFORCEWithCritic:
         # Softmax avec température adaptative
         temperature = max(0.5, 1.0)  # Température fixe ou adaptative
         probs = tf.nn.softmax(masked_logits / temperature).numpy()
-
 
         return np.random.choice(self.action_dim, p=probs)
 

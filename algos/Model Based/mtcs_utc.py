@@ -1,8 +1,7 @@
 import numpy as np
 from math import sqrt, log
-from typing import List, Dict, Optional
+from typing import Dict
 from tqdm import tqdm
-
 from environment.tictactoe import TicTacToe
 
 
@@ -149,6 +148,7 @@ class MCTS:
         print(f"Taux de match nul final: {draw_count / episodes:.2%}")
 
         return history
+
 
 def play_game_mcts(agent: MCTS, env: TicTacToe, display=True):
     """Joue une partie complète avec affichage optionnel."""

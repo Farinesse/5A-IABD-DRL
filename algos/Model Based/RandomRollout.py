@@ -1,7 +1,5 @@
 import numpy as np
-from typing import List, Tuple
 from tqdm import tqdm
-
 from environment.tictactoe import TicTacToe
 
 

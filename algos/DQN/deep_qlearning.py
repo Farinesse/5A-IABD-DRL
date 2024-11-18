@@ -1,12 +1,19 @@
-import numpy as np
 import keras
+import random
+import numpy as np
 import tensorflow as tf
 from tqdm import tqdm
 from collections import deque
-import random
+
 
 @tf.function(reduce_retracing=True)
-def gradient_step(model, s, a, target, optimizer):
+def gradient_step(
+        model,
+        s,
+        a,
+        target,
+        optimizer
+):
     with tf.GradientTape() as tape:
         s = tf.ensure_shape(s, [12])  # Dynamically use input_dim
         a = tf.cast(a, dtype=tf.int32)
@@ -16,17 +23,21 @@ def gradient_step(model, s, a, target, optimizer):
     optimizer.apply_gradients(zip(gradients, model.trainable_variables))
     return loss
 
+
 @tf.function(reduce_retracing=True)
-def model_predict(model, s):
+def model_predict(
+        model,
+        s
+):
     s = tf.ensure_shape(s, [None])  # Assurer une forme constante
     return model(tf.expand_dims(s, 0))[0]
 
 
 def epsilon_greedy_action(
-    q_s: tf.Tensor,
-    mask: tf.Tensor,
-    available_actions: np.ndarray,
-    epsilon: float
+        q_s: tf.Tensor,
+        mask: tf.Tensor,
+        available_actions: np.ndarray,
+        epsilon: float
 ) -> int:
     if np.random.rand() < epsilon:
         return np.random.choice(available_actions)
@@ -37,7 +48,12 @@ def epsilon_greedy_action(
 
         return int(tf.argmax(masked_q_s, axis=0))
 
-def debug_action_selection(env, model, epsilon):
+
+def debug_action_selection(
+        env,
+        model,
+        epsilon
+):
     s = env.state_description()
     s_tensor = tf.convert_to_tensor(s, dtype=tf.float32)
     mask = env.action_mask()
@@ -64,7 +80,10 @@ def debug_action_selection(env, model, epsilon):
     return action
 
 
-def save_model(model, file_path):
+def save_model(
+        model,
+        file_path
+):
     """
     Sauvegarde le modèle dans un fichier.
 
@@ -83,10 +102,21 @@ def save_model(model, file_path):
         print(f"Erreur lors de la sauvegarde du modèle : {e}")
 
 
-def deep_q_learning(model, target_model, env, num_episodes, gamma, alpha, start_epsilon, end_epsilon,
-                    memory_size=512, batch_size=32, update_target_steps=1000, epsilon_decay=0.9,
-                    save_path='dqn_model_farkel.h5'):
-
+def deep_q_learning(
+        model,
+        target_model,
+        env,
+        num_episodes,
+        gamma,
+        alpha,
+        start_epsilon,
+        end_epsilon,
+        memory_size=512,
+        batch_size=32,
+        update_target_steps=1000,
+        epsilon_decay=0.9,
+        save_path='dqn_model_farkel.h5'
+):
     optimizer = keras.optimizers.SGD(
         learning_rate=alpha,  # Légèrement plus élevé que votre valeur précédente
         momentum=0.999,  # Ajout de momentum pour une convergence plus rapide
@@ -94,7 +124,7 @@ def deep_q_learning(model, target_model, env, num_episodes, gamma, alpha, start_
         weight_decay=1e-4  # Légèrement augmenté pour une meilleure régularisation
     )
 
-    #optimizer = tf.keras.optimizers.Adam(learning_rate=alpha)  # Ajuste le taux d'apprentissage
+    # optimizer = tf.keras.optimizers.Adam(learning_rate=alpha)  # Ajuste le taux d'apprentissage
 
     memory = deque(maxlen=memory_size)
     epsilon = start_epsilon
@@ -113,7 +143,7 @@ def deep_q_learning(model, target_model, env, num_episodes, gamma, alpha, start_
 
         s = env.state_description()
         s_tensor = tf.convert_to_tensor(s, dtype=tf.float32)
-        #print(s_tensor)
+        # print(s_tensor)
         while not env.is_game_over():
             mask = env.action_mask()
             mask_tensor = tf.convert_to_tensor(mask, dtype=tf.float32)

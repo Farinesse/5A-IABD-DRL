@@ -3,8 +3,16 @@ import keras
 import tensorflow as tf
 from tqdm import tqdm
 
+
 @tf.function(reduce_retracing=True)
-def gradient_step(model, s, a, target, optimizer, input_dim ):
+def gradient_step(
+        model,
+        s,
+        a,
+        target,
+        optimizer,
+        input_dim
+):
     with tf.GradientTape() as tape:
         s = tf.ensure_shape(s, [input_dim])  # Dynamically use input_dim
         a = tf.cast(a, dtype=tf.int32)
@@ -14,60 +22,57 @@ def gradient_step(model, s, a, target, optimizer, input_dim ):
     optimizer.apply_gradients(zip(gradients, model.trainable_variables))
     return loss
 
+
 @tf.function(reduce_retracing=True)
-def model_predict(model, s):
+def model_predict(
+        model,
+        s
+):
     s = tf.ensure_shape(s, [None])  # Ensure constant shape
     return model(tf.expand_dims(s, 0))[0]
 
+
 def epsilon_greedy_action(
-    q_s: tf.Tensor,
-    mask: tf.Tensor,
-    available_actions: np.ndarray,
-    epsilon: float
-) -> int:
-    if np.random.rand() < epsilon:
-        return np.random.choice(available_actions)
-    else:
-        #inverted_mask = tf.constant(1.0) - mask
-        masked_q_s = q_s * mask + (1.0 - mask) * tf.float32.min
-        return int(tf.argmax(masked_q_s, axis=0))
-
-
-"""def epsilon_greedy_action(
         q_s: tf.Tensor,
         mask: tf.Tensor,
         available_actions: np.ndarray,
         epsilon: float
 ) -> int:
-    if np.random.functions() < epsilon:
+    if np.random.rand() < epsilon:
         return np.random.choice(available_actions)
     else:
-        # Convertir en numpy pour un meilleur contrôle
-        q_values = q_s.numpy()
-        mask_values = mask.numpy()
+        # inverted_mask = tf.constant(1.0) - mask
+        masked_q_s = q_s * mask + (1.0 - mask) * tf.float32.min
+        return int(tf.argmax(masked_q_s, axis=0))
 
-        # Masquer les actions invalides avec -inf
-        masked_q_values = np.where(mask_values == 1, q_values, -np.inf)
 
-        # Vérification et sélection
-        best_action = int(np.argmax(masked_q_values))
-
-        print(best_action)
-
-        return best_action"""
-
-def save_model(model, file_path):
+def save_model(
+        model,
+        file_path
+):
     try:
-        tf.saved_model.save(model, file_path) # dossier
-        #model.save(file_path) # .h5
+        tf.saved_model.save(model, file_path)  # dossier
+        # model.save(file_path) # .h5
         print(f"Model successfully saved to {file_path}")
     except Exception as e:
         print(f"Error saving the model: {e}")
 
 
-def double_dqn_no_replay(online_model, target_model, env, num_episodes, gamma, alpha, start_epsilon, end_epsilon,
-                         update_target_steps=10000, save_path='models/double_dqn_model_Farkel_test1',input_dim = 12, output_dim = 128):
-    #optimizer = keras.optimizers.SGD(learning_rate=alpha, momentum=0.9, nesterov=True)
+def double_dqn_no_replay(
+        online_model,
+        target_model,
+        env,
+        num_episodes,
+        gamma,
+        alpha,
+        start_epsilon,
+        end_epsilon,
+        update_target_steps=10000,
+        save_path='models/double_dqn_model_Farkel_test1',
+        input_dim=12,
+        output_dim=128
+):
+    # optimizer = keras.optimizers.SGD(learning_rate=alpha, momentum=0.9, nesterov=True)
     optimizer = tf.keras.optimizers.Adam(learning_rate=alpha)  # Ajuste le taux d'apprentissage
 
     epsilon = start_epsilon
@@ -121,8 +126,6 @@ def double_dqn_no_replay(online_model, target_model, env, num_episodes, gamma, a
         total_score += env.score()
         progress = ep_id / num_episodes
         epsilon = (1.0 - progress) * start_epsilon + progress * end_epsilon
-
-
 
         if ep_id % update_target_steps == 0:
             target_model.set_weights(online_model.get_weights())

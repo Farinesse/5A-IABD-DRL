@@ -4,7 +4,6 @@ import tensorflow as tf
 from tqdm import tqdm
 
 
-
 class REINFORCE:
     def __init__(self, state_dim, action_dim, alpha=0.0003, gamma=0.99):
         self.state_dim = state_dim
@@ -19,7 +18,7 @@ class REINFORCE:
         return keras.Sequential([
             keras.layers.Dense(128, activation='relu', input_dim=self.state_dim),
             keras.layers.Dense(256, activation='relu'),
-            #keras.layers.Dense(128, activation='relu'),
+            # keras.layers.Dense(128, activation='relu'),
             keras.layers.Dense(self.action_dim)
         ])
 
@@ -138,11 +137,12 @@ class REINFORCE:
                 print(f"Taux de victoire: {win_rate:.2%}")
                 print(f"Loss: {loss:.6f}\n")
 
-        self.save_model('reinforce_model.h5')
+        self.save_model('../../models/reinforce_model.h5')
         return history
 
     def save_model(self, filepath):
         self.policy.save(filepath)
+
 
 def play_with_reinforce(env, model, episodes=1, display=True):
     total_rewards = 0
@@ -204,15 +204,16 @@ def play_with_reinforce(env, model, episodes=1, display=True):
     print(f"\nScore moyen sur {episodes} épisodes: {mean_score}")
     return mean_score
 
+
 if __name__ == "__main__":
     from environment.tictactoe import TicTacToe
-    from environment.FarkelEnv import  FarkleDQNEnv
+    from environment.FarkelEnv import FarkleDQNEnv
 
     # Configuration de TensorFlow pour moins de warnings
     tf.get_logger().setLevel('ERROR')
 
     env = TicTacToe()
-    #env = FarkleDQNEnv()
+    # env = FarkleDQNEnv()
     agent = REINFORCE(
         state_dim=27,
         action_dim=9,
@@ -220,8 +221,8 @@ if __name__ == "__main__":
         gamma=0.99
     )
 
-    #history = agent.train(env, episodes=5000)
-    model = keras.models.load_model('reinforce_model.h5')
+    # history = agent.train(env, episodes=5000)
+    model = keras.models.load_model('../../models/reinforce_model.h5')
     mean_score = play_with_reinforce(
         env=env,
         model=model,

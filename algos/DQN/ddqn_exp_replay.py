@@ -1,16 +1,20 @@
 import random
-from collections import deque
-
 import keras
 import numpy as np
 import tensorflow as tf
 from tqdm import tqdm
-
+from collections import deque
 from functions.outils import custom_two_phase_decay
 
 
 @tf.function(reduce_retracing=True)
-def gradient_step(model, s, a, target, optimizer):
+def gradient_step(
+        model,
+        s,
+        a,
+        target,
+        optimizer
+):
     with tf.GradientTape() as tape:
         s = tf.ensure_shape(s, [12])  # Dynamically use input_dim
         a = tf.cast(a, dtype=tf.int32)
@@ -22,12 +26,20 @@ def gradient_step(model, s, a, target, optimizer):
 
 
 @tf.function(reduce_retracing=True)
-def model_predict(model, s):
+def model_predict(
+        model,
+        s
+):
     s = tf.ensure_shape(s, [None, None])  # Ensure constant shape
     return model(s)
 
 
-def epsilon_greedy_action(q_s, mask, available_actions, epsilon):
+def epsilon_greedy_action(
+        q_s,
+        mask,
+        available_actions,
+        epsilon
+):
     if np.random.rand() < epsilon:
         return np.random.choice(available_actions)
     else:
@@ -36,7 +48,10 @@ def epsilon_greedy_action(q_s, mask, available_actions, epsilon):
         return int(tf.argmax(masked_q_s, axis=-1))
 
 
-def save_model(model, file_path):
+def save_model(
+        model,
+        file_path
+):
     try:
         model.save(file_path)
         print(f"Model successfully saved to {file_path}")
@@ -44,9 +59,20 @@ def save_model(model, file_path):
         print(f"Error saving the model: {e}")
 
 
-def double_dqn_with_replay(online_model, target_model, env, num_episodes, gamma, alpha, start_epsilon, end_epsilon,
-                           update_target_steps=10000, batch_size=32, memory_size=10000,
-                           save_path='double_dqn_with_exp_rep_model_tictactoe.h5'):
+def double_dqn_with_replay(
+        online_model,
+        target_model,
+        env,
+        num_episodes,
+        gamma,
+        alpha,
+        start_epsilon,
+        end_epsilon,
+        update_target_steps=10000,
+        batch_size=32,
+        memory_size=10000,
+        save_path='double_dqn_with_exp_rep_model_tictactoe.h5'
+):
     optimizer = keras.optimizers.SGD(learning_rate=alpha, momentum=0.9, nesterov=True)
 
     epsilon = start_epsilon
@@ -112,8 +138,8 @@ def double_dqn_with_replay(online_model, target_model, env, num_episodes, gamma,
                 total_loss += loss.numpy()
 
         total_score += env.score()
-        #progress = ep_id / num_episodes
-        #epsilon = max(end_epsilon, start_epsilon - (start_epsilon - end_epsilon) * progress)
+        # progress = ep_id / num_episodes
+        # epsilon = max(end_epsilon, start_epsilon - (start_epsilon - end_epsilon) * progress)
         epsilon = custom_two_phase_decay(ep_id, start_epsilon, end_epsilon, num_episodes)
         if ep_id % update_target_steps == 0:
             target_model.set_weights(online_model.get_weights())
