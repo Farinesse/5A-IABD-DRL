@@ -1,12 +1,9 @@
-
 import math
-
 from environment.FarkelEnv import FarkleDQNEnv
 
 
 def logarithmic_decay(episode, start_epsilon, end_epsilon, decay_rate=0.01):
     return max(end_epsilon, start_epsilon - decay_rate * math.log(1 + episode))
-
 
 def custom_two_phase_decay(episode, start_epsilon, end_epsilon, total_episodes, midpoint=0.5):
     # Point de transition entre phase lente et phase rapide
@@ -21,7 +18,6 @@ def custom_two_phase_decay(episode, start_epsilon, end_epsilon, total_episodes, 
         remaining_episodes = total_episodes - transition_point
         progress = (episode - transition_point) / remaining_episodes
         return 0.5 * math.exp(-5 * progress)  # 0.5 est la valeur d'epsilon au point de transition
-
 
 def human_move(game):
     """
@@ -192,5 +188,79 @@ def play_grid_world(game, player_human, player_random, print_game=True):
                 print("Jeu terminé ! L'agent est dans un état terminal.")
             break
 
+def play_game_manual():
+    """Fonction pour jouer manuellement contre un adversaire aléatoire."""
+    env = FarkleDQNEnv(num_players=2, target_score=5000)
+    state, _ = env.reset()
+    done = False
 
+    while not env.is_game_over():
+        # Affichage plus clair de l'état du jeu
+        print("\n" + "=" * 50)
+        print("État du jeu:")
+        print(f"🎲 Dés actuels: {env.dice_roll}")
+        print(f"🎯 Score du tour: {env.round_score}")
+        print(f"👥 Scores des joueurs: {env.scores}")
+        print(f"🎮 Joueur actuel: {env.current_player + 1}")
+        print(f"🎲 Dés restants: {env.remaining_dice}")
+        print("=" * 50 + "\n")
 
+        if env.current_player == 0:  # Tour du joueur humain
+            # Affichage des actions valides
+            print("\nActions valides disponibles:")
+            valid_actions = env.available_actions_ids()
+            for action_id in valid_actions:
+                action_binary = format(action_id, '07b')
+                print(f"\nID: {action_id}")
+                print(f"Action binaire: {action_binary}")
+                # Explication détaillée de l'action
+                dice_selection = list(action_binary[:-1])
+                stop_action = action_binary[-1]
+
+                # Montrer quels dés seraient gardés
+                kept_dice = []
+                for i, (die, keep) in enumerate(zip(env.dice_roll, dice_selection)):
+                    if keep == '1':
+                        kept_dice.append(die)
+
+                print(f"Dés à garder: {kept_dice}")
+                print(f"Action stop: {'Oui' if stop_action == '1' else 'Non'}")
+
+            # Saisie de l'action avec validation
+            while True:
+                try:
+                    action = int(input("\nEntrez l'ID de votre action : "))
+                    if action_id in valid_actions:
+                        #    action = [int(b) for b in format(action_id, '07b')]
+                        break
+                    print("❌ Action invalide. Veuillez choisir parmi les actions listées.")
+                except ValueError:
+                    print("❌ Veuillez entrer un nombre valide.")
+
+        else:  # Tour de l'adversaire aléatoire
+            print("\nTour de l'adversaire...")
+            action = env.get_random_action()
+            print(f"L'adversaire choisit : {action}")
+
+        # Exécution de l'action
+        state, reward, done, truncated, info = env.step(action)
+
+        # Affichage des résultats
+        if info.get("farkle"):
+            print(f"\n🎲 FARKLE! Perte de {info['lost_points']} points")
+        elif info.get("invalid_action"):
+            print("\n❌ Action invalide!")
+        elif info.get("stopped"):
+            print(f"\n🛑 Tour terminé! Points gagnés: {reward}")
+        elif info.get("win"):
+            print(f"\n🏆 Victoire! Points finaux: {reward}")
+        else:
+            print(f"\n✔️ Points gagnés ce coup: {reward}")
+
+    # Affichage des résultats finaux
+    print("\n🎮 Partie terminée!")
+    print(f"Scores finaux: Joueur 1 = {env.scores[0]}, Joueur 2 = {env.scores[1]}")
+    if env.scores[0] > env.scores[1]:
+        print("🎉 Félicitations! Vous avez gagné!")
+    else:
+        print("😔 L'adversaire a gagné. Meilleure chance la prochaine fois!")

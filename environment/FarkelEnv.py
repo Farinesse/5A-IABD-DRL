@@ -1,87 +1,10 @@
 import numpy as np
 import random
 from gymnasium import spaces
-# from tensorflow.python import keras
-# from algos.DQN.ddqn import double_dqn_no_replay
-# from algos.DQN.deep_qlearning import deep_q_learning
-
-
-def play_game_manual():
-    """Fonction pour jouer manuellement contre un adversaire aléatoire."""
-    env = FarkleDQNEnv(num_players=2, target_score=5000)
-    state, _ = env.reset()
-    done = False
-
-    while not env.is_game_over():
-        # Affichage plus clair de l'état du jeu
-        print("\n" + "=" * 50)
-        print("État du jeu:")
-        print(f"🎲 Dés actuels: {env.dice_roll}")
-        print(f"🎯 Score du tour: {env.round_score}")
-        print(f"👥 Scores des joueurs: {env.scores}")
-        print(f"🎮 Joueur actuel: {env.current_player + 1}")
-        print(f"🎲 Dés restants: {env.remaining_dice}")
-        print("=" * 50 + "\n")
-
-        if env.current_player == 0:  # Tour du joueur humain
-            # Affichage des actions valides
-            print("\nActions valides disponibles:")
-            valid_actions = env.available_actions_ids()
-            for action_id in valid_actions:
-                action_binary = format(action_id, '07b')
-                print(f"\nID: {action_id}")
-                print(f"Action binaire: {action_binary}")
-                # Explication détaillée de l'action
-                dice_selection = list(action_binary[:-1])
-                stop_action = action_binary[-1]
-
-                # Montrer quels dés seraient gardés
-                kept_dice = []
-                for i, (die, keep) in enumerate(zip(env.dice_roll, dice_selection)):
-                    if keep == '1':
-                        kept_dice.append(die)
-
-                print(f"Dés à garder: {kept_dice}")
-                print(f"Action stop: {'Oui' if stop_action == '1' else 'Non'}")
-
-            # Saisie de l'action avec validation
-            while True:
-                try:
-                    action = int(input("\nEntrez l'ID de votre action : "))
-                    if action_id in valid_actions:
-                    #    action = [int(b) for b in format(action_id, '07b')]
-                       break
-                    print("❌ Action invalide. Veuillez choisir parmi les actions listées.")
-                except ValueError:
-                    print("❌ Veuillez entrer un nombre valide.")
-
-        else:  # Tour de l'adversaire aléatoire
-            print("\nTour de l'adversaire...")
-            action = env.get_random_action()
-            print(f"L'adversaire choisit : {action}")
-
-        # Exécution de l'action
-        state, reward, done, truncated, info = env.step(action)
-
-        # Affichage des résultats
-        if info.get("farkle"):
-            print(f"\n🎲 FARKLE! Perte de {info['lost_points']} points")
-        elif info.get("invalid_action"):
-            print("\n❌ Action invalide!")
-        elif info.get("stopped"):
-            print(f"\n🛑 Tour terminé! Points gagnés: {reward}")
-        elif info.get("win"):
-            print(f"\n🏆 Victoire! Points finaux: {reward}")
-        else:
-            print(f"\n✔️ Points gagnés ce coup: {reward}")
-
-    # Affichage des résultats finaux
-    print("\n🎮 Partie terminée!")
-    print(f"Scores finaux: Joueur 1 = {env.scores[0]}, Joueur 2 = {env.scores[1]}")
-    if env.scores[0] > env.scores[1]:
-        print("🎉 Félicitations! Vous avez gagné!")
-    else:
-        print("😔 L'adversaire a gagné. Meilleure chance la prochaine fois!")
+from tensorflow.python import keras
+from algos.DQN.ddqn import double_dqn_no_replay
+from algos.DQN.ddqn_exp_replay import double_dqn_with_replay
+from algos.DQN.deep_qlearning import deep_q_learning
 
 
 class FarkleEnv:
@@ -109,7 +32,7 @@ class FarkleEnv:
         self.game_over = False
         self.last_action_stop = False
         return self.get_observation(), {}
-    
+
     def get_observation(self):
         """Retourne une observation de l'état actuel sous forme de vecteur."""
         # Assurons-nous que dice_roll a toujours 6 éléments
@@ -133,7 +56,7 @@ class FarkleEnv:
         current_state[1] = self.round_score / self.target_score
         current_state[2] = self.remaining_dice / 6
         current_state[3:5] = [score / self.target_score for score in self.scores]  # Normalisation élément par élément
-        #current_state[5:11] = self.dice_roll + [0] * (6 - len(self.dice_roll))
+        # current_state[5:11] = self.dice_roll + [0] * (6 - len(self.dice_roll))
         current_state[5:11] = [roll / 6 for roll in self.dice_roll] + [0] * (6 - len(self.dice_roll))
         current_state[11] = int(self.last_action_stop)
 
@@ -244,18 +167,14 @@ class FarkleEnv:
 
         return score
 
-    def step(self, action ):
+    def step(self, action):
 
-
-        #print(self.get_valid_actions())
+        # print(self.get_valid_actions())
         action_list = action
-        #print(self.dice_roll)
-        #print(action)#
-
+        # print(self.dice_roll)
+        # print(action)#
 
         kept_dice = [self.dice_roll[i] for i in range(len(self.dice_roll)) if action_list[i] == 1]
-
-
 
         new_score = self._calculate_score(self.dice_roll, False)
 
@@ -298,7 +217,6 @@ class FarkleEnv:
         self.dice_roll = self.roll_dice(self.remaining_dice)
         self.last_action_stop = False
 
-
     def get_random_action(self):
         valid_actions = self.get_valid_actions()
 
@@ -309,10 +227,12 @@ class FarkleEnv:
         else:
             return [0] * 6 + [1]
 
+
 class FarkleDQNEnv(FarkleEnv):
     def __init__(self, num_players=2, target_score=1000):
         super().__init__(num_players, target_score)
         self.action_space_size = 128  # 2^7 possibilités (6 dés + stop action)
+
     def available_actions_ids(self) -> np.ndarray:
         """
         Retourne les indices des actions valides.
@@ -394,8 +314,8 @@ def create_farkle_model():
     ])
     return model
 
+
 if __name__ == "__main__":
-    #play_game_manual()
     env = FarkleEnv()
 
     """
