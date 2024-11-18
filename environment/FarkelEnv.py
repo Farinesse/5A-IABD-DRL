@@ -298,6 +298,7 @@ class FarkleEnv:
         self.dice_roll = self.roll_dice(self.remaining_dice)
         self.last_action_stop = False
 
+
     def get_random_action(self):
         valid_actions = self.get_valid_actions()
 
@@ -407,15 +408,16 @@ if __name__ == "__main__":
                 model=model,
                 target_model=target_model,
                 env=env,
-                num_episodes=20000,
+                num_episodes=30000,
                 gamma=0.99,
-                alpha=0.0001,
+                alpha=0.001,
                 start_epsilon=1.0,
                 end_epsilon=0.01, #
                 memory_size=512,
-                batch_size=64,
+                batch_size=128,
                 update_target_steps=500
             )
+    
     '''
     final_online_model, final_target_model = double_dqn_no_replay(
         online_model=model,
