@@ -1,9 +1,9 @@
 import numpy as np
 import random
 from gymnasium import spaces
-from tensorflow.python import keras
-#from algos.DQN.ddqn import double_dqn_no_replay
-from algos.DQN.deep_qlearning import deep_q_learning
+# from tensorflow.python import keras
+# from algos.DQN.ddqn import double_dqn_no_replay
+# from algos.DQN.deep_qlearning import deep_q_learning
 
 
 def play_game_manual():
@@ -109,6 +109,7 @@ class FarkleEnv:
         self.game_over = False
         self.last_action_stop = False
         return self.get_observation(), {}
+    
     def get_observation(self):
         """Retourne une observation de l'état actuel sous forme de vecteur."""
         # Assurons-nous que dice_roll a toujours 6 éléments
@@ -290,14 +291,12 @@ class FarkleEnv:
         self.dice_roll = self.roll_dice(self.remaining_dice)
         return self.get_observation(), new_score, False, False, {}
 
-
     def next_player(self):
         self.current_player = (self.current_player + 1) % self.num_players
         self.round_score = 0
         self.remaining_dice = 6
         self.dice_roll = self.roll_dice(self.remaining_dice)
         self.last_action_stop = False
-
 
 
     def get_random_action(self):
@@ -384,7 +383,6 @@ class FarkleDQNEnv(FarkleEnv):
         print(f"Jeu terminé: {self.game_over}")
 
 
-
 def create_farkle_model():
     """Crée le modèle pour Farkle avec la bonne taille d'entrée/sortie."""
     model = keras.Sequential([
@@ -398,8 +396,10 @@ def create_farkle_model():
 
 if __name__ == "__main__":
     #play_game_manual()
-    env = FarkleDQNEnv()
+    env = FarkleEnv()
 
+    """
+    env = FarkleDQNEnv()
     model = create_farkle_model()
     target_model = keras.models.clone_model(model)
     target_model.set_weights(model.get_weights())
@@ -432,5 +432,5 @@ if __name__ == "__main__":
         save_path="ddqn_model_farkel_test2"
 
     )
-    
     '''
+    """
