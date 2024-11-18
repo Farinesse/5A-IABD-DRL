@@ -2,8 +2,6 @@ import numpy as np
 import random
 from gymnasium import spaces
 from tensorflow.python import keras
-from algos.DQN.ddqn import double_dqn_no_replay
-from algos.DQN.ddqn_exp_replay import double_dqn_with_replay
 from algos.DQN.deep_qlearning import deep_q_learning
 
 
@@ -229,7 +227,7 @@ class FarkleEnv:
 
 
 class FarkleDQNEnv(FarkleEnv):
-    def __init__(self, num_players=2, target_score=1000):
+    def __init__(self, num_players=2, target_score=2000):
         super().__init__(num_players, target_score)
         self.action_space_size = 128  # 2^7 possibilités (6 dés + stop action)
 
@@ -316,9 +314,6 @@ def create_farkle_model():
 
 
 if __name__ == "__main__":
-    env = FarkleEnv()
-
-    """
     env = FarkleDQNEnv()
     model = create_farkle_model()
     target_model = keras.models.clone_model(model)
@@ -328,15 +323,16 @@ if __name__ == "__main__":
                 model=model,
                 target_model=target_model,
                 env=env,
-                num_episodes=30000,
-                gamma=0.99,
+                num_episodes=20000,
+                gamma=0.95,
                 alpha=0.001,
                 start_epsilon=1.0,
                 end_epsilon=0.01, #
-                memory_size=512,
-                batch_size=128,
-                update_target_steps=500
-            )
+                memory_size=128,
+                batch_size=64,
+                update_target_steps=200,
+                save_path="dqn_model_128relu12dim_512relu_256relu_128_farkel_20k_0-95_0-001_1-0_0-01_128_64_200.h5"
+    )
     
     '''
     final_online_model, final_target_model = double_dqn_no_replay(
@@ -353,4 +349,3 @@ if __name__ == "__main__":
 
     )
     '''
-    """
