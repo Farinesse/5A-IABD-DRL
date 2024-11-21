@@ -133,7 +133,7 @@ def deep_q_learning(
 
     for ep_id in tqdm(range(num_episodes)):
         if ep_id % 100 == 0 and ep_id > 0:
-            print(f"Mean Score: {total_score / 10}, Mean Loss: {total_loss / 10}, Epsilon: {epsilon}")
+            print(f"Mean Score: {total_score / 100}, Mean Loss: {total_loss / 100}, Epsilon: {epsilon}")
             total_score = 0.0
             total_loss = 0.0
 

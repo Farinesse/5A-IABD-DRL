@@ -2,8 +2,7 @@ import numpy as np
 import random
 from gymnasium import spaces
 from tensorflow.python import keras
-from algos.DQN.ddqn import double_dqn_no_replay
-from algos.DQN.ddqn_exp_replay import double_dqn_with_replay
+
 from algos.DQN.deep_qlearning import deep_q_learning
 
 
@@ -168,12 +167,7 @@ class FarkleEnv:
         return score
 
     def step(self, action):
-
-        # print(self.get_valid_actions())
         action_list = action
-        # print(self.dice_roll)
-        # print(action)#
-
         kept_dice = [self.dice_roll[i] for i in range(len(self.dice_roll)) if action_list[i] == 1]
 
         new_score = self._calculate_score(self.dice_roll, False)
@@ -181,6 +175,9 @@ class FarkleEnv:
         if new_score == 0 and self.remaining_dice == 6:
             self.round_score = self.round_score + 500
             self.next_player()
+            if self.current_player == 1 and not self.game_over:
+                # Jouer le tour complet du joueur 2
+                self.play_random_turn()
             return self.get_observation(), 500, False, False, {"stopped": True}
 
         new_score = self._calculate_score(kept_dice, not (self.stop))
@@ -189,6 +186,9 @@ class FarkleEnv:
             lost_points = self.round_score
             self.round_score = 0
             self.next_player()
+            if self.current_player == 1 and not self.game_over:
+                # Jouer le tour complet du joueur 2
+                self.play_random_turn()
             return self.get_observation(), -lost_points, False, False, {"farkle": True, "lost_points": lost_points}
 
         self.round_score += new_score
@@ -205,10 +205,29 @@ class FarkleEnv:
                 self.game_over = True
                 return self.get_observation(), reward, True, False, {"win": True}
             self.next_player()
+            if self.current_player == 1 and not self.game_over:
+                # Jouer le tour complet du joueur 2
+                self.play_random_turn()
             return self.get_observation(), reward, False, False, {"stopped": True}
 
         self.dice_roll = self.roll_dice(self.remaining_dice)
         return self.get_observation(), new_score, False, False, {}
+
+    def play_random_turn(self):
+        """Joue un tour complet pour le joueur aléatoire (joueur 2)."""
+        while self.current_player == 1 and not self.game_over:
+            random_action = self.get_random_action()
+            observation, reward, done, _, info = self.step(random_action)
+
+            if done or info.get("stopped") or info.get("farkle"):
+                break
+
+            if self.current_player != 1:  # Si le joueur a changé
+                break
+
+        # Après le tour du joueur 2, on s'assure que c'est au tour du joueur 1
+        if not self.game_over and self.current_player == 1:
+            self.next_player()
 
     def next_player(self):
         self.current_player = (self.current_player + 1) % self.num_players
@@ -229,7 +248,7 @@ class FarkleEnv:
 
 
 class FarkleDQNEnv(FarkleEnv):
-    def __init__(self, num_players=2, target_score=1000):
+    def __init__(self, num_players=2, target_score=5000):
         super().__init__(num_players, target_score)
         self.action_space_size = 128  # 2^7 possibilités (6 dés + stop action)
 
@@ -277,10 +296,7 @@ class FarkleDQNEnv(FarkleEnv):
 
     def step(self, action_id):
         """Exécute une action cohérente selon l'ID."""
-        if self.current_player == 1:
-            # Pour le joueur aléatoire, utiliser directement un ID valide
-            valid_actions = self.available_actions_ids()
-            action_id = np.random.choice(valid_actions)
+
 
         # Convertir l'ID en action binaire
         action = self.decode_action(action_id)
@@ -318,8 +334,7 @@ def create_farkle_model():
 if __name__ == "__main__":
     env = FarkleEnv()
 
-    """
-    env = FarkleDQNEnv()
+    env = FarkleDQNEnv(target_score=1000)
     model = create_farkle_model()
     target_model = keras.models.clone_model(model)
     target_model.set_weights(model.get_weights())
@@ -332,7 +347,7 @@ if __name__ == "__main__":
                 gamma=0.99,
                 alpha=0.001,
                 start_epsilon=1.0,
-                end_epsilon=0.01, #
+                end_epsilon=0.01,#
                 memory_size=512,
                 batch_size=128,
                 update_target_steps=500
@@ -353,4 +368,4 @@ if __name__ == "__main__":
 
     )
     '''
-    """
+

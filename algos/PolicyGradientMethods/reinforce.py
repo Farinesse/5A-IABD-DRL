@@ -5,24 +5,26 @@ from tqdm import tqdm
 
 
 class REINFORCE:
-    def __init__(self, state_dim, action_dim, alpha=0.0003, gamma=0.99):
+    def __init__(self, state_dim, action_dim, alpha=0.0001, gamma=0.99):
         self.state_dim = state_dim
         self.action_dim = action_dim
-        self.alpha = alpha
-        self.gamma = gamma
+        self.alpha = alpha  # step size α
+        self.gamma = gamma  # discount factor
         self.policy = self._build_policy()
         self.optimizer = tf.keras.optimizers.Adam(learning_rate=self.alpha)
         self.reward_buffer = []
 
     def _build_policy(self):
+        # π(a|s,θ) - policy parameterization
         return keras.Sequential([
             keras.layers.Dense(128, activation='relu', input_dim=self.state_dim),
+            keras.layers.Dense(512, activation='relu'),
             keras.layers.Dense(256, activation='relu'),
-            # keras.layers.Dense(128, activation='relu'),
-            keras.layers.Dense(self.action_dim)
+            keras.layers.Dense(self.action_dim, activation='softmax')  # Sortie en distribution de probabilités
         ])
 
     def compute_returns(self, rewards):
+        # Calcul de Gt selon la formule Σ(k=t+1 to T) γ^(k-t-1) * Rk
         returns = []
         G = 0
         for r in reversed(rewards):
@@ -30,46 +32,45 @@ class REINFORCE:
             returns.insert(0, G)
         returns = np.array(returns, dtype=np.float32)
 
+        """# Normalisation des retours pour la stabilité
         self.reward_buffer.extend(returns)
-        if len(self.reward_buffer) > 1000:
-            self.reward_buffer = self.reward_buffer[-1000:]
+        if len(self.reward_buffer) > 2000:  # Buffer plus grand
+            self.reward_buffer = self.reward_buffer[-2000:]
 
-        # Normalisation
         if len(self.reward_buffer) > 0:
             returns = (returns - np.mean(self.reward_buffer)) / (np.std(self.reward_buffer) + 1e-8)
+        """
         return returns
 
+
     def train_episode(self, env):
+        # Generate an episode S0,A0,R1,...,ST−1,AT−1,RT
         states, actions, rewards = [], [], []
         state = env.state_description()
         done = False
-
-        # Liste pour stocker les time steps
         time_steps = []
         t = 0
 
         while not done:
             valid_actions = env.available_actions_ids()
-            # Forward pass
-            logits = self.policy(np.array(state).reshape(1, -1), training=False)
-            logits = logits.numpy()[0]
+            state_tensor = tf.convert_to_tensor(np.array(state).reshape(1, -1), dtype=tf.float32)
+
+            # π(a|s,θ) - Calcul des probabilités d'action
+            probs = self.policy(state_tensor, training=False)[0].numpy()
 
             # Masquer les actions invalides
-            mask = np.ones_like(logits) * float('-inf')
+            mask = np.ones_like(probs) * float('-inf')
             mask[valid_actions] = 0
-            masked_logits = logits + mask
+            masked_probs = tf.nn.softmax(probs + mask).numpy()
 
-            # Softmax avec température
-            temperature = max(0.5, 1.0 - len(self.reward_buffer) / 5000)
-            probs = tf.nn.softmax(masked_logits / temperature).numpy()
-
-            # Sélection d'action
-            if np.random.random() < 0.05:  # epsilon-greedy
+            # Sélection d'action selon π(a|s,θ)
+            epsilon = max(0.01, 0.1 * (1 - len(self.reward_buffer) / 8000))  # Décroissance d'epsilon
+            if np.random.random() < epsilon:
                 action = np.random.choice(valid_actions)
             else:
-                action = np.random.choice(self.action_dim, p=probs)
+                action = np.random.choice(self.action_dim, p=masked_probs)
 
-            # Exécution de l'action
+            # Exécuter l'action et observer R, S'
             env.step(action)
             reward = env.score() if env.is_game_over() else 0
             next_state = env.state_description()
@@ -78,50 +79,42 @@ class REINFORCE:
             states.append(state)
             actions.append(action)
             rewards.append(reward)
-            time_steps.append(t)  # Stockage du time step
+            time_steps.append(t)
 
             state = next_state
-            t += 1  # Incrément du time step
+            t += 1
 
-        # Conversion en arrays
+        # Conversion en tensors
         states = np.array(states, dtype=np.float32)
         actions = np.array(actions, dtype=np.int32)
         time_steps = np.array(time_steps, dtype=np.float32)
         returns = self.compute_returns(rewards)
 
+        # θ ← θ + αγ^t G∇ln π(At|St,θ)
         with tf.GradientTape() as tape:
-            # Forward pass
             logits = self.policy(states, training=True)
 
-            # Calcul des probabilités pour les actions choisies
+            # ∇ln π(At|St,θ)
             action_masks = tf.one_hot(actions, self.action_dim)
-            selected_logits = tf.reduce_sum(logits * action_masks, axis=1)
+            log_probs = tf.reduce_sum(tf.math.log(logits + 1e-10) * action_masks, axis=1)
 
-            # Log probabilities
-            log_probs = selected_logits - tf.reduce_logsumexp(logits, axis=1)
+            # γ^t G
+            gamma_t = tf.pow(self.gamma, time_steps)
+            time_discounted_returns = returns * gamma_t
 
-            # Application de gamma^t * G
-            gamma_t = tf.pow(self.gamma, time_steps)  # Calcul de gamma^t
-            time_discounted_returns = returns * gamma_t  # Application aux retours
+            # Loss function (négatif car on veut maximiser)
+            loss = -tf.reduce_mean(log_probs * time_discounted_returns)
 
-            # Loss avec gamma^t
-            basic_loss = -tf.reduce_mean(log_probs * time_discounted_returns)
-
-            # Ajout de l'entropie
-            probs = tf.nn.softmax(logits)
-            entropy = -tf.reduce_mean(tf.reduce_sum(probs * tf.math.log(probs + 1e-10), axis=1))
-            loss = basic_loss - 0.01 * entropy
-
-        # Calcul et application des gradients
+        # Mise à jour des paramètres θ
         grads = tape.gradient(loss, self.policy.trainable_variables)
-        grads, _ = tf.clip_by_global_norm(grads, 0.5)
+        grads, _ = tf.clip_by_global_norm(grads, 0.5)  # Pour la stabilité
         self.optimizer.apply_gradients(zip(grads, self.policy.trainable_variables))
 
         return sum(rewards), loss.numpy()
 
-    def train(self, env, episodes=5000):
+    def train(self, env, episodes=20000):
         history = []
-        window_size = 100
+        window_size = 500
 
         for episode in tqdm(range(episodes), desc="Training Episodes"):
             env.reset()
@@ -132,12 +125,12 @@ class REINFORCE:
                 recent_rewards = history[-window_size:]
                 avg_reward = np.mean(recent_rewards)
                 win_rate = np.mean([r > 0 for r in recent_rewards])
-                print(f"Episode {episode + 1}")
+                print(f"\nEpisode {episode + 1}")
                 print(f"Moyenne des récompenses: {avg_reward:.2f}")
                 print(f"Taux de victoire: {win_rate:.2%}")
-                print(f"Loss: {loss:.6f}\n")
+                print(f"Loss: {loss:.6f}")
 
-        self.save_model('../../models/reinforce_model.h5')
+        self.save_model('tiktactoe_reinforce_model.h5')
         return history
 
     def save_model(self, filepath):
@@ -153,53 +146,40 @@ def play_with_reinforce(env, model, episodes=1, display=True):
         episode_reward = 0
 
         while not done:
-            # Obtenir l'état actuel
             state = env.state_description()
             state_tensor = tf.convert_to_tensor(state, dtype=tf.float32)
-
-            # Obtenir les actions valides
             valid_actions = env.available_actions_ids()
 
-            # Prédire les probabilités d'action
-            logits = model(tf.expand_dims(state_tensor, 0), training=False)[0]
-
-            # Masquer les actions invalides
-            mask = np.ones_like(logits.numpy()) * float('-inf')
+            probs = model(tf.expand_dims(state_tensor, 0), training=False)[0]
+            mask = np.ones_like(probs.numpy()) * float('-inf')
             mask[valid_actions] = 0
-            masked_logits = logits + mask
+            masked_probs = tf.nn.softmax(probs + mask).numpy()
 
-            # Obtenir les probabilités
-            probs = tf.nn.softmax(masked_logits).numpy()
-
-            # Sélectionner l'action (en mode évaluation, on prend la meilleure action)
+            # En évaluation, on prend l'action la plus probable
             if len(valid_actions) > 0:
-                # Pendant le test, on prend l'action avec la plus haute probabilité
-                action = valid_actions[np.argmax(probs[valid_actions])]
+                action = valid_actions[np.argmax(masked_probs[valid_actions])]
             else:
                 print("Aucune action valide disponible!")
                 break
 
-            # Exécuter l'action
             prev_score = env.score()
             env.step(action)
             reward = env.score() - prev_score
             episode_reward += reward
             done = env.is_game_over()
 
-            # Afficher l'état du jeu si demandé
             if display:
                 print("\nÉtat actuel:")
                 env.display()
                 print(f"Action choisie: {action}")
                 print(f"Récompense: {reward}")
                 print(f"Score cumulé: {episode_reward}")
-                print("Probabilités des actions:", probs[valid_actions])
+                print("Probabilités des actions:", masked_probs[valid_actions])
 
         total_rewards += episode_reward
         print(f"\nÉpisode {episode + 1}/{episodes} terminé")
         print(f"Récompense totale de l'épisode: {episode_reward}")
 
-    # Calculer et afficher le score moyen
     mean_score = total_rewards / episodes
     print(f"\nScore moyen sur {episodes} épisodes: {mean_score}")
     return mean_score
@@ -207,13 +187,10 @@ def play_with_reinforce(env, model, episodes=1, display=True):
 
 if __name__ == "__main__":
     from environment.tictactoe import TicTacToe
-    from environment.FarkelEnv import FarkleDQNEnv
 
-    # Configuration de TensorFlow pour moins de warnings
     tf.get_logger().setLevel('ERROR')
 
     env = TicTacToe()
-    # env = FarkleDQNEnv()
     agent = REINFORCE(
         state_dim=27,
         action_dim=9,
@@ -221,11 +198,7 @@ if __name__ == "__main__":
         gamma=0.99
     )
 
-    # history = agent.train(env, episodes=5000)
-    model = keras.models.load_model('../../models/reinforce_model.h5')
-    mean_score = play_with_reinforce(
-        env=env,
-        model=model,
-        episodes=100,
-        display=True
-    )
+    history = agent.train(env, episodes=10000)
+    env.reset()
+    model = keras.models.load_model('reinforce_model.h5')
+    mean_score = play_with_reinforce(env=env, model=model, episodes=100, display=True)
