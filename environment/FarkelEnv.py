@@ -333,7 +333,7 @@ def create_farkle_model():
 if __name__ == "__main__":
     env = FarkleEnv()
 
-    env = FarkleDQNEnv(target_score=100)
+    env = FarkleDQNEnv(target_score=2000)
     model = create_farkle_model()
     target_model = keras.models.clone_model(model)
     target_model.set_weights(model.get_weights())
@@ -373,7 +373,7 @@ if __name__ == "__main__":
         online_model=model,
         target_model=target_model,
         env=env,
-        num_episodes=10,
+        num_episodes=100000,
         gamma=0.99,
         alpha=0.0001,
         start_epsilon=1.0,
@@ -381,6 +381,8 @@ if __name__ == "__main__":
         update_target_steps=100,
         batch_size=32,
         memory_size=128,
-        save_path='double_dqn_with_exp_rep_model_tictactoe_test_ouss.h5'
+        save_path='double_dqn_with_exp_rep_model_tictactoe_test_ouss'
     )
+    #rajouter une fonction dans l'algo pour calculer les metriques (en testant l'env sur 1000 parties)
+    #verefier t'as fonction de save s elle marche ou pas
 

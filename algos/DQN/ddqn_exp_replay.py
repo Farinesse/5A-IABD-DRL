@@ -141,6 +141,7 @@ def double_dqn_with_replay(
         if ep_id % update_target_steps == 0:
             target_model.set_weights(online_model.get_weights())
 
+
     # Save the online model at the end of training
     save_model(online_model, save_path)
 
