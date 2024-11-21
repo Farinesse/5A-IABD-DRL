@@ -3,6 +3,7 @@ import random
 from gymnasium import spaces
 from tensorflow.python import keras
 
+from algos.DQN.ddqn_exp_replay import double_dqn_with_replay
 from algos.DQN.deep_qlearning import deep_q_learning
 
 
@@ -297,7 +298,6 @@ class FarkleDQNEnv(FarkleEnv):
     def step(self, action_id):
         """Exécute une action cohérente selon l'ID."""
 
-
         # Convertir l'ID en action binaire
         action = self.decode_action(action_id)
         return super().step(action)
@@ -322,7 +322,6 @@ class FarkleDQNEnv(FarkleEnv):
 def create_farkle_model():
     """Crée le modèle pour Farkle avec la bonne taille d'entrée/sortie."""
     model = keras.Sequential([
-
         keras.layers.Dense(128, activation='relu', input_dim=12),  # 3 + num_players + 6 + 1
         keras.layers.Dense(512, activation='relu'),
         keras.layers.Dense(256, activation='relu'),
@@ -334,16 +333,17 @@ def create_farkle_model():
 if __name__ == "__main__":
     env = FarkleEnv()
 
-    env = FarkleDQNEnv(target_score=1000)
+    env = FarkleDQNEnv(target_score=100)
     model = create_farkle_model()
     target_model = keras.models.clone_model(model)
     target_model.set_weights(model.get_weights())
 
+    '''
     trained_model = deep_q_learning(
                 model=model,
                 target_model=target_model,
                 env=env,
-                num_episodes=30000,
+                num_episodes=10,
                 gamma=0.99,
                 alpha=0.001,
                 start_epsilon=1.0,
@@ -353,7 +353,7 @@ if __name__ == "__main__":
                 update_target_steps=500
             )
     
-    '''
+    
     final_online_model, final_target_model = double_dqn_no_replay(
         online_model=model,
         target_model=model,
@@ -368,4 +368,19 @@ if __name__ == "__main__":
 
     )
     '''
+
+    final_online_model, final_target_model = double_dqn_with_replay(
+        online_model=model,
+        target_model=target_model,
+        env=env,
+        num_episodes=10,
+        gamma=0.99,
+        alpha=0.0001,
+        start_epsilon=1.0,
+        end_epsilon=0.01,  #
+        update_target_steps=100,
+        batch_size=32,
+        memory_size=128,
+        save_path='double_dqn_with_exp_rep_model_tictactoe_test_ouss.h5'
+    )
 

@@ -8,21 +8,18 @@ from functions.outils import custom_two_phase_decay
 
 
 @tf.function(reduce_retracing=True)
-def gradient_step(
-        model,
-        s,
-        a,
-        target,
-        optimizer
-):
+def gradient_step(model, s, a, target, optimizer):
     with tf.GradientTape() as tape:
-        s = tf.ensure_shape(s, [12])  # Dynamically use input_dim
+        # Assurez-vous que s est traité comme un batch
         a = tf.cast(a, dtype=tf.int32)
-        q_s_a = model(tf.expand_dims(s, 0))[0][a]
-        loss = tf.square(q_s_a - target)
+        q_values = model(s)
+        # Utiliser les actions pour récupérer les Q-values correspondantes
+        q_s_a = tf.gather_nd(q_values, tf.expand_dims(a, axis=1), batch_dims=1)
+        loss = tf.reduce_mean(tf.square(q_s_a - target))  # Moyenne de la perte sur le batch
     gradients = tape.gradient(loss, model.trainable_variables)
     optimizer.apply_gradients(zip(gradients, model.trainable_variables))
     return loss
+
 
 
 @tf.function(reduce_retracing=True)
@@ -138,9 +135,9 @@ def double_dqn_with_replay(
                 total_loss += loss.numpy()
 
         total_score += env.score()
-        # progress = ep_id / num_episodes
-        # epsilon = max(end_epsilon, start_epsilon - (start_epsilon - end_epsilon) * progress)
-        epsilon = custom_two_phase_decay(ep_id, start_epsilon, end_epsilon, num_episodes)
+        progress = ep_id / num_episodes
+        epsilon = max(end_epsilon, start_epsilon - (start_epsilon - end_epsilon) * progress)
+        #epsilon = custom_two_phase_decay(ep_id, start_epsilon, end_epsilon, num_episodes)
         if ep_id % update_target_steps == 0:
             target_model.set_weights(online_model.get_weights())
 

@@ -1,5 +1,4 @@
 import math
-from environment.FarkelEnv import FarkleDQNEnv
 
 
 def logarithmic_decay(episode, start_epsilon, end_epsilon, decay_rate=0.01):
@@ -190,7 +189,7 @@ def play_grid_world(game, player_human, player_random, print_game=True):
 
 def play_game_manual():
     """Fonction pour jouer manuellement contre un adversaire aléatoire."""
-    env = FarkleDQNEnv(num_players=2, target_score=5000)
+    env = None #FarkleDQNEnv(num_players=2, target_score=5000)
     state, _ = env.reset()
     done = False
 

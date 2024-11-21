@@ -44,7 +44,7 @@ if __name__ == "__main__":
     print("Actions disponibles:", env.available_actions_ids())
 
 
-def play_with_dqn(env, model, random_agent=None, episodes=1):
+def play_with_dqn(env, model, random_agent=None, episodes=100):
     total_rewards = 0
     episode_scores = []
     episode_times = []

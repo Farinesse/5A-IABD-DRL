@@ -144,6 +144,7 @@ def deep_q_learning(
         s = env.state_description()
         s_tensor = tf.convert_to_tensor(s, dtype=tf.float32)
         # print(s_tensor)
+
         while not env.is_game_over():
             mask = env.action_mask()
             mask_tensor = tf.convert_to_tensor(mask, dtype=tf.float32)
@@ -188,7 +189,11 @@ def deep_q_learning(
         if ep_id % update_target_steps == 0:
             target_model.set_weights(model.get_weights())
 
+
+
     # Sauvegarde du modèle à la fin de l'entraînement
     save_model(model, save_path)
 
     return model
+
+
