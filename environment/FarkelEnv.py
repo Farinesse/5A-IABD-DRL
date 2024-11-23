@@ -5,6 +5,7 @@ from tensorflow.python import keras
 
 from algos.DQN.ddqn_exp_replay import double_dqn_with_replay
 from algos.DQN.deep_qlearning import deep_q_learning
+from functions.outils import plot_dqn_csv_data
 
 
 class FarkleEnv:
@@ -325,6 +326,7 @@ def create_farkle_model():
     """Crée le modèle pour Farkle avec la bonne taille d'entrée/sortie."""
     model = keras.Sequential([
         keras.layers.Dense(128, activation='relu', input_dim=12),  # 3 + num_players + 6 + 1
+        keras.layers.Dense(256, activation='relu'),
         keras.layers.Dense(512, activation='relu'),
         keras.layers.Dense(256, activation='relu'),
         keras.layers.Dense(128)  # Nombre d'actions possibles dans Farkle
@@ -333,28 +335,29 @@ def create_farkle_model():
 
 
 if __name__ == "__main__":
-    env = FarkleEnv()
-
-    env = FarkleDQNEnv(target_score=2000)
+    """env = FarkleDQNEnv(num_players = 1, target_score=2000)
+    test_env = FarkleDQNEnv(num_players = 2, target_score=2000)
     model = create_farkle_model()
     target_model = keras.models.clone_model(model)
     target_model.set_weights(model.get_weights())
 
-    '''
+
     trained_model = deep_q_learning(
                 model=model,
                 target_model=target_model,
                 env=env,
-                num_episodes=10,
+                test_env=test_env,
+                num_episodes=10000,
                 gamma=0.99,
-                alpha=0.001,
+                alpha=0.0001,
                 start_epsilon=1.0,
-                end_epsilon=0.01,#
-                memory_size=512,
-                batch_size=128,
-                update_target_steps=500
-            )
-    
+                end_epsilon=0.01,
+                memory_size=128,
+                batch_size=32,
+                update_target_steps=500,
+                save_path ='../models/models/dqn_model_farkel_tests/ddqn_model_farkel_test_10000_0-99_0-0001_1-0_0-01_128_32_500_129relu12dim_256relu_512relu_256relu_128.h5'
+    )
+
     
     final_online_model, final_target_model = double_dqn_no_replay(
         online_model=model,
@@ -369,9 +372,11 @@ if __name__ == "__main__":
         save_path="ddqn_model_farkel_test2"
 
     )
+
     '''
 
     """final_online_model, final_target_model = double_dqn_with_replay(
+
         online_model=model,
         target_model=target_model,
         env=env,
@@ -385,6 +390,7 @@ if __name__ == "__main__":
         memory_size=128,
         save_path='double_dqn_with_exp_rep_model_tictactoe_test_ouss'
     )
+
     #rajouter une fonction dans l'algo pour calculer les metriques (en testant l'env sur 1000 parties)
     #verefier t'as fonction de save s elle marche ou pas"""
 
@@ -398,6 +404,7 @@ def test_environment(env, num_games=1000):
     """
     total_scores = np.zeros(env.num_players)
     wins = np.zeros(env.num_players)
+
 
     for _ in tqdm(range(num_games), desc="Testing environment"):
         env.reset()
