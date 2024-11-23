@@ -6,6 +6,7 @@ import time
 import tensorflow as tf
 from GUI.Farkel_GUI import main_gui
 from algos.DQN.ddqn import double_dqn_no_replay
+from algos.DQN.deep_qlearning import deep_q_learning
 # Importer les modules nécessaires
 from environment.FarkelEnv import FarkleEnv, FarkleDQNEnv
 from environment.tictactoe import TicTacToe
@@ -122,19 +123,20 @@ if __name__ == "__main__":
             target_model.set_weights(model.get_weights())
 
             # Entraîner l'agent Deep Q-Learning
-            '''trained_model = deep_q_learning(
+            trained_model = deep_q_learning(
                 model=model,
                 target_model=target_model,
                 env=tic_tac_toe,
-                num_episodes=20000,
+                num_episodes=5000,
                 gamma=0.99,
                 alpha=0.0005,
                 start_epsilon=1.0,
                 end_epsilon=0.01, #
-                memory_size=5000,
-                batch_size=256,
-                update_target_steps=1000
-            )'''
+                memory_size=100,
+                batch_size=32,
+                update_target_steps=100
+            )
+            '''
             final_online_model, final_target_model = double_dqn_no_replay(
                 online_model=model,
                 target_model=model,
@@ -146,7 +148,7 @@ if __name__ == "__main__":
                 end_epsilon=0.001,
                 update_target_steps=1000,
                 save_path='double_dqn_tictactoe_final_test.h5'
-            )
+            )'''
             '''  final_online_model, _ = double_dqn_with_replay(
                 online_model=model,
                 target_model=model,
@@ -163,10 +165,10 @@ if __name__ == "__main__":
             )'''
 
             # Jouer une partie avec l'agent DQN contre un agent random
-            play_dqn_vs_random(tic_tac_toe, final_online_model, random_agent_func=random_agent, episodes=100)
+            play_dqn_vs_random(tic_tac_toe, trained_model, random_agent_func=random_agent, episodes=100)
 
             # Calculer le nombre de parties par seconde
-            calculate_games_per_second(tic_tac_toe, final_online_model, random_agent)
+            calculate_games_per_second(tic_tac_toe, trained_model, random_agent)
         else:
             # Jouer à TicTacToe avec deux agents random
             play(tic_tac_toe, random_agent, random_agent)

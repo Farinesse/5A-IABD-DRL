@@ -1,15 +1,24 @@
+import csv
 import keras
 import numpy as np
 import tensorflow as tf
 from tqdm import tqdm
+from environment.FarkelEnv import FarkleDQNEnv
+# from environment.tictactoe import TicTacToe
+
 
 
 class PPO_A2C_Style:
-    def __init__(self, state_dim, action_dim, alpha=0.0003, gamma=0.99, clip_ratio=0.2):
+    def __init__(self, state_dim, action_dim, alpha=0.0003, gamma=0.99, clip_ratio=0.2, epsilon_start=1.0, epsilon_end=0.01, epsilon_decay_episodes=50):
         self.state_dim = state_dim
         self.action_dim = action_dim
         self.gamma = gamma
         self.clip_ratio = clip_ratio
+
+        # Exploration epsilon-greedy
+        self.epsilon = epsilon_start
+        self.epsilon_min = epsilon_end
+        self.epsilon_decay_rate = (epsilon_start - epsilon_end) / epsilon_decay_episodes
 
         # Modèle combiné pour la politique et le critique
         self.model = self._build_model()
@@ -18,8 +27,8 @@ class PPO_A2C_Style:
     def _build_model(self):
         inputs = keras.layers.Input(shape=(self.state_dim,))
         common = keras.layers.Dense(128, activation='relu')(inputs)
+        common = keras.layers.Dense(512, activation='relu')(common)
         common = keras.layers.Dense(256, activation='relu')(common)
-
         # Politique (acteur)
         policy = keras.layers.Dense(self.action_dim)(common)
 
@@ -42,7 +51,7 @@ class PPO_A2C_Style:
         probs = tf.nn.softmax(masked_logits).numpy()
 
         # Epsilon-greedy
-        if np.random.random() < 0.05:
+        if np.random.random() < self.epsilon:
             action = np.random.choice(valid_actions)
         else:
             # Sélectionner une action parmi les actions valides
@@ -99,6 +108,9 @@ class PPO_A2C_Style:
             state = next_state
             episode_reward += reward
 
+        # Réduire epsilon après chaque épisode
+        self.epsilon = max(self.epsilon_min, self.epsilon - self.epsilon_decay_rate)
+
         # Conversion en arrays
         states = np.array(states, dtype=np.float32)
         actions = np.array(actions, dtype=np.int32)
@@ -151,22 +163,27 @@ class PPO_A2C_Style:
         grads = tape.gradient(total_loss, self.model.trainable_variables)
         self.optimizer.apply_gradients(zip(grads, self.model.trainable_variables))
 
-    def train(self, env, episodes=5000):
+    def train(self, env, episodes=100, eval_interval=1000, eval_games=100, csv_filename="training_history_poo.csv"):
         history = []
-        window_size = 100
 
-        for episode in tqdm(range(episodes), desc="Training Episodes"):
-            env.reset()
-            episode_reward = self.train_episode(env)
-            history.append(episode_reward)
+        # Préparer le fichier CSV
+        with open(csv_filename, mode='w', newline='') as file:
+            writer = csv.writer(file)
+            writer.writerow(["Episode", "Score", "Avg Reward", "Avg Length", "Avg Time Per Move"])
 
-            if (episode + 1) % 100 == 0:
-                recent_rewards = history[-window_size:]
-                avg_reward = np.mean(recent_rewards)
-                win_rate = np.mean([r > 0 for r in recent_rewards])
-                print(f"\nEpisode {episode + 1}")
-                print(f"Moyenne des récompenses: {avg_reward:.2f}")
-                print(f"Taux de victoire: {win_rate:.2%}")
+            for episode in tqdm(range(episodes), desc="Training Episodes"):
+                env.reset()
+                episode_reward = self.train_episode(env)
+                history.append(episode_reward)
+
+                # Évaluation périodique
+                if (episode + 1) % eval_interval == 0:
+                    avg_reward, avg_length, avg_time_per_move = self.evaluate_policy(env, episodes=eval_games)
+                    writer.writerow([episode + 1, episode_reward, avg_reward, avg_length, avg_time_per_move])
+                    print(f"\n--- Évaluation après {episode + 1} épisodes ---")
+                    print(f"Score moyen: {avg_reward:.2f}")
+                    print(f"Longueur moyenne: {avg_length:.2f}")
+                    print(f"Temps moyen par coup: {avg_time_per_move:.6f} s")
 
         self.save_model('ppo_a2c_model.h5')
         return history
@@ -175,18 +192,68 @@ class PPO_A2C_Style:
         self.model.save(filepath)
 
 
+    def evaluate_policy(self, env, episodes=100):
+        total_rewards, total_lengths, total_times = [], [], []
+        env = FarkleDQNEnv(num_players=2, target_score=2000)
+        for _ in range(episodes):
+            env.reset()
+            state = env.state_description()
+            done = False
+            rewards, length = 0, 0
+
+            while not done:
+                # Tour du joueur 1 (agent)
+                valid_actions = env.available_actions_ids()
+                action, _ = self.select_action(state, valid_actions)
+
+
+                env.step(action)
+
+
+                if env.game_over:
+                    done = True
+                else:
+
+                    while env.current_player == 1 and not env.game_over:
+                        # Jouer action aléatoire
+                        valid_actions = env.available_actions_ids()
+                        random_action = np.random.choice(valid_actions)
+                        env.step(random_action)
+
+                        if env.game_over:
+                            done = True
+                            break
+
+                state = env.state_description()
+                rewards += env.score()
+                length += 1
+
+            total_rewards.append(rewards)
+            total_lengths.append(length)
+
+        return (
+            np.mean(total_rewards),
+            np.mean(total_lengths),
+            np.mean([0.001] * len(total_rewards))
+        )
+
+
+
+
 if __name__ == "__main__":
-    from environment.tictactoe import TicTacToe
+
 
     tf.get_logger().setLevel('ERROR')
 
-    env = TicTacToe()
+    env = FarkleDQNEnv(num_players=1 , target_score=2000)
+
     agent = PPO_A2C_Style(
-        state_dim=27,
-        action_dim=9,
-        alpha=0.0003,
+        state_dim=12,
+        action_dim=128,
+        alpha=0.0001,
         gamma=0.99,
         clip_ratio=0.2
     )
 
     history = agent.train(env, episodes=50000)
+

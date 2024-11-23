@@ -199,7 +199,7 @@ class REINFORCEWithCritic:
                 print(f"  Policy Loss: {policy_loss:.6f}")
                 print(f"  Critic Loss: {critic_loss:.6f}")
 
-            # Sauvegarde aux checkpoints spécifiques
+            # Sauvegarde aux checkpoints_actor spécifiques
             if (episode + 1) in metrics_checkpoints:
                 self.save_checkpoint_metrics(history, episode + 1)
                 self.save_models(f'reinforce_policy_{episode + 1}.h5', f'reinforce_critic_{episode + 1}.h5')
@@ -212,12 +212,12 @@ class REINFORCEWithCritic:
 
     def save_models(self, policy_path, critic_path):
         """
-        Sauvegarde les modèles policy et critic dans le dossier checkpoints
+        Sauvegarde les modèles policy et critic dans le dossier checkpoints_actor
         """
         try:
-            # Chemins complets dans le dossier checkpoints
-            policy_full_path = os.path.join('checkpoints', policy_path)
-            critic_full_path = os.path.join('checkpoints', critic_path)
+            # Chemins complets dans le dossier checkpoints_actor
+            policy_full_path = os.path.join('checkpoints_actor', policy_path)
+            critic_full_path = os.path.join('checkpoints_actor', critic_path)
 
             # Sauvegarde des modèles
             self.policy.save(policy_full_path)
@@ -257,7 +257,7 @@ if __name__ == "__main__":
     import os
 
     # Création du dossier pour les sauvegardes
-    os.makedirs('checkpoints', exist_ok=True)
+    os.makedirs('checkpoints_actor', exist_ok=True)
 
     tf.get_logger().setLevel('ERROR')
 
@@ -281,3 +281,4 @@ if __name__ == "__main__":
     print(f"Taux de victoire final: {np.mean([r > 0 for r in history['rewards'][-1000:]]):.2%}")
     print(f"Longueur moyenne partie: {np.mean(history['steps_per_episode'][-1000:]):.1f}")
     print(f"Temps moyen par coup: {np.mean(history['time_per_step'][-1000:]) * 1000:.2f}ms")
+

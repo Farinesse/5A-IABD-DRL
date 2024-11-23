@@ -15,7 +15,7 @@ def gradient_step(
         optimizer
 ):
     with tf.GradientTape() as tape:
-        s = tf.ensure_shape(s, [12])  # Dynamically use input_dim
+        s = tf.ensure_shape(s, [27])  # Dynamically use input_dim
         a = tf.cast(a, dtype=tf.int32)
         q_s_a = model(tf.expand_dims(s, 0))[0][a]
         loss = tf.square(q_s_a - target)

@@ -9,13 +9,8 @@ from algos.DQN.deep_qlearning import deep_q_learning
 
 class FarkleEnv:
     def __init__(self, num_players=2, target_score=10000):
-        self.num_players = int(num_players)
+        self.num_players = num_players
         self.target_score = target_score
-        self.observation_space = spaces.Box(
-            low=np.array([0, 0, 0] + [0] * self.num_players + [0] * 6 + [0]),
-            high=np.array([self.num_players - 1, target_score, 6] + [target_score] * self.num_players + [6] * 6 + [1]),
-            dtype=np.int32
-        )
         self.action_space = spaces.Discrete(128)
         self.reset()
         self.stop = False
@@ -24,7 +19,7 @@ class FarkleEnv:
         if seed is not None:
             random.seed(seed)
             np.random.seed(seed)
-        self.scores = [0] * self.num_players
+        self.scores = [0] * 2
         self.current_player = 0
         self.round_score = 0
         self.remaining_dice = 6
@@ -168,6 +163,7 @@ class FarkleEnv:
         return score
 
     def step(self, action):
+        #print(self.scores,self.round_score,self.remaining_dice,self.dice_roll,action)
         action_list = action
         kept_dice = [self.dice_roll[i] for i in range(len(self.dice_roll)) if action_list[i] == 1]
 
@@ -175,10 +171,8 @@ class FarkleEnv:
 
         if new_score == 0 and self.remaining_dice == 6:
             self.round_score = self.round_score + 500
-            self.next_player()
-            if self.current_player == 1 and not self.game_over:
-                # Jouer le tour complet du joueur 2
-                self.play_random_turn()
+            self.dice_roll = self.roll_dice(self.remaining_dice)
+
             return self.get_observation(), 500, False, False, {"stopped": True}
 
         new_score = self._calculate_score(kept_dice, not (self.stop))
@@ -187,9 +181,7 @@ class FarkleEnv:
             lost_points = self.round_score
             self.round_score = 0
             self.next_player()
-            if self.current_player == 1 and not self.game_over:
-                # Jouer le tour complet du joueur 2
-                self.play_random_turn()
+
             return self.get_observation(), -lost_points, False, False, {"farkle": True, "lost_points": lost_points}
 
         self.round_score += new_score
@@ -206,9 +198,7 @@ class FarkleEnv:
                 self.game_over = True
                 return self.get_observation(), reward, True, False, {"win": True}
             self.next_player()
-            if self.current_player == 1 and not self.game_over:
-                # Jouer le tour complet du joueur 2
-                self.play_random_turn()
+
             return self.get_observation(), reward, False, False, {"stopped": True}
 
         self.dice_roll = self.roll_dice(self.remaining_dice)
