@@ -5,6 +5,7 @@ from tensorflow.python import keras
 
 from algos.DQN.ddqn_exp_replay import double_dqn_with_replay
 from algos.DQN.deep_qlearning import deep_q_learning
+from functions.outils import plot_dqn_csv_data
 
 
 class FarkleEnv:
@@ -322,7 +323,7 @@ def create_farkle_model():
 
 
 if __name__ == "__main__":
-    env = FarkleDQNEnv(num_players = 1, target_score=2000)
+    """env = FarkleDQNEnv(num_players = 1, target_score=2000)
     test_env = FarkleDQNEnv(num_players = 2, target_score=2000)
     model = create_farkle_model()
     target_model = keras.models.clone_model(model)
@@ -342,10 +343,10 @@ if __name__ == "__main__":
                 memory_size=128,
                 batch_size=32,
                 update_target_steps=500,
-                save_path = 'ddqn_model_farkel_test_10000_0-99_0-0001_1-0_0-01_128_32_500_129relu12dim_256relu_512relu_256relu_128.h5'
+                save_path ='../models/models/dqn_model_farkel_tests/ddqn_model_farkel_test_10000_0-99_0-0001_1-0_0-01_128_32_500_129relu12dim_256relu_512relu_256relu_128.h5'
     )
 
-    """
+    
     final_online_model, final_target_model = double_dqn_no_replay(
         online_model=model,
         target_model=model,
@@ -375,4 +376,6 @@ if __name__ == "__main__":
         save_path='double_dqn_with_exp_rep_model_tictactoe_test_ouss'
     )
     """
+
+
 

@@ -3,6 +3,7 @@ import time
 import numpy as np
 import pandas as pd
 import tensorflow as tf
+import matplotlib.pyplot as plt
 from statistics import mean
 from algos.DQN.ddqn import epsilon_greedy_action
 
@@ -424,3 +425,38 @@ def dqn_log_metrics_to_dataframe(
     ], ignore_index=True)
 
     return dataframe
+
+
+def plot_dqn_csv_data(file_path):
+    """
+    Lit les données d'un fichier CSV et crée des graphiques pour analyser les performances d'entraînement.
+
+    Arguments:
+        file_path (str): Le chemin du fichier CSV.
+    """
+    # Lire le fichier CSV
+    data = pd.read_csv(file_path)
+
+    # Définir les colonnes importantes
+    x = data['training_episode_index']
+    metrics = {
+        'Mean Score': data['mean_score'],
+        'Mean Time per Episode': data['mean_time_per_episode'],
+        'Win Rate': data['win_rate'],
+        'Mean Steps per Episode': data['mean_steps_per_episode'],
+        'Mean Time per Step': data['mean_time_per_step']
+    }
+
+    # Créer des graphiques
+    plt.figure(figsize=(15, 10))
+
+    for i, (label, y) in enumerate(metrics.items()):
+        plt.subplot(3, 2, i + 1)  # Disposition des sous-graphiques
+        plt.plot(x, y, marker='o')
+        plt.title(label)
+        plt.xlabel('Training Episode Index')
+        plt.ylabel(label)
+        plt.grid(True)
+
+    plt.tight_layout()
+    plt.show()
