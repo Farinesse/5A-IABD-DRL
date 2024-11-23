@@ -326,6 +326,59 @@ def play_with_dqn(env, model, predict_func, episodes=100):
         episode_scores.count(1.0) / episodes
     )
 
+def play_with_ddqn(env, policy_net, target_net, predict_func, episodes=100, epsilon=0.1):
+    episode_scores = []
+    episode_times = []
+    episode_steps = []
+    step_times = []
+    total_time = 0
+
+    for episode in range(episodes):
+        env.reset()
+        nb_turns = 0
+        start_time = time.time()
+
+        while not env.is_game_over():
+            # Obtenir l'état actuel
+            s = env.state_description()
+            s_tensor = tf.convert_to_tensor(s, dtype=tf.float32)
+            mask = env.action_mask()
+            mask_tensor = tf.convert_to_tensor(mask, dtype=tf.float32)
+
+            # Calcul des Q-values via le réseau principal
+            q_s = predict_func(policy_net, s_tensor)
+
+            # Choix de l'action (ε-greedy)
+            if env.current_player == 0:
+                a = epsilon_greedy_action(q_s.numpy(), mask_tensor, env.available_actions_ids(), epsilon)
+                if a not in env.available_actions_ids():
+                    a = np.random.choice(env.available_actions_ids())
+            else:
+                a = np.random.choice(env.available_actions_ids())
+
+            # Exécuter l'action
+            env.step(a)
+            nb_turns += 1
+
+        # Fin de l'épisode
+        end_time = time.time()
+
+        episode_time = end_time - start_time
+        episode_scores.append(env.score())
+        episode_times.append(episode_time)
+        total_time += episode_time
+        episode_steps.append(nb_turns)
+        step_times.append(episode_time / nb_turns)
+
+    # Calcul des métriques
+    return (
+        mean(episode_scores),
+        mean(episode_times),
+        mean(episode_steps),
+        mean(step_times),
+        episode_scores.count(1.0) / episodes
+    )
+
 
 def dqn_log_metrics_to_dataframe(
         function,
