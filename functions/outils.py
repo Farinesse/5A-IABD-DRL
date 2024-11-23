@@ -1,8 +1,15 @@
 import math
+import time
+import numpy as np
+import pandas as pd
+import tensorflow as tf
+from statistics import mean
+from algos.DQN.ddqn import epsilon_greedy_action
 
 
 def logarithmic_decay(episode, start_epsilon, end_epsilon, decay_rate=0.01):
     return max(end_epsilon, start_epsilon - decay_rate * math.log(1 + episode))
+
 
 def custom_two_phase_decay(episode, start_epsilon, end_epsilon, total_episodes, midpoint=0.5):
     # Point de transition entre phase lente et phase rapide
@@ -17,6 +24,7 @@ def custom_two_phase_decay(episode, start_epsilon, end_epsilon, total_episodes, 
         remaining_episodes = total_episodes - transition_point
         progress = (episode - transition_point) / remaining_episodes
         return 0.5 * math.exp(-5 * progress)  # 0.5 est la valeur d'epsilon au point de transition
+
 
 def human_move(game):
     """
@@ -34,6 +42,7 @@ def human_move(game):
         except ValueError:
             print("Case invalide, essayez à nouveau.")
     return val
+
 
 def play(game, player_x, player_o, print_game=True):
     """
@@ -62,11 +71,10 @@ def play(game, player_x, player_o, print_game=True):
             '''
         square = player_x(game)
         game.step(square)  # Exécute l'action
-        print("state : ",game.state_description())
-        print("ACTION : " , game.available_actions_ids())
+        print("state : ", game.state_description())
+        print("ACTION : ", game.available_actions_ids())
 
-        print("ACTION MASK : ",game.action_mask())
-
+        print("ACTION MASK : ", game.action_mask())
 
         if print_game:
             print(f'{letter} a joué sur la case {square}')
@@ -83,6 +91,7 @@ def play(game, player_x, player_o, print_game=True):
 
         # Changement de joueur
         letter = 'O' if letter == 'X' else 'X'
+
 
 def human_move_line_world(game):
     """
@@ -104,6 +113,7 @@ def human_move_line_world(game):
         except ValueError:
             print("Entrée invalide, veuillez entrer un nombre.")
     return action
+
 
 def play_line_world(game, player_human, player_random, print_game=True):
     """
@@ -135,6 +145,7 @@ def play_line_world(game, player_human, player_random, print_game=True):
                 print("Jeu terminé ! L'agent est dans un état terminal.")
             break
 
+
 def human_move_grid_world(game):
     """
     Permet à l'humain de choisir une action dans GridWorld.
@@ -156,6 +167,7 @@ def human_move_grid_world(game):
         except ValueError:
             print("Entrée invalide, veuillez entrer un nombre.")
     return action
+
 
 def play_grid_world(game, player_human, player_random, print_game=True):
     """
@@ -187,9 +199,10 @@ def play_grid_world(game, player_human, player_random, print_game=True):
                 print("Jeu terminé ! L'agent est dans un état terminal.")
             break
 
+
 def play_game_manual():
     """Fonction pour jouer manuellement contre un adversaire aléatoire."""
-    env = None #FarkleDQNEnv(num_players=2, target_score=5000)
+    env = None  # FarkleDQNEnv(num_players=2, target_score=5000)
     state, _ = env.reset()
     done = False
 
@@ -263,3 +276,98 @@ def play_game_manual():
         print("🎉 Félicitations! Vous avez gagné!")
     else:
         print("😔 L'adversaire a gagné. Meilleure chance la prochaine fois!")
+
+
+def play_with_dqn(env, model, predict_func, episodes=100):
+    episode_scores = []
+    episode_times = []
+    episode_steps = []
+    step_times = []
+    total_time = 0
+
+    for episode in range(episodes):
+        env.reset()
+        nb_turns = 0
+        start_time = time.time()
+
+        while not env.is_game_over():
+            s = env.state_description()
+            s_tensor = tf.convert_to_tensor(s, dtype=tf.float32)
+            mask = env.action_mask()
+            mask_tensor = tf.convert_to_tensor(mask, dtype=tf.float32)
+
+            q_s = predict_func(model, s_tensor)
+
+            if env.current_player == 0:
+                a = epsilon_greedy_action(q_s.numpy(), mask_tensor, env.available_actions_ids(), 0.000001)
+                if a not in env.available_actions_ids():
+                    # print(f"Action invalide {a}, choix aléatoire à la place.")
+                    a = np.random.choice(env.available_actions_ids())
+            else:
+                a = np.random.choice(env.available_actions_ids())
+
+            env.step(a)
+            nb_turns += 1
+        end_time = time.time()
+
+        episode_time = end_time - start_time
+        episode_scores.append(env.score())
+        episode_times.append(episode_time)
+        total_time += episode_time
+        episode_steps.append(nb_turns)
+        step_times.append(episode_time / nb_turns)
+
+
+    return (
+        mean(episode_scores),
+        mean(episode_times),
+        mean(episode_steps),
+        mean(step_times),
+        episode_scores.count(1.0) / episodes
+    )
+
+
+def dqn_log_metrics_to_dataframe(
+        function,
+        model,
+        predict_func,
+        env,
+        episode_index,
+        games = 1000,
+        dataframe = None
+):
+    if dataframe is None:
+        dataframe = pd.DataFrame(
+            {
+                'training_episode_index': pd.Series(dtype='int'),
+                'mean_score': pd.Series(dtype='float'),
+                'mean_time_per_episode': pd.Series(dtype='float'),
+                'win_rate': pd.Series(dtype='float'),
+                'mean_steps_per_episode': pd.Series(dtype='float'),
+                'mean_time_per_step': pd.Series(dtype='float')
+            }
+        )
+
+    (
+        mean_score,
+        mean_time_per_episode,
+        mean_steps_per_episode,
+        mean_time_per_step,
+        win_rate
+     ) = function(env, model, predict_func, games)
+
+    print(f"Episode {episode_index}: Mean Score: {mean_score}, Mean Time: {mean_time_per_episode}, Win Rate: {win_rate}, Mean Steps: {mean_steps_per_episode}, Mean Time per Step: {mean_time_per_step}")
+
+    dataframe = pd.concat([
+        dataframe,
+        pd.DataFrame([{
+            'training_episode_index': episode_index,
+            'mean_score': mean_score,
+            'mean_time_per_episode': mean_time_per_episode,
+            'win_rate': win_rate,
+            'mean_steps_per_episode': mean_steps_per_episode,
+            'mean_time_per_step': mean_time_per_step
+        }])
+    ], ignore_index=True)
+
+    return dataframe

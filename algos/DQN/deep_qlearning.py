@@ -1,9 +1,10 @@
-import keras
 import random
+import keras
 import numpy as np
 import tensorflow as tf
-from tqdm import tqdm
 from collections import deque
+from tqdm import tqdm
+from functions.outils import dqn_log_metrics_to_dataframe, play_with_dqn
 
 
 @tf.function(reduce_retracing=True)
@@ -15,7 +16,7 @@ def gradient_step(
         optimizer
 ):
     with tf.GradientTape() as tape:
-        s = tf.ensure_shape(s, [27])  # Dynamically use input_dim
+        s = tf.ensure_shape(s, [12])  # Dynamically use input_dim
         a = tf.cast(a, dtype=tf.int32)
         q_s_a = model(tf.expand_dims(s, 0))[0][a]
         loss = tf.square(q_s_a - target)
@@ -82,22 +83,21 @@ def debug_action_selection(
 
 def save_model(
         model,
-        file_path
+        file_path,
+        save_format="tf"
 ):
     """
     Sauvegarde le modèle dans un fichier.
 
     :param model: Le modèle à sauvegarder
     :param file_path: Le chemin du fichier où sauvegarder le modèle
+    :param save_format: Le format de sauvegarde ('tf' pour TensorFlow ou 'h5' pour HDF5)
     """
     try:
-        model.save(file_path)
-        print(f"Modèle sauvegardé avec succès dans {file_path}")
-    except Exception as e:
-        print(f"Erreur lors de la sauvegarde du modèle : {e}")
-    try:
-        model.save(file_path)
-        print(f"Modèle sauvegardé avec succès dans {file_path}")
+        model.save(file_path, save_format=save_format)
+        print(f"Modèle sauvegardé avec succès dans {file_path} au format {save_format}")
+    except ImportError as e:
+        print(f"Erreur d'importation (vérifiez TensorFlow et h5py) : {e}")
     except Exception as e:
         print(f"Erreur lors de la sauvegarde du modèle : {e}")
 
@@ -106,6 +106,7 @@ def deep_q_learning(
         model,
         target_model,
         env,
+        test_env,
         num_episodes,
         gamma,
         alpha,
@@ -118,43 +119,52 @@ def deep_q_learning(
         save_path='dqn_model_farkel.h5'
 ):
     optimizer = keras.optimizers.SGD(
-        learning_rate=alpha,  # Légèrement plus élevé que votre valeur précédente
+        learning_rate=alpha,
         momentum=0.999,  # Ajout de momentum pour une convergence plus rapide
         nesterov=True,  # Utilisation de Nesterov momentum pour une meilleure performance
-        weight_decay=1e-4  # Légèrement augmenté pour une meilleure régularisation
+        weight_decay=1e-4 # Ajout de régularisation L2 pour éviter le surapprentissage
     )
 
     # optimizer = tf.keras.optimizers.Adam(learning_rate=alpha)  # Ajuste le taux d'apprentissage
 
     memory = deque(maxlen=memory_size)
     epsilon = start_epsilon
-    total_score = 0.0
     total_loss = 0.0
+    interval = 100
+    results_df = None
 
     for ep_id in tqdm(range(num_episodes)):
-        if ep_id % 100 == 0 and ep_id > 0:
-            print(f"Mean Score: {total_score / 100}, Mean Loss: {total_loss / 100}, Epsilon: {epsilon}")
-            total_score = 0.0
+        if ep_id % interval == 0 and ep_id > 0:
+
+
+            results_df = dqn_log_metrics_to_dataframe(
+                function = play_with_dqn,
+                model = model,
+                predict_func = model_predict,
+                env = test_env,
+                episode_index = ep_id,
+                games = 1000,
+                dataframe = results_df
+            )
+
+            print(f"Mean Loss: {total_loss / interval}, Epsilon: {epsilon}")
             total_loss = 0.0
 
         env.reset()
         if env.is_game_over():
             continue
 
-        s = env.state_description()
-        s_tensor = tf.convert_to_tensor(s, dtype=tf.float32)
-        # print(s_tensor)
-
         while not env.is_game_over():
+            s = env.state_description()
+            s_tensor = tf.convert_to_tensor(s, dtype=tf.float32)
             mask = env.action_mask()
             mask_tensor = tf.convert_to_tensor(mask, dtype=tf.float32)
 
             q_s = model_predict(model, s_tensor)
             a = epsilon_greedy_action(q_s, mask_tensor, env.available_actions_ids(), epsilon)
 
-            # Assurez-vous que l'action choisie est valide
             if a not in env.available_actions_ids():
-                print(f"Action {a} invalide, prise aléatoire à la place.")
+                # print(f"Action {a} invalide, prise aléatoire à la place.")
                 a = np.random.choice(env.available_actions_ids())
 
             prev_score = env.score()
@@ -180,9 +190,6 @@ def deep_q_learning(
                     loss = gradient_step(model, state, action, target, optimizer)
                     total_loss += loss.numpy()
 
-            s_tensor = s_prime_tensor
-
-        total_score += env.score()
         progress = ep_id / num_episodes
         epsilon = (1.0 - progress) * start_epsilon + progress * end_epsilon
 
@@ -192,8 +199,9 @@ def deep_q_learning(
 
 
     # Sauvegarde du modèle à la fin de l'entraînement
-    save_model(model, save_path)
+    save_model(model, save_path, save_format="h5")
+
+    # df to csv
+    results_df.to_csv(f'{save_path}_metrics.csv', index=False)
 
     return model
-
-
