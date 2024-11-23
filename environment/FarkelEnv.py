@@ -263,17 +263,23 @@ class FarkleDQNEnv(FarkleEnv):
         return [int(b) for b in format(action_id, '07b')]
 
     def score(self) -> float:
-
+        """
+        Retourne un score entre -1.0 et 1.0 en fonction de l'état du jeu.
+        """
         # Si le jeu est terminé
         if self.game_over:
+            # Vérifier le score du joueur actuel
             if self.scores[0] >= self.target_score:
-                return 1.0  # Victoire
+                return 1.0  # Le joueur 1 a gagné
             elif self.num_players > 1 and self.scores[1] >= self.target_score:
-                return -1.0  # Défaite
-            return 0.0  # Match nul ou autre condition
+                return -1.0  # Le joueur 2 a gagné (si 2 joueurs)
+            else:
+                return 0.0  # Match nul ou fin de partie sans vainqueur
 
-        # Si le jeu n'est pas terminé, vous pouvez choisir de retourner 0
-        return self.scores[self.current_player] / self.target_score
+        # Si le jeu n'est pas terminé, retour du score normalisé
+        # Le score est basé sur la proportion du score actuel du joueur par rapport à l'objectif
+        return 0.0
+        #self.scores[self.current_player] / self.target_score
 
     def is_game_over(self) -> bool:
         """
@@ -291,7 +297,13 @@ class FarkleDQNEnv(FarkleEnv):
 
         # Convertir l'ID en action binaire
         action = self.decode_action(action_id)
-        return super().step(action)
+        observation, reward, done, truncated, info = super().step(action)
+        if not done and self.current_player == 1:
+            """action_id = self.get_random_action()
+            action = self.decode_action(action_id)
+            super().step(action)"""
+            self.play_random_turn()
+        return observation, reward, done, truncated, info
 
     def get_random_action(self):
         """Retourne un ID d'action valide."""
@@ -360,8 +372,11 @@ if __name__ == "__main__":
         save_path="ddqn_model_farkel_test2"
 
     )
-    
-    final_online_model, final_target_model = double_dqn_with_replay(
+
+    '''
+
+    """final_online_model, final_target_model = double_dqn_with_replay(
+
         online_model=model,
         target_model=target_model,
         env=env,
@@ -375,7 +390,44 @@ if __name__ == "__main__":
         memory_size=128,
         save_path='double_dqn_with_exp_rep_model_tictactoe_test_ouss'
     )
+
+    #rajouter une fonction dans l'algo pour calculer les metriques (en testant l'env sur 1000 parties)
+    #verefier t'as fonction de save s elle marche ou pas"""
+
+import numpy as np
+from tqdm import tqdm
+
+def test_environment(env, num_games=1000):
     """
+    Teste l'environnement Farkle en jouant des parties aléatoires.
+    Retourne les métriques : scores moyens et nombre de victoires par joueur.
+    """
+    total_scores = np.zeros(env.num_players)
+    wins = np.zeros(env.num_players)
 
 
+    for _ in tqdm(range(num_games), desc="Testing environment"):
+        env.reset()
+        while not env.game_over:
 
+            action_id = env.get_random_action()
+            observation, reward, done, truncated, info = env.step(action_id)
+            print(
+                f"descrip {env.state_description()}, Des = {env.dice_roll}, action = {env.decode_action(action_id)}, etat  = {env.get_observation()}")
+
+        # Enregistrer le score final et la victoire
+        total_scores += np.array(env.scores)
+        winner = np.argmax(env.scores)
+        wins[winner] += 1
+
+    avg_scores = total_scores / num_games
+
+    print("\n--- Résultats du test ---")
+    for i in range(env.num_players):
+        print(f"Joueur {i+1}: Score moyen = {avg_scores[i]:.2f}, Victoires = {wins[i]} ({(wins[i] / num_games) * 100:.2f}%)")
+
+    return avg_scores, wins
+
+if __name__ == "__main__":
+    env = FarkleDQNEnv(target_score=2000)  # Environnement Farkle
+    avg_scores, wins = test_environment(env, num_games=10)
