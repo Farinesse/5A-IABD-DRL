@@ -2,6 +2,7 @@ import numpy as np
 import keras
 import tensorflow as tf
 from tqdm import tqdm
+from functions.outils import dqn_log_metrics_to_dataframe, play_with_dqn, epsilon_greedy_action
 
 
 @tf.function(reduce_retracing=True)
@@ -32,30 +33,25 @@ def model_predict(
     return model(tf.expand_dims(s, 0))[0]
 
 
-def epsilon_greedy_action(
-        q_s: tf.Tensor,
-        mask: tf.Tensor,
-        available_actions: np.ndarray,
-        epsilon: float
-) -> int:
-    if np.random.rand() < epsilon:
-        return np.random.choice(available_actions)
-    else:
-        # inverted_mask = tf.constant(1.0) - mask
-        masked_q_s = q_s * mask + (1.0 - mask) * tf.float32.min
-        return int(tf.argmax(masked_q_s, axis=0))
-
-
 def save_model(
         model,
-        file_path
+        file_path,
+        save_format="tf"
 ):
+    """
+    Sauvegarde le modèle dans un fichier.
+
+    :param model: Le modèle à sauvegarder
+    :param file_path: Le chemin du fichier où sauvegarder le modèle
+    :param save_format: Le format de sauvegarde ('tf' pour TensorFlow ou 'h5' pour HDF5)
+    """
     try:
-        tf.saved_model.save(model, file_path)  # dossier
-        # model.save(file_path) # .h5
-        print(f"Model successfully saved to {file_path}")
+        model.save(file_path, save_format=save_format)
+        print(f"Modèle sauvegardé avec succès dans {file_path} au format {save_format}")
+    except ImportError as e:
+        print(f"Erreur d'importation (vérifiez TensorFlow et h5py) : {e}")
     except Exception as e:
-        print(f"Error saving the model: {e}")
+        print(f"Erreur lors de la sauvegarde du modèle : {e}")
 
 
 def double_dqn_no_replay(
@@ -67,31 +63,49 @@ def double_dqn_no_replay(
         alpha,
         start_epsilon,
         end_epsilon,
-        update_target_steps=10000,
+        update_target_steps=1000,
         save_path='models/double_dqn_model_Farkel_test1',
-        input_dim=12,
-        output_dim=128
+        input_dim=12
 ):
-    # optimizer = keras.optimizers.SGD(learning_rate=alpha, momentum=0.9, nesterov=True)
-    optimizer = tf.keras.optimizers.Adam(learning_rate=alpha)  # Ajuste le taux d'apprentissage
+    """
+    optimizer = keras.optimizers.SGD(
+        learning_rate=alpha,
+        momentum=0.999,  # Ajout de momentum pour une convergence plus rapide
+        nesterov=True,  # Utilisation de Nesterov momentum pour une meilleure performance
+        weight_decay=1e-4 # Ajout de régularisation L2 pour éviter le surapprentissage
+    )
+    """
+
+    optimizer = keras.optimizers.Adam(learning_rate=alpha)
 
     epsilon = start_epsilon
-    total_score = 0.0
     total_loss = 0.0
+    interval = 100
+    results_df = None
 
     for ep_id in tqdm(range(num_episodes)):
-        if ep_id % 1000 == 0 and ep_id > 0:
-            print(f"Mean Score: {total_score / 1000}, Mean Loss: {total_loss / 1000}, Epsilon: {epsilon}")
-            total_score = 0.0
+        if ep_id % interval == 0 and ep_id > 0:
+
+            results_df = dqn_log_metrics_to_dataframe(
+                function = play_with_dqn,
+                model = online_model,
+                predict_func = model_predict,
+                env = env,
+                episode_index = ep_id,
+                games = 1000,
+                dataframe = results_df
+            )
+
+            print(f"Mean Loss: {total_loss / interval}, Epsilon: {epsilon}")
             total_loss = 0.0
 
         env.reset()
         if env.is_game_over():
             continue
 
-        s = env.state_description()
-        s_tensor = tf.convert_to_tensor(s, dtype=tf.float32)
         while not env.is_game_over():
+            s = env.state_description()
+            s_tensor = tf.convert_to_tensor(s, dtype=tf.float32)
             mask = env.action_mask()
             mask_tensor = tf.convert_to_tensor(mask, dtype=tf.float32)
 
@@ -123,14 +137,14 @@ def double_dqn_no_replay(
             loss = gradient_step(online_model, s_tensor, a, target, optimizer, input_dim)
             total_loss += loss.numpy()
 
-        total_score += env.score()
         progress = ep_id / num_episodes
         epsilon = (1.0 - progress) * start_epsilon + progress * end_epsilon
 
         if ep_id % update_target_steps == 0:
             target_model.set_weights(online_model.get_weights())
 
-    # Save the online model at the end of training
-    save_model(online_model, save_path)
+    save_model(online_model, save_path, save_format="h5")
+
+    results_df.to_csv(f'{save_path}_metrics.csv', index=False)
 
     return online_model, target_model

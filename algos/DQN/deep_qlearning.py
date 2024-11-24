@@ -4,7 +4,7 @@ import numpy as np
 import tensorflow as tf
 from collections import deque
 from tqdm import tqdm
-from functions.outils import dqn_log_metrics_to_dataframe, play_with_dqn
+from functions.outils import dqn_log_metrics_to_dataframe, play_with_dqn, epsilon_greedy_action
 
 
 @tf.function(reduce_retracing=True)
@@ -13,10 +13,11 @@ def gradient_step(
         s,
         a,
         target,
-        optimizer
+        optimizer,
+        input_dim
 ):
     with tf.GradientTape() as tape:
-        s = tf.ensure_shape(s, [12])  # Dynamically use input_dim
+        s = tf.ensure_shape(s, [input_dim])  # Dynamically use input_dim
         a = tf.cast(a, dtype=tf.int32)
         q_s_a = model(tf.expand_dims(s, 0))[0][a]
         loss = tf.square(q_s_a - target)
@@ -30,24 +31,8 @@ def model_predict(
         model,
         s
 ):
-    s = tf.ensure_shape(s, [None])  # Assurer une forme constante
+    s = tf.ensure_shape(s, [None])  # Ensure constant shape
     return model(tf.expand_dims(s, 0))[0]
-
-
-def epsilon_greedy_action(
-        q_s: tf.Tensor,
-        mask: tf.Tensor,
-        available_actions: np.ndarray,
-        epsilon: float
-) -> int:
-    if np.random.rand() < epsilon:
-        return np.random.choice(available_actions)
-    else:
-        # inverted_mask = tf.constant(1.0) - mask
-
-        masked_q_s = q_s * mask + (1.0 - mask) * tf.float32.min
-
-        return int(tf.argmax(masked_q_s, axis=0))
 
 
 def debug_action_selection(
@@ -106,7 +91,6 @@ def deep_q_learning(
         model,
         target_model,
         env,
-        test_env,
         num_episodes,
         gamma,
         alpha,
@@ -115,17 +99,19 @@ def deep_q_learning(
         memory_size=512,
         batch_size=32,
         update_target_steps=1000,
-        epsilon_decay=0.9,
-        save_path='dqn_model_farkel.h5'
+        save_path='dqn_model_farkel.h5',
+        input_dim=12
 ):
+    """
     optimizer = keras.optimizers.SGD(
         learning_rate=alpha,
         momentum=0.999,  # Ajout de momentum pour une convergence plus rapide
         nesterov=True,  # Utilisation de Nesterov momentum pour une meilleure performance
         weight_decay=1e-4 # Ajout de régularisation L2 pour éviter le surapprentissage
     )
+    """
 
-    # optimizer = tf.keras.optimizers.Adam(learning_rate=alpha)  # Ajuste le taux d'apprentissage
+    optimizer = keras.optimizers.Adam(learning_rate=alpha)
 
     memory = deque(maxlen=memory_size)
     epsilon = start_epsilon
@@ -136,12 +122,11 @@ def deep_q_learning(
     for ep_id in tqdm(range(num_episodes)):
         if ep_id % interval == 0 and ep_id > 0:
 
-
             results_df = dqn_log_metrics_to_dataframe(
                 function = play_with_dqn,
                 model = model,
                 predict_func = model_predict,
-                env = test_env,
+                env = env,
                 episode_index = ep_id,
                 games = 1000,
                 dataframe = results_df
@@ -164,12 +149,13 @@ def deep_q_learning(
             a = epsilon_greedy_action(q_s, mask_tensor, env.available_actions_ids(), epsilon)
 
             if a not in env.available_actions_ids():
-                # print(f"Action {a} invalide, prise aléatoire à la place.")
+                print(f"Action {a} invalide, prise aléatoire à la place.")
                 a = np.random.choice(env.available_actions_ids())
 
             prev_score = env.score()
             env.step(a)
             r = env.score() - prev_score
+
             s_prime = env.state_description()
             s_prime_tensor = tf.convert_to_tensor(s_prime, dtype=tf.float32)
 
@@ -187,7 +173,7 @@ def deep_q_learning(
                         q_next = model_predict(target_model, next_state)
                         target = reward + gamma * tf.reduce_max(q_next * next_mask_tensor)
 
-                    loss = gradient_step(model, state, action, target, optimizer)
+                    loss = gradient_step(model, state, action, target, optimizer, input_dim)
                     total_loss += loss.numpy()
 
         progress = ep_id / num_episodes
@@ -196,12 +182,8 @@ def deep_q_learning(
         if ep_id % update_target_steps == 0:
             target_model.set_weights(model.get_weights())
 
-
-
-    # Sauvegarde du modèle à la fin de l'entraînement
     save_model(model, save_path, save_format="h5")
 
-    # df to csv
     results_df.to_csv(f'{save_path}_metrics.csv', index=False)
 
     return model

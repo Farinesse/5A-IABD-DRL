@@ -1,6 +1,12 @@
 import random
 import numpy as np
 from typing import List, Tuple
+import keras
+
+from algos.DQN.ddqn import double_dqn_no_replay
+from algos.DQN.ddqn_exp_replay import double_dqn_with_replay
+from algos.DQN.deep_qlearning import deep_q_learning
+from functions.outils import plot_dqn_csv_data
 
 NUM_ACTIONS = 9
 NUM_STATE_FEATURES = 27
@@ -112,3 +118,70 @@ class TicTacToe:
         print(f"Score : {self._score}")
         print(f"Joueur {'X' if self._player == 0 else 'O'} à jouer")
         print(f"Jeu terminé : {self._is_game_over}")
+
+def create_ttt_model():
+    model = keras.Sequential([
+        keras.layers.Dense(128, activation='relu', input_dim=27),
+        keras.layers.Dense(256, activation='relu'),
+        keras.layers.Dense(256, activation='relu'),
+        keras.layers.Dense(9)
+    ])
+    return model
+
+
+if __name__ == "__main__":
+
+    env = TicTacToe()
+    model = create_ttt_model()
+    target_model = keras.models.clone_model(model)
+    target_model.set_weights(model.get_weights())
+
+    """
+    trained_model = deep_q_learning(
+        model=model,
+        target_model=target_model,
+        env=env,
+        num_episodes=10000,
+        gamma=0.99,
+        alpha=0.0001,
+        start_epsilon=1.0,
+        end_epsilon=0.01,
+        memory_size=16,
+        batch_size=8,
+        update_target_steps=100,
+        save_path="dqn_model_ttt_test_10000_0-99_0-0001_1-0_0-01_16_8_100.h5",
+        input_dim=27
+    )
+
+    trained_model, target_model = double_dqn_no_replay(
+        online_model=model,
+        target_model=target_model,
+        env=env,
+        num_episodes=10000,
+        gamma=0.99,
+        alpha=0.0001,
+        start_epsilon=1.0,
+        end_epsilon=0.01,
+        update_target_steps=100,
+        save_path="ddqn_model_ttt_test_10000_0-99_0-0001_1-0_0-01_16_8_100.h5",
+        input_dim=27
+    )
+    """
+    trained_model, target_model = double_dqn_with_replay(
+        online_model=model,
+        target_model=target_model,
+        env=env,
+        num_episodes=10000,
+        gamma=0.99,
+        alpha=0.0001,
+        start_epsilon=1.0,
+        end_epsilon=0.01,
+        memory_size=16,
+        batch_size=8,
+        update_target_steps=100,
+        save_path="../models/models/ddqn_replay/ddqn_replay_model_ttt_tests/ddqn_with_replay_model_ttt_test_10000_0-99_0-0001_1-0_0-01_16_8_100.h5",
+        input_dim=27
+    )
+
+    plot_dqn_csv_data(
+        "../models/models/ddqn_replay/ddqn_replay_model_ttt_tests/ddqn_with_replay_model_ttt_test_10000_0-99_0-0001_1-0_0-01_16_8_100.h5_metrics.csv")

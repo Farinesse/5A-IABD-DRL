@@ -4,22 +4,26 @@ import numpy as np
 import tensorflow as tf
 from tqdm import tqdm
 from collections import deque
-from functions.outils import custom_two_phase_decay
+from functions.outils import dqn_log_metrics_to_dataframe, play_with_dqn, epsilon_greedy_action
 
 
 @tf.function(reduce_retracing=True)
-def gradient_step(model, s, a, target, optimizer):
+def gradient_step(
+        model,
+        s,
+        a,
+        target,
+        optimizer,
+        input_dim
+):
     with tf.GradientTape() as tape:
-        # Assurez-vous que s est traité comme un batch
+        s = tf.ensure_shape(s, [input_dim])  # Dynamically use input_dim
         a = tf.cast(a, dtype=tf.int32)
-        q_values = model(s)
-        # Utiliser les actions pour récupérer les Q-values correspondantes
-        q_s_a = tf.gather_nd(q_values, tf.expand_dims(a, axis=1), batch_dims=1)
-        loss = tf.reduce_mean(tf.square(q_s_a - target))  # Moyenne de la perte sur le batch
+        q_s_a = model(tf.expand_dims(s, 0))[0][a]
+        loss = tf.square(q_s_a - target)
     gradients = tape.gradient(loss, model.trainable_variables)
     optimizer.apply_gradients(zip(gradients, model.trainable_variables))
     return loss
-
 
 
 @tf.function(reduce_retracing=True)
@@ -27,33 +31,29 @@ def model_predict(
         model,
         s
 ):
-    s = tf.ensure_shape(s, [None, None])  # Ensure constant shape
-    return model(s)
-
-
-def epsilon_greedy_action(
-        q_s,
-        mask,
-        available_actions,
-        epsilon
-):
-    if np.random.rand() < epsilon:
-        return np.random.choice(available_actions)
-    else:
-        inverted_mask = tf.constant(1.0) - mask
-        masked_q_s = q_s * mask + tf.float32.min * inverted_mask
-        return int(tf.argmax(masked_q_s, axis=-1))
+    s = tf.ensure_shape(s, [None])  # Ensure constant shape
+    return model(tf.expand_dims(s, 0))[0]
 
 
 def save_model(
         model,
-        file_path
+        file_path,
+        save_format="tf"
 ):
+    """
+    Sauvegarde le modèle dans un fichier.
+
+    :param model: Le modèle à sauvegarder
+    :param file_path: Le chemin du fichier où sauvegarder le modèle
+    :param save_format: Le format de sauvegarde ('tf' pour TensorFlow ou 'h5' pour HDF5)
+    """
     try:
-        model.save(file_path)
-        print(f"Model successfully saved to {file_path}")
+        model.save(file_path, save_format=save_format)
+        print(f"Modèle sauvegardé avec succès dans {file_path} au format {save_format}")
+    except ImportError as e:
+        print(f"Erreur d'importation (vérifiez TensorFlow et h5py) : {e}")
     except Exception as e:
-        print(f"Error saving the model: {e}")
+        print(f"Erreur lors de la sauvegarde du modèle : {e}")
 
 
 def double_dqn_with_replay(
@@ -65,22 +65,43 @@ def double_dqn_with_replay(
         alpha,
         start_epsilon,
         end_epsilon,
-        update_target_steps=10000,
+        memory_size=512,
         batch_size=32,
-        memory_size=10000,
-        save_path='double_dqn_with_exp_rep_model_tictactoe.h5'
+        update_target_steps=1000,
+        save_path='double_dqn_with_exp_rep_model_tictactoe.h5',
+        input_dim=12
 ):
-    optimizer = keras.optimizers.SGD(learning_rate=alpha, momentum=0.9, nesterov=True)
+    """
+    optimizer = keras.optimizers.SGD(
+        learning_rate=alpha,
+        momentum=0.999,  # Ajout de momentum pour une convergence plus rapide
+        nesterov=True,  # Utilisation de Nesterov momentum pour une meilleure performance
+        weight_decay=1e-4 # Ajout de régularisation L2 pour éviter le surapprentissage
+    )
+    """
 
-    epsilon = start_epsilon
-    total_score = 0.0
-    total_loss = 0.0
+    optimizer = keras.optimizers.Adam(learning_rate=alpha)
+
     memory = deque(maxlen=memory_size)
+    epsilon = start_epsilon
+    total_loss = 0.0
+    interval = 100
+    results_df = None
 
     for ep_id in tqdm(range(num_episodes)):
-        if ep_id % 1000 == 0 and ep_id > 0:
-            print(f"Mean Score: {total_score / 1000}, Mean Loss: {total_loss / 1000}, Epsilon: {epsilon}")
-            total_score = 0.0
+        if ep_id % interval == 0 and ep_id > 0:
+
+            results_df = dqn_log_metrics_to_dataframe(
+                function = play_with_dqn,
+                model = online_model,
+                predict_func = model_predict,
+                env = env,
+                episode_index = ep_id,
+                games = 1000,
+                dataframe = results_df
+            )
+
+            print(f"Mean Loss: {total_loss / interval}, Epsilon: {epsilon}")
             total_loss = 0.0
 
         env.reset()
@@ -93,7 +114,7 @@ def double_dqn_with_replay(
             mask = env.action_mask()
             mask_tensor = tf.convert_to_tensor(mask, dtype=tf.float32)
 
-            q_s = model_predict(online_model, tf.expand_dims(s_tensor, 0))[0]
+            q_s = model_predict(online_model, s_tensor)
             a = epsilon_greedy_action(q_s, mask_tensor, env.available_actions_ids(), epsilon)
 
             if a not in env.available_actions_ids():
@@ -107,42 +128,35 @@ def double_dqn_with_replay(
             s_prime = env.state_description()
             s_prime_tensor = tf.convert_to_tensor(s_prime, dtype=tf.float32)
 
-            # Store experience in memory
             memory.append((s_tensor, a, r, s_prime_tensor, env.is_game_over()))
 
-            # Experience Replay
             if len(memory) >= batch_size:
-                batch = random.sample(memory, batch_size)
-                states, actions, rewards, next_states, dones = zip(*batch)
+                minibatch = random.sample(memory, batch_size)
 
-                states = tf.stack(states)
-                next_states = tf.stack(next_states)
-                actions = tf.convert_to_tensor(actions, dtype=tf.int32)
-                rewards = tf.convert_to_tensor(rewards, dtype=tf.float32)
-                dones = tf.convert_to_tensor(dones, dtype=tf.float32)
+                for state, action, reward, next_state, done in minibatch:
+                    if done:
+                        target = reward
+                    else:
+                        next_mask = env.action_mask()
+                        next_mask_tensor = tf.convert_to_tensor(next_mask, dtype=tf.float32)
 
-                # Double Q-learning update
-                q_next_online = model_predict(online_model, next_states)
-                q_next_target = model_predict(target_model, next_states)
+                        # Double Q-learning update
+                        q_next_online = model_predict(online_model, next_state)
+                        q_next_target = model_predict(target_model, next_state)
+                        best_action = tf.argmax(q_next_online * next_mask_tensor)
+                        target = reward + gamma * q_next_target[best_action]
 
-                best_actions = tf.argmax(q_next_online, axis=1)
-                best_actions_one_hot = tf.one_hot(best_actions, depth=q_next_target.shape[-1])
-                next_q_values = tf.reduce_sum(q_next_target * best_actions_one_hot, axis=1)
+                    loss = gradient_step(online_model, state, action, target, optimizer, input_dim)
+                    total_loss += loss.numpy()
 
-                targets = rewards + gamma * next_q_values * (1 - dones)
-
-                loss = gradient_step(online_model, states, actions, targets, optimizer)
-                total_loss += loss.numpy()
-
-        total_score += env.score()
         progress = ep_id / num_episodes
-        epsilon = max(end_epsilon, start_epsilon - (start_epsilon - end_epsilon) * progress)
-        #epsilon = custom_two_phase_decay(ep_id, start_epsilon, end_epsilon, num_episodes)
+        epsilon = (1.0 - progress) * start_epsilon + progress * end_epsilon
+
         if ep_id % update_target_steps == 0:
             target_model.set_weights(online_model.get_weights())
 
+    save_model(online_model, save_path, save_format="h5")
 
-    # Save the online model at the end of training
-    save_model(online_model, save_path)
+    results_df.to_csv(f'{save_path}_metrics.csv', index=False)
 
     return online_model, target_model

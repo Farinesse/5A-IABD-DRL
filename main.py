@@ -186,7 +186,7 @@ if __name__ == "__main__":
         elif farkel_choice == '2':
             print("Entraînement de l'agent Q-learning...")
             env = FarkleDQNEnv()
-            model_path = "models/models/double_dqn_model_Farkel_test1"
+            model_path = "models/models/ddqn_no_replay/ddqn_no_replay_model_farkel_tests/double_dqn_model_Farkel_test1"
             model = keras.layers.TFSMLayer(model_path, call_endpoint="serving_default")
             play_with_dqn(env, model, random_agent=None, episodes=10)
 

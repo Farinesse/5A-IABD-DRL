@@ -335,13 +335,28 @@ def create_farkle_model():
 
 
 if __name__ == "__main__":
-    """env = FarkleDQNEnv(num_players = 1, target_score=2000)
+
+    env = FarkleDQNEnv(num_players = 2, target_score=2000)
     test_env = FarkleDQNEnv(num_players = 2, target_score=2000)
     model = create_farkle_model()
     target_model = keras.models.clone_model(model)
     target_model.set_weights(model.get_weights())
 
+    trained_model = deep_q_learning(
+        model=model,
+        target_model=target_model,
+        env=env,
+        num_episodes=100,
+        gamma=0.99,
+        alpha=0.0001,
+        start_epsilon=1.0,
+        end_epsilon=0.01,
+        memory_size=16,
+        batch_size=8,
+        update_target_steps=500
+    )
 
+    """
     trained_model = deep_q_learning(
                 model=model,
                 target_model=target_model,
@@ -373,9 +388,7 @@ if __name__ == "__main__":
 
     )
 
-    '''
-
-    """final_online_model, final_target_model = double_dqn_with_replay(
+    final_online_model, final_target_model = double_dqn_with_replay(
 
         online_model=model,
         target_model=target_model,
@@ -392,42 +405,5 @@ if __name__ == "__main__":
     )
 
     #rajouter une fonction dans l'algo pour calculer les metriques (en testant l'env sur 1000 parties)
-    #verefier t'as fonction de save s elle marche ou pas"""
-
-import numpy as np
-from tqdm import tqdm
-
-def test_environment(env, num_games=1000):
+    #verefier t'as fonction de save s elle marche ou pas
     """
-    Teste l'environnement Farkle en jouant des parties aléatoires.
-    Retourne les métriques : scores moyens et nombre de victoires par joueur.
-    """
-    total_scores = np.zeros(env.num_players)
-    wins = np.zeros(env.num_players)
-
-
-    for _ in tqdm(range(num_games), desc="Testing environment"):
-        env.reset()
-        while not env.game_over:
-
-            action_id = env.get_random_action()
-            observation, reward, done, truncated, info = env.step(action_id)
-            print(
-                f"descrip {env.state_description()}, Des = {env.dice_roll}, action = {env.decode_action(action_id)}, etat  = {env.get_observation()}")
-
-        # Enregistrer le score final et la victoire
-        total_scores += np.array(env.scores)
-        winner = np.argmax(env.scores)
-        wins[winner] += 1
-
-    avg_scores = total_scores / num_games
-
-    print("\n--- Résultats du test ---")
-    for i in range(env.num_players):
-        print(f"Joueur {i+1}: Score moyen = {avg_scores[i]:.2f}, Victoires = {wins[i]} ({(wins[i] / num_games) * 100:.2f}%)")
-
-    return avg_scores, wins
-
-if __name__ == "__main__":
-    env = FarkleDQNEnv(target_score=2000)  # Environnement Farkle
-    avg_scores, wins = test_environment(env, num_games=10)

@@ -5,7 +5,6 @@ import pandas as pd
 import tensorflow as tf
 import matplotlib.pyplot as plt
 from statistics import mean
-from algos.DQN.ddqn import epsilon_greedy_action
 
 
 def logarithmic_decay(episode, start_epsilon, end_epsilon, decay_rate=0.01):
@@ -25,6 +24,20 @@ def custom_two_phase_decay(episode, start_epsilon, end_epsilon, total_episodes, 
         remaining_episodes = total_episodes - transition_point
         progress = (episode - transition_point) / remaining_episodes
         return 0.5 * math.exp(-5 * progress)  # 0.5 est la valeur d'epsilon au point de transition
+
+
+def epsilon_greedy_action(
+        q_s: tf.Tensor,
+        mask: tf.Tensor,
+        available_actions: np.ndarray,
+        epsilon: float
+) -> int:
+    if np.random.rand() < epsilon:
+        return np.random.choice(available_actions)
+    else:
+        inverted_mask = tf.constant(1.0) - mask
+        masked_q_s = q_s * mask + tf.float32.min * inverted_mask
+        return int(tf.argmax(masked_q_s, axis=0))
 
 
 def human_move(game):
@@ -289,8 +302,8 @@ def play_with_dqn(env, model, predict_func, episodes=100):
     for episode in range(episodes):
         env.reset()
         nb_turns = 0
-        start_time = time.time()
 
+        start_time = time.time()
         while not env.is_game_over():
             s = env.state_description()
             s_tensor = tf.convert_to_tensor(s, dtype=tf.float32)
@@ -299,12 +312,9 @@ def play_with_dqn(env, model, predict_func, episodes=100):
 
             q_s = predict_func(model, s_tensor)
 
-            if env.current_player == 0:
-                a = epsilon_greedy_action(q_s.numpy(), mask_tensor, env.available_actions_ids(), 0.000001)
-                if a not in env.available_actions_ids():
-                    # print(f"Action invalide {a}, choix aléatoire à la place.")
-                    a = np.random.choice(env.available_actions_ids())
-            else:
+
+            a = epsilon_greedy_action(q_s.numpy(), mask_tensor, env.available_actions_ids(), 0.000001)
+            if a not in env.available_actions_ids():
                 a = np.random.choice(env.available_actions_ids())
 
             env.step(a)
@@ -319,59 +329,6 @@ def play_with_dqn(env, model, predict_func, episodes=100):
         step_times.append(episode_time / nb_turns)
 
 
-    return (
-        mean(episode_scores),
-        mean(episode_times),
-        mean(episode_steps),
-        mean(step_times),
-        episode_scores.count(1.0) / episodes
-    )
-
-def play_with_ddqn(env, policy_net, target_net, predict_func, episodes=100, epsilon=0.1):
-    episode_scores = []
-    episode_times = []
-    episode_steps = []
-    step_times = []
-    total_time = 0
-
-    for episode in range(episodes):
-        env.reset()
-        nb_turns = 0
-        start_time = time.time()
-
-        while not env.is_game_over():
-            # Obtenir l'état actuel
-            s = env.state_description()
-            s_tensor = tf.convert_to_tensor(s, dtype=tf.float32)
-            mask = env.action_mask()
-            mask_tensor = tf.convert_to_tensor(mask, dtype=tf.float32)
-
-            # Calcul des Q-values via le réseau principal
-            q_s = predict_func(policy_net, s_tensor)
-
-            # Choix de l'action (ε-greedy)
-            if env.current_player == 0:
-                a = epsilon_greedy_action(q_s.numpy(), mask_tensor, env.available_actions_ids(), epsilon)
-                if a not in env.available_actions_ids():
-                    a = np.random.choice(env.available_actions_ids())
-            else:
-                a = np.random.choice(env.available_actions_ids())
-
-            # Exécuter l'action
-            env.step(a)
-            nb_turns += 1
-
-        # Fin de l'épisode
-        end_time = time.time()
-
-        episode_time = end_time - start_time
-        episode_scores.append(env.score())
-        episode_times.append(episode_time)
-        total_time += episode_time
-        episode_steps.append(nb_turns)
-        step_times.append(episode_time / nb_turns)
-
-    # Calcul des métriques
     return (
         mean(episode_scores),
         mean(episode_times),
@@ -460,3 +417,4 @@ def plot_dqn_csv_data(file_path):
 
     plt.tight_layout()
     plt.show()
+
