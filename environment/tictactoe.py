@@ -166,7 +166,7 @@ if __name__ == "__main__":
         save_path="ddqn_model_ttt_test_10000_0-99_0-0001_1-0_0-01_16_8_100.h5",
         input_dim=27
     )
-    """
+
     trained_model, target_model = double_dqn_with_replay(
         online_model=model,
         target_model=target_model,
@@ -183,5 +183,7 @@ if __name__ == "__main__":
         input_dim=27
     )
 
+
     plot_dqn_csv_data(
-        "../models/models/ddqn_replay/ddqn_replay_model_ttt_tests/ddqn_with_replay_model_ttt_test_10000_0-99_0-0001_1-0_0-01_16_8_100.h5_metrics.csv")
+        "../models/models/ttt/ddqn_model_ttt_test_10000_0-99_0-0001_1-0_0-01_16_8_100.h5_metrics.csv")
+    """

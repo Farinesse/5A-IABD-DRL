@@ -336,8 +336,7 @@ def create_farkle_model():
 
 if __name__ == "__main__":
 
-    env = FarkleDQNEnv(num_players = 2, target_score=2000)
-    test_env = FarkleDQNEnv(num_players = 2, target_score=2000)
+    env = FarkleDQNEnv(num_players = 2, target_score=5000)
     model = create_farkle_model()
     target_model = keras.models.clone_model(model)
     target_model.set_weights(model.get_weights())
@@ -346,64 +345,30 @@ if __name__ == "__main__":
         model=model,
         target_model=target_model,
         env=env,
-        num_episodes=100,
+        num_episodes=10000,
         gamma=0.99,
         alpha=0.0001,
         start_epsilon=1.0,
         end_epsilon=0.01,
-        memory_size=16,
-        batch_size=8,
-        update_target_steps=500
+        memory_size=64,
+        batch_size=32,
+        update_target_steps=100,
+        save_path ='../models/models/dqn_replay/dqn_replay_model_farkel_5000_tests/dqn_replay_model_farkel_test_10000_0-99_0-0001_1-0_0-01_64_32_100_128relu12dim_256relu_512relu_256relu_128.h5',
+        input_dim=12,
     )
 
-    """
-    trained_model = deep_q_learning(
-                model=model,
-                target_model=target_model,
-                env=env,
-                test_env=test_env,
-                num_episodes=10000,
-                gamma=0.99,
-                alpha=0.0001,
-                start_epsilon=1.0,
-                end_epsilon=0.01,
-                memory_size=128,
-                batch_size=32,
-                update_target_steps=500,
-                save_path ='../models/models/dqn_model_farkel_tests/ddqn_model_farkel_test_10000_0-99_0-0001_1-0_0-01_128_32_500_129relu12dim_256relu_512relu_256relu_128.h5'
-    )
-
-    
-    final_online_model, final_target_model = double_dqn_no_replay(
-        online_model=model,
-        target_model=model,
-        env=env,
-        num_episodes=50000,
-        gamma=0.99,
-        alpha=0.0001,
-        start_epsilon=1,
-        end_epsilon=0.0001,
-        update_target_steps=1000,
-        save_path="ddqn_model_farkel_test2"
-
-    )
-
-    final_online_model, final_target_model = double_dqn_with_replay(
-
+    trained_model, _ = double_dqn_with_replay(
         online_model=model,
         target_model=target_model,
         env=env,
-        num_episodes=100000,
+        num_episodes=10000,
         gamma=0.99,
         alpha=0.0001,
         start_epsilon=1.0,
-        end_epsilon=0.01,  #
-        update_target_steps=100,
+        end_epsilon=0.01,
+        memory_size=64,
         batch_size=32,
-        memory_size=128,
-        save_path='double_dqn_with_exp_rep_model_tictactoe_test_ouss'
+        update_target_steps=100,
+        save_path ='../models/models/ddqn_replay/ddqn_replay_model_farkel_tests/ddqn_replay_model_farkel_5000_tests/dqn_replay_model_farkel_test_10000_0-99_0-0001_1-0_0-01_64_32_100_128relu12dim_256relu_512relu_256relu_128.h5',
+        input_dim=12,
     )
-
-    #rajouter une fonction dans l'algo pour calculer les metriques (en testant l'env sur 1000 parties)
-    #verefier t'as fonction de save s elle marche ou pas
-    """
