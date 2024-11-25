@@ -104,7 +104,7 @@ def deep_q_learning(
 ):
     optimizer = keras.optimizers.SGD(
         learning_rate=alpha,
-        momentum=0.999,  # Ajout de momentum pour une convergence plus rapide
+        momentum=0.99,  # Ajout de momentum pour une convergence plus rapide
         nesterov=True,  # Utilisation de Nesterov momentum pour une meilleure performance
         weight_decay=1e-4 # Ajout de régularisation L2 pour éviter le surapprentissage
     )

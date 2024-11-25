@@ -315,6 +315,7 @@ def play_with_dqn(env, model, predict_func, episodes=100):
 
             a = epsilon_greedy_action(q_s.numpy(), mask_tensor, env.available_actions_ids(), 0.000001)
             if a not in env.available_actions_ids():
+                print(f"Action {a} invalide, prise aléatoire à la place.")
                 a = np.random.choice(env.available_actions_ids())
 
             env.step(a)
