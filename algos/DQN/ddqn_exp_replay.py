@@ -71,16 +71,14 @@ def double_dqn_with_replay(
         save_path='double_dqn_with_exp_rep_model_tictactoe.h5',
         input_dim=12
 ):
-    """
     optimizer = keras.optimizers.SGD(
         learning_rate=alpha,
         momentum=0.999,  # Ajout de momentum pour une convergence plus rapide
         nesterov=True,  # Utilisation de Nesterov momentum pour une meilleure performance
         weight_decay=1e-4 # Ajout de régularisation L2 pour éviter le surapprentissage
     )
-    """
 
-    optimizer = keras.optimizers.Adam(learning_rate=alpha)
+    # optimizer = keras.optimizers.Adam(learning_rate=alpha)
 
     memory = deque(maxlen=memory_size)
     epsilon = start_epsilon

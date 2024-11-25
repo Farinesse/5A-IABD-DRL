@@ -340,7 +340,7 @@ if __name__ == "__main__":
     model = create_farkle_model()
     target_model = keras.models.clone_model(model)
     target_model.set_weights(model.get_weights())
-
+    """
     trained_model = deep_q_learning(
         model=model,
         target_model=target_model,
@@ -355,9 +355,9 @@ if __name__ == "__main__":
         update_target_steps=100,
         save_path ='../models/models/dqn_replay/dqn_replay_model_farkel_5000_tests/dqn_replay_model_farkel_test_10000_0-99_0-0001_1-0_0-01_64_32_100_128relu12dim_256relu_512relu_256relu_128.h5',
         input_dim=12,
-    )
+    )"""
 
-    trained_model, _ = double_dqn_with_replay(
+    """trained_model, _ = double_dqn_with_replay(
         online_model=model,
         target_model=target_model,
         env=env,
@@ -371,4 +371,6 @@ if __name__ == "__main__":
         update_target_steps=100,
         save_path ='../models/models/ddqn_replay/ddqn_replay_model_farkel_tests/ddqn_replay_model_farkel_5000_tests/dqn_replay_model_farkel_test_10000_0-99_0-0001_1-0_0-01_64_32_100_128relu12dim_256relu_512relu_256relu_128.h5',
         input_dim=12,
-    )
+    )"""
+
+    plot_dqn_csv_data('../models/models/dqn_replay/dqn_replay_model_farkel_5000_tests/dqn_replay_model_farkel_test_10000_0-99_0-0001_1-0_0-01_64_32_100_128relu12dim_256relu_512relu_256relu_128.h5_metrics.csv')

@@ -67,16 +67,14 @@ def double_dqn_no_replay(
         save_path='models/double_dqn_model_Farkel_test1',
         input_dim=12
 ):
-    """
     optimizer = keras.optimizers.SGD(
         learning_rate=alpha,
         momentum=0.999,  # Ajout de momentum pour une convergence plus rapide
         nesterov=True,  # Utilisation de Nesterov momentum pour une meilleure performance
         weight_decay=1e-4 # Ajout de régularisation L2 pour éviter le surapprentissage
     )
-    """
 
-    optimizer = keras.optimizers.Adam(learning_rate=alpha)
+    # optimizer = keras.optimizers.Adam(learning_rate=alpha)
 
     epsilon = start_epsilon
     total_loss = 0.0
