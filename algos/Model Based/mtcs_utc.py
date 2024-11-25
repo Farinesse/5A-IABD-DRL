@@ -188,7 +188,7 @@ def play_game_mcts(agent: MCTS, env: TicTacToe, display=True):
 # Dans la partie principale (main), ajouter :
 if __name__ == "__main__":
     env = TicTacToe()
-    mcts_agent = MCTS(n_simulations=1000, C=sqrt(2))
+    mcts_agent = MCTS(n_simulations=100, C=sqrt(2))
 
     print("Début de l'entraînement MCTS...")
     history = mcts_agent.train(env, episodes=1000)

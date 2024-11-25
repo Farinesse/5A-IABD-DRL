@@ -121,13 +121,12 @@ class REINFORCEWithBaseline:
                 probs = tf.nn.softmax(masked_logits).numpy()
                 action = valid_actions[np.argmax(probs[valid_actions])]
 
-                # Executer l'action
-                prev_score = env.score()
+
                 env.step(action)
                 reward = env.score() - prev_score
-                done = env.is_game_over()
+                if env.is_game_over():
+                    episode_reward += env.score()
 
-                episode_reward += reward
                 steps += 1
 
             total_rewards.append(episode_reward)
@@ -303,7 +302,7 @@ if __name__ == "__main__":
     tf.get_logger().setLevel('ERROR')
 
     # Création de l'environnement et de l'agent
-    env = FarkleDQNEnv(target_score=2000)
+    env = FarkleDQNEnv(target_score=5000)
     agent = REINFORCEWithBaseline(
         state_dim=12,
         action_dim=128,
@@ -313,12 +312,12 @@ if __name__ == "__main__":
     )
 
     # Paramètres d'entraînement ajustés
-    '''history = agent.train(
+    history = agent.train(
         env,
-        episodes=10000,  # 500K épisodes devraient suffire
+        episodes=20000,  # 500K épisodes devraient suffire
         eval_frequency=1000,  # Évaluation moins fréquente
         eval_episodes=100  # Plus d'épisodes d'évaluation pour des métriques plus stables
-    )'''
+    )
 
-    agent.plot_metrics(metrics_file="evaluation_metrics.csv")
+    agent.plot_metrics(metrics_file="evaluation_metrics_reinforce.csv")
 

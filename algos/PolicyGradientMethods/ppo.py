@@ -1,14 +1,17 @@
 import csv
+import time
+
 import keras
 import numpy as np
 import tensorflow as tf
 from tqdm import tqdm
 from environment.FarkelEnv import FarkleDQNEnv
-
+from environment.tictactoe import TicTacToe
 
 class PPO_A2C_Style:
     def __init__(self, state_dim, action_dim, alpha=0.0003, gamma=0.99, clip_ratio=0.2, epsilon_start=1.0,
                  epsilon_end=0.01, epsilon_decay_episodes=20000):
+        """Initialise l'agent PPO avec les paramètres fournis."""
         self.state_dim = state_dim
         self.action_dim = action_dim
         self.gamma = gamma
@@ -28,7 +31,7 @@ class PPO_A2C_Style:
         inputs = keras.layers.Input(shape=(self.state_dim,))
         x = keras.layers.Dense(128, activation='relu')(inputs)
         x = keras.layers.Dense(256, activation='relu')(x)
-        x = keras.layers.Dense(256, activation='relu')(x)
+        x = keras.layers.Dense(512, activation='relu')(x)
         x = keras.layers.Dense(128, activation='relu')(x)
 
         # Sortie pour la politique (distribution des actions)
@@ -38,7 +41,7 @@ class PPO_A2C_Style:
 
         return keras.Model(inputs=inputs, outputs=[policy, value])
 
-    def select_action(self, state, valid_actions):
+    def select_action(self, state, valid_actions, test = False):
         """Sélectionne une action avec exploration epsilon-greedy et masquage des actions invalides."""
         state_tensor = tf.convert_to_tensor([state], dtype=tf.float32)
         logits, _ = self.model(state_tensor)
@@ -52,11 +55,19 @@ class PPO_A2C_Style:
         # Softmax pour obtenir les probabilités des actions
         probs = tf.nn.softmax(masked_logits).numpy()
 
+        # Vérifier que valid_actions n'est pas vide
+        if len(valid_actions) == 0:
+            raise ValueError("Aucune action valide n'a été fournie.")
+
         # Exploration epsilon-greedy
-        if np.random.random() < self.epsilon:
+        if np.random.random() < self.epsilon and not test:
             action = np.random.choice(valid_actions)
+
+
         else:
             action = valid_actions[np.argmax(probs[valid_actions])]
+
+
 
         return action, probs
 
@@ -86,7 +97,6 @@ class PPO_A2C_Style:
 
             # Exécuter l'action
             env.step(action)
-            #print(f"descrip {env.state_description()}, Des = {env.dice_roll}, action = {env.decode_action(action)}, etat  = {env.get_observation()}")
             reward = env.score() - prev_score
             next_state = env.state_description()
             done = env.is_game_over()
@@ -139,7 +149,7 @@ class PPO_A2C_Style:
             critic_loss = tf.reduce_mean(tf.square(returns - values))
 
             # Perte totale
-            total_loss = policy_loss + 0.5 * critic_loss
+            total_loss = policy_loss + 0.3 * critic_loss
 
         # Application des gradients
         grads = tape.gradient(total_loss, self.model.trainable_variables)
@@ -147,84 +157,114 @@ class PPO_A2C_Style:
 
         return total_loss, policy_loss, critic_loss
 
-    import random
-
-    def evaluate_policy(self, env: FarkleDQNEnv, episodes=100):
-        """
-        Évalue une politique dans l'environnement Farkle.
-
-        Args:
-            env (FarkleDQNEnv): L'environnement Farkle.
-            episodes (int): Nombre d'épisodes pour l'évaluation.
-
-        Returns:
-            tuple: Moyennes des récompenses, longueurs des parties et temps d'exécution.
-        """
+    def evaluate_policy(self, env, episodes=100):
+        """Évalue la politique de l'agent et retourne les résultats supplémentaires."""
         total_rewards = []
         total_lengths = []
         total_times = []
+        total_steps = []
+        win_count = 0
 
         for _ in range(episodes):
+            start_time = time.time()
+
             env.reset()
             state = env.state_description()
-            done = False
+
             rewards = 0
             length = 0
+            steps = 0
+            done = False
 
             while not done:
-                # Tour du joueur 1 (agent)
                 valid_actions = env.available_actions_ids()
-                action, _ = self.select_action(state, valid_actions)  # Méthode `select_action` doit être définie.
-                observation, reward, done, truncated, info = env.step(action)
+                action, _ = self.select_action(state, valid_actions, test=True)
 
+                prev_score = env.score()
 
-                if  done:
-                    rewards += env.score()
+                # Exécution de l'action
+                env.step(action)
+                reward = env.score() - prev_score
+                next_state = env.state_description()
+                done = env.is_game_over()
 
-
-                # Mise à jour de l'état
-                state = env.state_description()
+                rewards += reward
+                state = next_state
                 length += 1
+                steps += 1
 
-            # Enregistrer les statistiques de l'épisode
+            # Temps pour cet épisode
+            episode_time = time.time() - start_time
             total_rewards.append(rewards)
             total_lengths.append(length)
-            total_times.append(0.001)  # Placeholder pour le temps si non calculé
+            total_times.append(episode_time)
+            total_steps.append(steps)
 
-        # Calculer les moyennes
+            if rewards > 0:
+                win_count += 1
+
+        # Calcul des moyennes et des résultats
         avg_reward = np.mean(total_rewards)
         avg_length = np.mean(total_lengths)
-        avg_time = np.mean(total_times)
+        avg_time_per_episode = np.mean(total_times)
+        win_rate = win_count / episodes
+        mean_steps_per_episode = np.mean(total_lengths)
+        mean_time_per_step = np.mean(total_times) / np.mean(total_steps) if np.mean(total_steps) > 0 else 0
 
-        return avg_reward, avg_length, avg_time
+        return {
+            'mean_score': avg_reward,
+            'mean_time_per_episode': avg_time_per_episode,
+            'win_rate': win_rate,
+            'mean_steps_per_episode': mean_steps_per_episode,
+            'mean_time_per_step': mean_time_per_step
+        }
 
-    def train(self, env, episodes=5000, eval_interval=500, eval_episodes=100, csv_filename="training_results_2.csv"):
-        """Entraîne l'agent sur plusieurs épisodes et enregistre les résultats."""
+    def train(self, env, episodes=5000, eval_interval=100, eval_episodes=100, csv_filename="training_results.csv"):
+        """Entraîne l'agent sur plusieurs épisodes et enregistre les résultats dans un fichier CSV."""
         with open(csv_filename, mode='w', newline='') as file:
             writer = csv.writer(file)
             writer.writerow(
-                ["Episode", "Average Reward", "Max Reward", "Min Reward", "Loss", "Policy Loss", "Critic Loss"])
+                ["Episode", "Average Reward", "Max Reward", "Min Reward", "Loss", "Policy Loss", "Critic Loss",
+                 "Mean Score", "Mean Time Per Episode", "Win Rate", "Mean Steps Per Episode", "Mean Time Per Step"])
 
             for episode in tqdm(range(episodes), desc="Training Episodes"):
                 env.reset()
                 reward, loss, policy_loss, critic_loss = self.train_episode(env)
 
-                # Affichage périodique
+                # Affichage périodique et évaluation
                 if (episode + 1) % eval_interval == 0:
-                    avg_reward, avg_length, avg_time_per_move = self.evaluate_policy(env, eval_episodes)
-                    writer.writerow([episode + 1, avg_reward, avg_reward, avg_reward, loss, policy_loss, critic_loss])
-                    print(
-                        f"Évaluation : Épisode {episode + 1}, Moyenne = {avg_reward:.2f}, Longueur Moyenne = {avg_length:.2f}, Loss = {loss:.2f}, Policy Loss = {policy_loss:.2f}, Critic Loss = {critic_loss:.2f}, Critic Loss = {self.epsilon:.2f} ")
+                    eval_results = self.evaluate_policy(env, eval_episodes)
+                    writer.writerow([
+                        episode + 1,
+                        np.mean(reward),  # Moyenne de la récompense
+                        np.max(reward),  # Récompense max
+                        np.min(reward),  # Récompense min
+                        loss,
+                        policy_loss,
+                        critic_loss,
+                        eval_results['mean_score'],
+                        eval_results['mean_time_per_episode'],
+                        eval_results['win_rate'],
+                        eval_results['mean_steps_per_episode'],
+                        eval_results['mean_time_per_step']
+                    ])
+                    file.flush()  # Forcer l'écriture immédiate dans le fichier
+
+                    print(f"Évaluation : Épisode {episode + 1}, Moyenne = {eval_results['mean_score']:.2f}, "
+                          f"Longueur Moyenne = {eval_results['mean_steps_per_episode']:.2f}, Loss = {loss:.2f}, "
+                          f"Policy Loss = {policy_loss:.2f}, Critic Loss = {critic_loss:.2f}, "
+                          f"Win Rate = {eval_results['win_rate']:.2f}, Epsilon = {self.epsilon:.2f}")
 
 
 if __name__ == "__main__":
-    env = FarkleDQNEnv(num_players=2, target_score=2000)
+    env = FarkleDQNEnv(num_players=2, target_score=5000)
+    #env = TicTacToe()
     agent = PPO_A2C_Style(
         state_dim=12,
         action_dim=128,
         alpha=0.0001,
         gamma=0.99,
-        clip_ratio=0.2,
-        epsilon_decay_episodes=50000
+        clip_ratio=0.1,
+        epsilon_decay_episodes=5000
     )
-    agent.train(env, episodes=50000)
+    agent.train(env, episodes=10000)

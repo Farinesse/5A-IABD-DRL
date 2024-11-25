@@ -6,6 +6,7 @@ from tqdm import tqdm
 from collections import deque
 
 
+
 @tf.function(reduce_retracing=True)
 def gradient_step(
         model,
@@ -15,7 +16,7 @@ def gradient_step(
         optimizer
 ):
     with tf.GradientTape() as tape:
-        s = tf.ensure_shape(s, [27])  # Dynamically use input_dim
+        s = tf.ensure_shape(s, [27])  # Dynamically use input_dim 27 tictactoe
         a = tf.cast(a, dtype=tf.int32)
         q_s_a = model(tf.expand_dims(s, 0))[0][a]
         loss = tf.square(q_s_a - target)

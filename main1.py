@@ -130,14 +130,14 @@ if __name__ == "__main__":
                 model=model,
                 target_model=target_model,
                 env=env,
-                num_episodes=10000,
+                num_episodes=10,
                 gamma=0.99,
                 alpha=0.001,
                 start_epsilon=1.0,
                 end_epsilon=0.01,
                 memory_size=512,
                 batch_size=128,
-                update_target_steps=500
+                update_target_steps=50
             )
 
         elif algo_choice == '2':
@@ -146,12 +146,12 @@ if __name__ == "__main__":
                 online_model=model,
                 target_model=target_model,
                 env=env,
-                num_episodes=50000,
+                num_episodes=50,
                 gamma=0.99,
                 alpha=0.0001,
                 start_epsilon=1.0,
                 end_epsilon=0.0001,
-                update_target_steps=1000,
+                update_target_steps=100,
                 save_path=f"models/ddqn_{env_name}"
             )
 
@@ -199,7 +199,7 @@ if __name__ == "__main__":
                 eval_frequency=1000,
                 eval_episodes=100
             )
-            agent.plot_metrics("results/evaluation_metrics_reinforce.csv")
+            agent.plot_metrics(f"results/:{env_name}/evaluation_metrics_reinforce.csv")
 
         elif algo_choice == '6':
             print("\nEntraînement PPO...")
@@ -212,7 +212,7 @@ if __name__ == "__main__":
                 epsilon_decay_episodes=5000
             )
             history = agent.train(env, episodes=10000)
-            agent.save(f"models/ppo_{env_name}")
+            agent.save(f"models/results/:{env_name}/ppo_{env_name}")
 
         elif algo_choice == '7':
             print("\nEntraînement Actor-Critic...")
@@ -224,6 +224,6 @@ if __name__ == "__main__":
                 gamma=0.99
             )
             history = agent.train(env, episodes=100000)
-            agent.save(f"models/actor_critic_{env_name}")
+            agent.save(f"models/results/:{env_name}/actor_critic_{env_name}")
 
     print("\nEntraînement terminé!")

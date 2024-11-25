@@ -112,3 +112,17 @@ class TicTacToe:
         print(f"Score : {self._score}")
         print(f"Joueur {'X' if self._player == 0 else 'O'} à jouer")
         print(f"Jeu terminé : {self._is_game_over}")
+
+if __name__ == "__main__":
+    game = TicTacToe()
+    game.display()
+    while not game.is_game_over():
+        if game._player == 0:  # Tour de l'agent
+            print("\nTour de l'agent (joueur X) :")
+            action = int(input("Entrez une action (0-8) : "))
+            game.step(action)
+            game.display()
+            print(game.available_actions_ids())
+            print(game.state_description())
+        else:  # Tour de l'adversaire
+            print("\nTour de l'adversaire (joueur O) :")

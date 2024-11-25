@@ -64,31 +64,44 @@ class FarkleEnv:
         valid_mask = np.zeros(128, dtype=np.int8)
         has_valid_action = False
 
-        for action in [i for i in range(0, 128, 2)]:
-            binary = format(action, '07b')
+        # Générer toutes les combinaisons possibles pour les dés actuels
+        for action in range(0, 64):  # On ne considère que les 6 premiers bits (2^6 = 64)
+            binary = format(action, '06b')  # Convertir en binaire sur 6 bits
             action_list = [int(b) for b in binary]
-            if self._validate_dice_selection(self.dice_roll,
-                                             action_list[:len(self.dice_roll)] + [0] * (6 - len(self.dice_roll)) + [
-                                                 action_list[-1]]):
-                valid_mask[action] = 1
+
+            # Ajuster la longueur de action_list pour correspondre aux dés actuels
+            # et mettre à 0 les bits des dés non présents
+            padded_action = action_list[:len(self.dice_roll)] + [0] * (6 - len(self.dice_roll))
+
+            # Vérifier si l'action est valide pour les dés actuels
+            if self._validate_dice_selection(self.dice_roll, padded_action + [0]):
+                # Si l'action est valide, on ajoute deux versions :
+                # Une avec le bit d'arrêt à 0 (continuer)
+                action_continue = int(''.join(map(str, padded_action)) + '0', 2)
+                # Une avec le bit d'arrêt à 1 (arrêter)
+                action_stop = int(''.join(map(str, padded_action)) + '1', 2)
+
+                valid_mask[action_continue] = 1
+                valid_mask[action_stop] = 1
                 has_valid_action = True
 
-        for i, vm in enumerate(valid_mask[::-1]):
-            if vm == 1:
-                valid_mask[-i] = 1
-
-                break
-
+        # Cas spécial : si tous les dés peuvent être utilisés
         if valid_mask[sum([2 ** (6 - i) for i in range(self.remaining_dice)])] == 1:
             valid_mask = np.zeros(128, dtype=np.int8)
-            valid_mask[sum([2 ** (6 - i) for i in range(self.remaining_dice)])] = 1
+            # Action avec tous les dés et bit d'arrêt à 0
+            action_all_continue = sum([2 ** (6 - i) for i in range(self.remaining_dice)])
+            # Action avec tous les dés et bit d'arrêt à 1
+            action_all_stop = action_all_continue | 1
+            valid_mask[action_all_continue] = 1
+            valid_mask[action_all_stop] = 1
 
-        valid_mask[-1] = 0
-
+        # Si aucune action valide n'a été trouvée, on ajoute l'action par défaut
         if not has_valid_action:
-            default_action = int('0000001', 2)
+            default_action = int('0000001', 2)  # Action par défaut avec bit d'arrêt à 1
             valid_mask[default_action] = 1
+
         return valid_mask
+
 
     def _validate_dice_selection(self, dice_roll, action):
 
@@ -325,6 +338,7 @@ def create_farkle_model():
     """Crée le modèle pour Farkle avec la bonne taille d'entrée/sortie."""
     model = keras.Sequential([
         keras.layers.Dense(128, activation='relu', input_dim=12),  # 3 + num_players + 6 + 1
+        keras.layers.Dense(256, activation='relu'),
         keras.layers.Dense(512, activation='relu'),
         keras.layers.Dense(256, activation='relu'),
         keras.layers.Dense(128)  # Nombre d'actions possibles dans Farkle
@@ -332,8 +346,53 @@ def create_farkle_model():
     return model
 
 
+import numpy as np
+from tqdm import tqdm
+
+def environment(env, num_games=1000):
+    """
+    Teste l'environnement Farkle en jouant des parties aléatoires.
+    Retourne les métriques : scores moyens et nombre de victoires par joueur.
+    """
+    total_scores = np.zeros(env.num_players)
+    wins = np.zeros(env.num_players)
+
+    for _ in tqdm(range(num_games), desc="Testing environment"):
+        env.reset()
+        while not env.game_over:
+
+            valid_indices = np.where(env.get_valid_actions() == 1)[0]
+
+            # Affichage du lancer de dés actuel
+            print(f"Dice roll: {env.dice_roll}")
+
+            # Affichage de toutes les actions valides
+            print("Valid actions:")
+            for action_id in valid_indices:
+                decoded_action = env.decode_action(action_id)  # Décodage de l'action
+                print(f"Action {action_id}: {decoded_action}")
+
+            # Sélection d'une action aléatoire parmi les actions valides
+            action_id = env.get_random_action()
+
+            observation, reward, done, truncated, info = env.step(action_id)
+
+        # Enregistrer le score final et la victoire
+        total_scores += np.array(env.scores)
+        winner = np.argmax(env.scores)
+        wins[winner] += 1
+
+    avg_scores = total_scores / num_games
+
+    print("\n--- Résultats du test ---")
+    for i in range(env.num_players):
+        print(f"Joueur {i+1}: Score moyen = {avg_scores[i]:.2f}, Victoires = {wins[i]} ({(wins[i] / num_games) * 100:.2f}%)")
+
+    return avg_scores, wins
+
 if __name__ == "__main__":
-    env = FarkleEnv()
+    env = FarkleDQNEnv(target_score=2000)  # Environnement Farkle
+    avg_scores, wins = environment(env, num_games=10)
 
     env = FarkleDQNEnv(target_score=2000)
     model = create_farkle_model()
@@ -388,39 +447,6 @@ if __name__ == "__main__":
     #rajouter une fonction dans l'algo pour calculer les metriques (en testant l'env sur 1000 parties)
     #verefier t'as fonction de save s elle marche ou pas"""
 
-import numpy as np
-from tqdm import tqdm
 
-def test_environment(env, num_games=1000):
-    """
-    Teste l'environnement Farkle en jouant des parties aléatoires.
-    Retourne les métriques : scores moyens et nombre de victoires par joueur.
-    """
-    total_scores = np.zeros(env.num_players)
-    wins = np.zeros(env.num_players)
 
-    for _ in tqdm(range(num_games), desc="Testing environment"):
-        env.reset()
-        while not env.game_over:
 
-            action_id = env.get_random_action()
-            observation, reward, done, truncated, info = env.step(action_id)
-            print(
-                f"descrip {env.state_description()}, Des = {env.dice_roll}, action = {env.decode_action(action_id)}, etat  = {env.get_observation()}")
-
-        # Enregistrer le score final et la victoire
-        total_scores += np.array(env.scores)
-        winner = np.argmax(env.scores)
-        wins[winner] += 1
-
-    avg_scores = total_scores / num_games
-
-    print("\n--- Résultats du test ---")
-    for i in range(env.num_players):
-        print(f"Joueur {i+1}: Score moyen = {avg_scores[i]:.2f}, Victoires = {wins[i]} ({(wins[i] / num_games) * 100:.2f}%)")
-
-    return avg_scores, wins
-
-if __name__ == "__main__":
-    env = FarkleDQNEnv(target_score=2000)  # Environnement Farkle
-    avg_scores, wins = test_environment(env, num_games=10)
