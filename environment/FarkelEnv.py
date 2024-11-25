@@ -20,7 +20,7 @@ class FarkleEnv:
         if seed is not None:
             random.seed(seed)
             np.random.seed(seed)
-        self.scores = [0] * 2
+        self.scores = [0] * self.num_players
         self.current_player = 0
         self.round_score = 0
         self.remaining_dice = 6
@@ -92,8 +92,10 @@ class FarkleEnv:
         return valid_mask
 
     def _validate_dice_selection(self, dice_roll, action):
-
         if len(action) < len(dice_roll):
+            return False
+
+        if 1 in action[len(dice_roll):6]:
             return False
 
         if action == [1] * 7:
@@ -337,9 +339,9 @@ def create_farkle_model():
 if __name__ == "__main__":
 
     env = FarkleDQNEnv(num_players = 2, target_score=5000)
-    model = create_farkle_model()
-    target_model = keras.models.clone_model(model)
-    target_model.set_weights(model.get_weights())
+    # model = create_farkle_model()
+    # target_model = keras.models.clone_model(model)
+    # target_model.set_weights(model.get_weights())
     """
     trained_model = deep_q_learning(
         model=model,
@@ -373,4 +375,4 @@ if __name__ == "__main__":
         input_dim=12,
     )"""
 
-    plot_dqn_csv_data('../models/models/dqn_replay/dqn_replay_model_farkel_5000_tests/dqn_replay_model_farkel_test_10000_0-99_0-0001_1-0_0-01_64_32_100_128relu12dim_256relu_512relu_256relu_128.h5_metrics.csv')
+    # plot_dqn_csv_data('../models/models/dqn_replay/dqn_replay_model_farkel_5000_tests/dqn_replay_model_farkel_test_10000_0-99_0-0001_1-0_0-01_64_32_100_128relu12dim_256relu_512relu_256relu_128.h5_metrics.csv')
