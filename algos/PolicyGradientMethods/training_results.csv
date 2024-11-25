@@ -1,8 +1,0 @@
-Episode,Average Reward,Max Reward,Min Reward,Loss,Policy Loss,Critic Loss
-100,0.12,0.12,0.12,"tf.Tensor(0.620594, shape=(), dtype=float32)","tf.Tensor(0.3834852, shape=(), dtype=float32)","tf.Tensor(0.79036266, shape=(), dtype=float32)"
-200,-0.84,-0.84,-0.84,"tf.Tensor(0.47274792, shape=(), dtype=float32)","tf.Tensor(0.36256254, shape=(), dtype=float32)","tf.Tensor(0.36728457, shape=(), dtype=float32)"
-300,-0.98,-0.98,-0.98,"tf.Tensor(0.4665119, shape=(), dtype=float32)","tf.Tensor(0.3365802, shape=(), dtype=float32)","tf.Tensor(0.43310568, shape=(), dtype=float32)"
-400,-0.98,-0.98,-0.98,"tf.Tensor(0.42977342, shape=(), dtype=float32)","tf.Tensor(0.34056333, shape=(), dtype=float32)","tf.Tensor(0.29736698, shape=(), dtype=float32)"
-500,-1.0,-1.0,-1.0,"tf.Tensor(0.3757755, shape=(), dtype=float32)","tf.Tensor(0.33788452, shape=(), dtype=float32)","tf.Tensor(0.12630321, shape=(), dtype=float32)"
-600,-1.0,-1.0,-1.0,"tf.Tensor(0.4190704, shape=(), dtype=float32)","tf.Tensor(0.33369526, shape=(), dtype=float32)","tf.Tensor(0.28458375, shape=(), dtype=float32)"
-700,-0.98,-0.98,-0.98,"tf.Tensor(0.43537146, shape=(), dtype=float32)","tf.Tensor(0.3593172, shape=(), dtype=float32)","tf.Tensor(0.25351414, shape=(), dtype=float32)"

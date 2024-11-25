@@ -211,7 +211,7 @@ if __name__ == "__main__":
                 clip_ratio=0.1,
                 epsilon_decay_episodes=5000
             )
-            history = agent.train(env, episodes=10000)
+            history = agent.train(env, episodes=100000)
             agent.save(f"models/results/:{env_name}/ppo_{env_name}")
 
         elif algo_choice == '7':
