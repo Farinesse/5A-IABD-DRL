@@ -1,0 +1,14 @@
+{
+    "episode": 200,
+    "n_simulations": 20,
+    "gamma": 0.95,
+    "stats": {
+        "win_rate": 0.795,
+        "draw_rate": 0.0,
+        "avg_score": 0.62,
+        "eval_stats": {
+            "win_rate": 0.7,
+            "avg_score": 0.4
+        }
+    }
+}
