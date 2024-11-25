@@ -69,8 +69,7 @@ class FarkleEnv:
             binary = format(action, '07b')
             action_list = [int(b) for b in binary]
             if self._validate_dice_selection(self.dice_roll,
-                                             action_list[:len(self.dice_roll)] + [0] * (6 - len(self.dice_roll)) + [
-                                                 action_list[-1]]):
+                                             action_list):
                 valid_mask[action] = 1
                 has_valid_action = True
 
