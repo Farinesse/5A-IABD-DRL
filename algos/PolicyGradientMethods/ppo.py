@@ -26,7 +26,7 @@ class PPO_A2C_Style:
     def _build_model(self):
         """Construit un réseau combiné pour la politique et le critique."""
         inputs = keras.layers.Input(shape=(self.state_dim,))
-        x = keras.layers.Dense(128, activation='relu')(inputs)
+        x = keras.layers.Dense(512, activation='relu')(inputs)
         x = keras.layers.Dense(256, activation='relu')(x)
         x = keras.layers.Dense(256, activation='relu')(x)
         x = keras.layers.Dense(128, activation='relu')(x)

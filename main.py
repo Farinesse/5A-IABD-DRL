@@ -7,7 +7,8 @@ import tensorflow as tf
 from GUI.Farkel_GUI import main_gui
 from algos.DQN.ddqn import double_dqn_no_replay
 from algos.DQN.deep_qlearning import deep_q_learning
-# Importer les modules nécessaires
+
+
 from environment.FarkelEnv import FarkleEnv, FarkleDQNEnv
 from environment.tictactoe import TicTacToe
 from environment.line_word import LineWorld
@@ -123,7 +124,7 @@ if __name__ == "__main__":
             target_model.set_weights(model.get_weights())
 
             # Entraîner l'agent Deep Q-Learning
-            trained_model = deep_q_learning(
+            '''trained_model = deep_q_learning(
                 model=model,
                 target_model=target_model,
                 env=tic_tac_toe,
@@ -135,7 +136,7 @@ if __name__ == "__main__":
                 memory_size=100,
                 batch_size=32,
                 update_target_steps=100
-            )
+            )'''
             '''
             final_online_model, final_target_model = double_dqn_no_replay(
                 online_model=model,

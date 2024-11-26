@@ -93,7 +93,6 @@ def double_dqn_no_replay(
                 games = 1000,
                 dataframe = results_df
             )
-
             print(f"Mean Loss: {total_loss / interval}, Epsilon: {epsilon}")
             total_loss = 0.0
 
