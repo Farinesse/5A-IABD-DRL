@@ -1,3 +1,5 @@
+import random
+
 import tensorflow as tf
 from environment.tictactoe import TicTacToe
 import numpy as np
@@ -73,6 +75,50 @@ def saved_tictactoe_model(model_path, num_games=10000):
 
     return win_rate, loss_rate, draw_rate
 
+def play_random_with_mask(env):
+    """
+    Joue un épisode complet de manière aléatoire dans l'environnement,
+    tout en affichant les informations de l'état, du masque et des actions disponibles.
+
+    Args:
+        env: L'environnement (doit implémenter `state_description`, `action_mask`, et `available_actions_ids`).
+
+    Returns:
+        score_total: Score final obtenu dans cet épisode.
+    """
+    env.reset()
+    score_total = 0
+
+    print("Début d'un nouvel épisode.")
+    print("=" * 50)
+
+    while not env.is_game_over():
+        # Obtenir l'état actuel et le masque
+        state = env.state_description()
+        mask = env.action_mask()
+        available_actions = env.available_actions_ids()
+
+        # Choisir une action aléatoire parmi les actions disponibles
+        action = random.choice(available_actions)
+
+        # Appliquer l'action
+        prev_score = env.score()
+        env.step(action)
+        reward = env.score() - prev_score
+        score_total += reward
+
+        # Afficher les informations à cette étape
+        print(f"État: {state}")
+        print(f"Masque d'action: {mask}")
+        print(f"Actions disponibles: {available_actions}")
+        print(f"Action choisie: {action}")
+        print(f"Récompense: {reward}")
+        print(f"Score cumulatif: {score_total}")
+        print("-" * 50)
+
+    print("Fin de l'épisode.")
+    print(f"Score final: {score_total}")
+    return score_total
 
 if __name__ == "__main__":
     # Utiliser un chemin absolu avec un raw string
@@ -81,4 +127,12 @@ if __name__ == "__main__":
     # Ou vous pouvez utiliser des doubles backslashes
     # model_path = "C:\\Users\\farin\\PycharmProjects\\5A-IABD-DRL\\dqn_model_tictactoe_t1.h5"
 
-    saved_tictactoe_model(model_path)
+    #saved_tictactoe_model(model_path)
+    from environment.FarkelEnv import FarkleDQNEnv
+
+    # Initialisation de l'environnement
+    env = FarkleDQNEnv(num_players=2, target_score=5000)
+
+    # Jouer un épisode aléatoire
+    score = play_random_with_mask(env)
+    print(f"Score obtenu en mode aléatoire : {score}")

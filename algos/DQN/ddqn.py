@@ -81,6 +81,7 @@ def double_dqn_no_replay(
     interval = 100
     results_df = None
 
+
     for ep_id in tqdm(range(num_episodes)):
         if ep_id % interval == 0 and ep_id > 0:
 
