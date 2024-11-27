@@ -264,10 +264,11 @@ class FarkleDQNEnv(FarkleEnv):
         """Conversion ID -> action binaire."""
         return [int(b) for b in format(action_id, '07b')]
 
+    """
     def score(self) -> float:
-        """
-        Retourne un score entre -1.0 et 1.0 en fonction de l'état du jeu.
-        """
+    
+        #Retourne un score entre -1.0 et 1.0 en fonction de l'état du jeu.
+        
         # Si le jeu est terminé
         if self.game_over:
             # Vérifier le score du joueur actuel
@@ -282,7 +283,57 @@ class FarkleDQNEnv(FarkleEnv):
         # Le score est basé sur la proportion du score actuel du joueur par rapport à l'objectif
         return 0.0
         #self.scores[self.current_player] / self.target_score
+    """
 
+    def score(self, testing=False, info={}) -> float:
+        """
+        Retourne un score avec récompenses intermédiaires
+        """
+        # Si le jeu est terminé
+        if self.game_over:
+            if self.scores[0] >= self.target_score:
+                return 1.0  # Victoire
+            elif self.num_players > 1 and self.scores[1] >= self.target_score:
+                return -1.0  # Défaite
+
+        if testing:
+            return 0.0
+
+        # Récompenses intermédiaires
+        reward = 0.0
+
+        # 1. Progression vers l'objectif (normalisée)
+        progress = self.scores[0] / self.target_score
+        reward += 0.3 * progress  # Bonus pour la progression globale
+
+        # 2. Bonus/Malus pour le round_score
+        if "farkle" in info and info["farkle"]:
+            # Pénalité plus forte si on perd beaucoup de points
+            lost_points = info["lost_points"]
+            if lost_points > 1000:
+                reward -= 0.5  # Grosse pénalité
+            elif lost_points > 500:
+                reward -= 0.3  # Pénalité moyenne
+            else:
+                reward -= 0.1  # Petite pénalité
+        else:
+            # Bonus pour bon score
+            if self.round_score > 1000:
+                reward += 0.2  # Gros bonus
+            elif self.round_score > 500:
+                reward += 0.1  # Bonus moyen
+
+        # 3. Pénalité pour risque excessif avec gros score
+        if self.remaining_dice == 1 and self.round_score > 500:
+            reward -= 0.15  # Pénalité plus forte si on risque un gros score
+        elif self.remaining_dice == 1:
+            reward -= 0.05  # Pénalité normale
+
+        # 4. Bonus pour efficacité
+        if self.remaining_dice == 6:
+            reward += 0.05
+
+        return reward
     def is_game_over(self) -> bool:
         """
         Indique si le jeu est terminé.

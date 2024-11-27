@@ -348,7 +348,7 @@ def log_metrics_to_dataframe(
         predict_func,
         env,
         episode_index,
-        games = 1000,
+        games = 100,
         dataframe = None
 ):
     if dataframe is None:

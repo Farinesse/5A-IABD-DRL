@@ -6,6 +6,7 @@ import keras
 from algos.DQN.ddqn import double_dqn_no_replay
 from algos.DQN.ddqn_exp_replay import double_dqn_with_replay
 from algos.DQN.deep_qlearning import deep_q_learning
+from algos.PolicyGradientMethods.reinforce_meanbase import REINFORCEBaseline
 from functions.outils import plot_csv_data
 
 NUM_ACTIONS = 9
@@ -204,4 +205,16 @@ if __name__ == "__main__":
         input_dim=27,
     )"""
 
-    plot_csv_data("dqn_replay_model_ttt_test_10000_0-99_0-0001_1-0_32_16_0-01_16_8_100.h5_metrics.csv")
+    agent = REINFORCEBaseline(
+        state_dim=27,
+        action_dim=9,
+        alpha_theta=0.0001,
+        alpha_w=0.001,
+        gamma=0.99,
+        path='ReinforceBaseline_model_ttt_test_10000_0-99_0-0001_0-001_128_512_256.h5_metrics'
+    )
+
+    agent.train(env, episodes=10000)
+    plot_csv_data(agent.path + "_metrics.csv")
+
+    #plot_csv_data("dqn_replay_model_ttt_test_10000_0-99_0-0001_1-0_32_16_0-01_16_8_100.h5_metrics.csv")
