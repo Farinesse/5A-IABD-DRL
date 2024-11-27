@@ -1,284 +1,271 @@
-import keras
-import numpy as np
-import tensorflow as tf
-from tqdm import tqdm
 import time
+from statistics import mean
+import tensorflow as tf
+import numpy as np
+from tqdm import tqdm
 import pandas as pd
+import os
 from collections import defaultdict
+#from functions.outils import log_metrics_to_dataframe, plot_csv_data
 
 
-class REINFORCEWithCritic:
-    def __init__(self, state_dim, action_dim, alpha_policy=0.001, alpha_critic=0.001, gamma=0.99):
+class OneStepActorCritic:
+    def __init__(self, state_dim, action_dim, alpha_theta=0.001, alpha_w=0.001, gamma=0.99, path=None):
         self.state_dim = state_dim
         self.action_dim = action_dim
+        self.alpha_theta = alpha_theta
+        self.alpha_w = alpha_w
         self.gamma = gamma
+        self.path = path
 
-        # Construction des réseaux
+        # Paramètres d'exploration
+        self.epsilon = 1.0
+        self.epsilon_decay = 0.9999
+        self.epsilon_min = 0.01
+        self.temperature = 1.0
+        self.noise_std = 0.1
+
+        # Initialize networks
         self.policy = self._build_policy()
-        self.critic = self._build_critic()
-
-        # Optimiseurs séparés pour la politique et le critique
-        initial_learning_rate = alpha_policy
-        lr_schedule = tf.keras.optimizers.schedules.ExponentialDecay(
-            initial_learning_rate,
-            decay_steps=1000,
-            decay_rate=0.9,
-            staircase=True)
-        self.policy_optimizer = tf.keras.optimizers.Adam(learning_rate=lr_schedule)
-        self.critic_optimizer = tf.keras.optimizers.Adam(learning_rate=alpha_critic)
+        self.value = self._build_value()
 
     def _build_policy(self):
-        return keras.Sequential([
-            keras.layers.Dense(256, activation='relu', input_dim=self.state_dim),
-            keras.layers.Dense(512, activation='relu'),
-            keras.layers.Dense(512, activation='relu'),  # Couche supplémentaire
-            keras.layers.Dropout(0.1),
-            keras.layers.Dense(self.action_dim)  # 128 actions possibles
+        return tf.keras.Sequential([
+            tf.keras.layers.Input(shape=(self.state_dim,)),
+            tf.keras.layers.Dense(128, activation='relu'),
+            tf.keras.layers.Dense(256, activation='relu'),
+            tf.keras.layers.Dense(512, activation='relu'),
+            tf.keras.layers.Dense(256, activation='relu'),
+            tf.keras.layers.Dense(self.action_dim, activation='softmax')
         ])
 
-    def _build_critic(self):
-        return keras.Sequential([
-            keras.layers.Dense(256, activation='relu', input_dim=self.state_dim),
-            keras.layers.Dense(512, activation='relu'),
-            keras.layers.Dense(512, activation='relu'),
-            keras.layers.Dropout(0.1),
-            keras.layers.Dense(1)
+    def _build_value(self):
+        return tf.keras.Sequential([
+            tf.keras.layers.Input(shape=(self.state_dim,)),
+            tf.keras.layers.Dense(128, activation='relu'),
+            tf.keras.layers.Dense(256, activation='relu'),
+            tf.keras.layers.Dense(512, activation='relu'),
+            tf.keras.layers.Dense(256, activation='relu'),
+            tf.keras.layers.Dense(1)
         ])
 
-    def select_action(self, state, valid_actions):
-        # Epsilon-greedy pour l'exploration
-        if np.random.random() < 0.05:
+    def select_action(self, state_tensor, action_mask, exploration=True):
+        """Sélection d'action avec exploration et masque d'action"""
+        valid_actions = np.where(action_mask == 1)[0]
+
+        # Exploration epsilon-greedy
+        if exploration and np.random.random() < self.epsilon:
             return np.random.choice(valid_actions)
 
-        # Forward pass pour obtenir les logits
-        state_tensor = tf.convert_to_tensor([state], dtype=tf.float32)
-        logits = self.policy(state_tensor, training=False)[0].numpy()
+        # Exploitation avec température et bruit
+        probs = self.policy(state_tensor[None])[0].numpy()
 
-        # Masquer les actions invalides
-        mask = np.ones_like(logits) * float('-inf')
-        mask[valid_actions] = 0
-        masked_logits = logits + mask
+        if exploration:
+            probs = probs / self.temperature
+            masked_probs = probs * action_mask
+            noise = np.random.normal(0, self.noise_std, size=masked_probs.shape)
+            masked_probs = masked_probs + noise * action_mask
+        else:
+            masked_probs = probs * action_mask
 
-        # Softmax avec température adaptative
-        temperature = max(0.5, 1.0)  # Température fixe ou adaptative
-        probs = tf.nn.softmax(masked_logits / temperature).numpy()
+        # Normalisation sûre
+        masked_probs = np.clip(masked_probs, 1e-8, None)
+        if masked_probs.sum() > 0:
+            masked_probs = masked_probs / masked_probs.sum()
+        else:
+            masked_probs = np.zeros_like(probs)
+            masked_probs[valid_actions] = 1.0 / len(valid_actions)
 
-        return np.random.choice(self.action_dim, p=probs)
+        if not exploration:
+            return valid_actions[np.argmax(masked_probs[valid_actions])]
 
-    def compute_returns(self, rewards):
-        # Calcul des retours Monte Carlo
-        returns = []
-        G = 0
-        for r in reversed(rewards):
-            G = r + self.gamma * G
-            returns.insert(0, G)
-        return np.array(returns, dtype=np.float32)
+        return np.random.choice(self.action_dim, p=masked_probs)
 
-    def train_episode(self, env):
-        # Collecte de trajectoire
-        states, actions, rewards = [], [], []
-        state = env.state_description()
+    def train_episode(self, env, episode_num):
+        # Initialisation
+        s = env.state_description()
+        s_tensor = tf.convert_to_tensor(s, dtype=tf.float32)
+        I = 1.0
         done = False
+        total_reward = 0
+        episode_steps = []
+
+        # Ajustement exploration
+        if episode_num < 50000:
+            self.epsilon = max(self.epsilon_min, 1.0 - (episode_num / 50000) * 0.5)
+        else:
+            self.epsilon = max(self.epsilon_min, self.epsilon * self.epsilon_decay)
 
         while not done:
-            # Sélection et exécution de l'action
-            valid_actions = env.available_actions_ids()
-            action = self.select_action(state, valid_actions)
+            action_mask = env.action_mask()
+            action = self.select_action(s_tensor, action_mask, exploration=True)
 
             # Exécution de l'action
             prev_score = env.score()
             env.step(action)
-            reward = env.score() - prev_score
             next_state = env.state_description()
+            reward = env.score() - prev_score
             done = env.is_game_over()
 
-            # Stockage des transitions
-            states.append(state)
-            actions.append(action)
-            rewards.append(reward)
-            state = next_state
+            next_state_tensor = tf.convert_to_tensor(next_state, dtype=tf.float32)
 
-        # Conversion en tensors
-        states = np.array(states, dtype=np.float32)
-        actions = np.array(actions, dtype=np.int32)
-        state_tensors = tf.convert_to_tensor(states)
+            with tf.GradientTape(persistent=True) as tape:
+                # Calcul TD error
+                current_value = self.value(s_tensor[None])
+                next_value = tf.zeros_like(current_value) if done else self.value(next_state_tensor[None])
+                td_error = tf.clip_by_value(reward + self.gamma * next_value - current_value, -1.0, 1.0)
 
-        # Calcul des retours Monte Carlo
-        returns = self.compute_returns(rewards)
+                # Value loss
+                value_loss = 0.5 * tf.square(td_error)
 
-        # Mise à jour du critique (baseline)
-        with tf.GradientTape() as critic_tape:
-            # Prédiction des valeurs d'état
-            values = self.critic(state_tensors)
-            critic_loss = tf.reduce_mean(tf.square(returns - tf.squeeze(values)))
+                # Policy loss avec stabilité numérique
+                action_probs = self.policy(s_tensor[None])
+                action_mask_tensor = tf.convert_to_tensor(action_mask[None], dtype=tf.float32)
+                masked_probs = action_probs * action_mask_tensor
+                masked_probs = tf.clip_by_value(masked_probs, 1e-8, 1.0)
+                normalized_probs = masked_probs / (tf.reduce_sum(masked_probs, axis=1, keepdims=True) + 1e-8)
 
-        # Application des gradients du critique
-        critic_grads = critic_tape.gradient(critic_loss, self.critic.trainable_variables)
-        self.critic_optimizer.apply_gradients(zip(critic_grads, self.critic.trainable_variables))
+                action_one_hot = tf.one_hot(action, self.action_dim)
+                log_prob = tf.math.log(tf.reduce_sum(normalized_probs * action_one_hot, axis=1) + 1e-8)
+                policy_loss = -log_prob * tf.stop_gradient(td_error) * I
 
-        # Calcul des avantages (retours - baseline)
-        advantages = returns - tf.squeeze(values)
+            # Mise à jour critic
+            value_grads = tape.gradient(value_loss, self.value.trainable_variables)
+            value_grads = [tf.clip_by_value(grad, -1.0, 1.0) if grad is not None else grad for grad in value_grads]
 
-        # Mise à jour de la politique
-        with tf.GradientTape() as policy_tape:
-            # Forward pass de la politique
-            logits = self.policy(state_tensors)
+            for var, grad in zip(self.value.trainable_variables, value_grads):
+                if grad is not None:
+                    var.assign_add(self.alpha_w * grad)
 
-            # Calcul des probabilités des actions prises
-            action_masks = tf.one_hot(actions, self.action_dim)
-            selected_logits = tf.reduce_sum(logits * action_masks, axis=1)
+            # Mise à jour actor
+            policy_grads = tape.gradient(policy_loss, self.policy.trainable_variables)
+            policy_grads = [tf.clip_by_value(grad, -1.0, 1.0) if grad is not None else grad for grad in policy_grads]
 
-            # Log probabilities
-            log_probs = selected_logits - tf.reduce_logsumexp(logits, axis=1)
+            for var, grad in zip(self.policy.trainable_variables, policy_grads):
+                if grad is not None:
+                    var.assign_add(self.alpha_theta * grad)
 
-            # Loss de la politique avec avantages
-            policy_loss = -tf.reduce_mean(log_probs * advantages)
+            del tape
 
-            # Ajout d'un terme d'entropie pour encourager l'exploration
-            probs = tf.nn.softmax(logits)
-            entropy = -tf.reduce_mean(tf.reduce_sum(probs * tf.math.log(probs + 1e-10), axis=1))
-            policy_loss = policy_loss - 0.001 * entropy
+            # Mise à jour variables
+            I *= self.gamma
+            s_tensor = next_state_tensor
+            total_reward += reward
 
-        # Application des gradients de la politique
-        policy_grads = policy_tape.gradient(policy_loss, self.policy.trainable_variables)
-        self.policy_optimizer.apply_gradients(zip(policy_grads, self.policy.trainable_variables))
+            if not (tf.math.is_nan(value_loss) or tf.math.is_nan(policy_loss)):
+                episode_steps.append({
+                    'value_loss': float(value_loss),
+                    'policy_loss': float(policy_loss),
+                    'td_error': float(td_error)
+                })
 
-        return sum(rewards), policy_loss.numpy(), critic_loss.numpy()
+        if not episode_steps:
+            return total_reward, 0.0, 0.0
 
-    def train(self, env, episodes=10000):
-        history = {
-            'rewards': [],
-            'policy_losses': [],
-            'critic_losses': [],
-            'steps_per_episode': [],
-            'time_per_step': [],
-            'win_rates': []
-        }
-        window_size = 100
-        metrics_checkpoints = [1000, 10000, 100000, 1000000]
+        return total_reward, np.mean([s['policy_loss'] for s in episode_steps]), np.mean(
+            [s['value_loss'] for s in episode_steps])
 
-        # Pour le calcul du temps moyen par coup
-        total_steps = 0
-        total_time = 0
+    def train(self, env, episodes=100000):
+        interval = 1000  # Intervalle d'évaluation
+        results_df = None
 
         for episode in tqdm(range(episodes), desc="Training Episodes"):
-            start_time = time.time()
+            total_reward, policy_loss, value_loss = self.train_episode(env, episode)
 
-            env.reset()
-            total_reward, policy_loss, critic_loss = self.train_episode(env)
-
-            episode_time = time.time() - start_time
-            steps_this_episode = len(history['steps_per_episode']) + 1
-            total_steps += steps_this_episode
-            total_time += episode_time
-
-            # Stockage des métriques
-            history['rewards'].append(total_reward)
-            history['policy_losses'].append(policy_loss)
-            history['critic_losses'].append(critic_loss)
-            history['steps_per_episode'].append(steps_this_episode)
-            history['time_per_step'].append(episode_time / steps_this_episode)
-
-            if (episode + 1) % 100 == 0:
-                recent_rewards = history['rewards'][-window_size:]
-                recent_steps = history['steps_per_episode'][-window_size:]
-                avg_reward = np.mean(recent_rewards)
-                win_rate = np.mean([r > 0 for r in recent_rewards])
-                avg_steps = np.mean(recent_steps)
-                avg_time_per_step = np.mean(history['time_per_step'][-window_size:])
+            if (episode + 1) % interval == 0 and episode > 0:
+                results_df = log_metrics_to_dataframe(
+                    function=play_with_actor_critic,
+                    model=self.policy,
+                    predict_func=None,
+                    env=env,
+                    episode_index=episode,
+                    games=1000,
+                    value_model=self.value,
+                    dataframe=results_df
+                )
 
                 print(f"\n{'=' * 50}")
                 print(f"Episode {episode + 1}")
-                print(f"{'=' * 50}")
-                print(f"Métriques de performance:")
-                print(f"  Moyenne des récompenses: {avg_reward:.2f}")
-                print(f"  Taux de victoire: {win_rate:.2%}")
-                print(f"  Nombre moyen de coups: {avg_steps:.1f}")
-                print(f"  Temps moyen par coup: {avg_time_per_step * 1000:.2f}ms")
-                print(f"\nMétriques d'apprentissage:")
-                print(f"  Policy Loss: {policy_loss:.6f}")
-                print(f"  Critic Loss: {critic_loss:.6f}")
+                print(f"Policy Loss: {policy_loss:.6f}")
+                print(f"Value Loss: {value_loss:.6f}")
+                print(f"Epsilon: {self.epsilon:.4f}")
 
-            # Sauvegarde aux checkpoints_actor spécifiques
-            if (episode + 1) in metrics_checkpoints:
-                self.save_checkpoint_metrics(history, episode + 1)
-                self.save_models(f'reinforce_policy_{episode + 1}.h5', f'reinforce_critic_{episode + 1}.h5')
+        if self.path is not None:
+            self.save_models()
+            results_df.to_csv(f"{self.path}_metrics.csv", index=False)
 
-        # Sauvegarde finale
-        self.save_checkpoint_metrics(history, episodes)
-        self.save_models('reinforce_policy_final.h5', 'reinforce_critic_final.h5')
+        return results_df
 
-        return history
+    def save_models(self):
+        if self.path is not None:
+            self.policy.save(f"{self.path}_policy.h5")
+            self.value.save(f"{self.path}_value.h5")
 
-    def save_models(self, policy_path, critic_path):
-        """
-        Sauvegarde les modèles policy et critic dans le dossier checkpoints_actor
-        """
-        try:
-            # Chemins complets dans le dossier checkpoints_actor
-            policy_full_path = os.path.join('checkpoints_actor', policy_path)
-            critic_full_path = os.path.join('checkpoints_actor', critic_path)
 
-            # Sauvegarde des modèles
-            self.policy.save(policy_full_path)
-            self.critic.save(critic_full_path)
-            print(f"Modèles sauvegardés dans :")
-            print(f"  - Policy: {policy_full_path}")
-            print(f"  - Critic: {critic_full_path}")
+def play_with_actor_critic(env, model, value_model=None, episodes=100):
+    """Fonction d'évaluation"""
+    episode_scores = []
+    episode_times = []
+    episode_steps = []
+    step_times = []
+    total_time = 0
 
-        except Exception as e:
-            print(f"Erreur lors de la sauvegarde des modèles: {str(e)}")
-    def save_checkpoint_metrics(self, history, episode):
-        metrics = {
-            'episode': episode,
-            'avg_reward': np.mean(history['rewards'][-1000:]),
-            'win_rate': np.mean([r > 0 for r in history['rewards'][-1000:]]),
-            'avg_steps': np.mean(history['steps_per_episode'][-1000:]),
-            'avg_time_per_step': np.mean(history['time_per_step'][-1000:]) * 1000,  # en ms
-            'policy_loss': np.mean(history['policy_losses'][-1000:]),
-            'critic_loss': np.mean(history['critic_losses'][-1000:])
-        }
+    for episode in range(episodes):
+        env.reset()
+        nb_turns = 0
 
-        # Sauvegarde dans un fichier CSV
-        df = pd.DataFrame([metrics])
-        filename = 'metrics.csv'
-        df.to_csv(filename, mode='a', header=not os.path.exists(filename), index=False)
+        start_time = time.time()
+        while not env.is_game_over() and nb_turns < 100:
+            state = env.state_description()
+            state_tensor = tf.convert_to_tensor(state, dtype=tf.float32)
+            action_mask = env.action_mask()
+            valid_actions = env.available_actions_ids()
 
-        print(f"\nMétriques au checkpoint {episode}:")
-        print(f"{'=' * 50}")
-        print(f"Score moyen: {metrics['avg_reward']:.2f}")
-        print(f"Taux de victoire: {metrics['win_rate']:.2%}")
-        print(f"Longueur moyenne partie: {metrics['avg_steps']:.1f}")
-        print(f"Temps moyen par coup: {metrics['avg_time_per_step']:.2f}ms")
+            # Mode évaluation
+            probs = model(tf.expand_dims(state_tensor, 0), training=False)[0].numpy()
+            mask = np.ones_like(probs) * float('-inf')
+            mask[valid_actions] = 0
+            masked_probs = tf.nn.softmax(probs + mask).numpy()
+
+            # Action la plus probable parmi les valides
+            action = valid_actions[np.argmax(masked_probs[valid_actions])] if len(
+                valid_actions) > 0 else np.random.choice(valid_actions)
+
+            env.step(action)
+            nb_turns += 1
+
+        end_time = time.time()
+        episode_time = end_time - start_time
+
+        episode_scores.append(env.score() if nb_turns < 100 else -1)
+        episode_times.append(episode_time)
+        total_time += episode_time
+        episode_steps.append(nb_turns)
+        step_times.append(episode_time / nb_turns)
+
+    return (
+        mean(episode_scores),
+        mean(episode_times),
+        mean(episode_steps),
+        mean(step_times),
+        episode_scores.count(1.0) / episodes
+    )
 
 
 if __name__ == "__main__":
     from environment.FarkelEnv import FarkleDQNEnv
-    import os
 
-    # Création du dossier pour les sauvegardes
-    os.makedirs('checkpoints_actor', exist_ok=True)
-
-    tf.get_logger().setLevel('ERROR')
-
-    env = FarkleDQNEnv(target_score=2000)
-    agent = REINFORCEWithCritic(
-        state_dim=12,  # Taille de votre state_description
-        action_dim=128,  # Nombre d'actions possibles dans Farkel
-        alpha_policy=0.0001,  # Learning rate plus petit pour stabilité
-        alpha_critic=0.001,  # Learning rate plus grand pour le critic
-        gamma=0.99  # Discount factor
+    env = FarkleDQNEnv(target_score=5000)
+    agent = OneStepActorCritic(
+        state_dim=12,
+        action_dim=128,
+        alpha_theta=0.0001,
+        alpha_w=0.0001,
+        gamma=0.99,
+        path='actor_critic_model'
     )
 
-    print("Début de l'entraînement sur 10000 épisodes...")
-    history = agent.train(env, episodes=100000)
-    print("\nEntraînement terminé!")
-
-    # Affichage des métriques finales
-    print("\nMétriques finales:")
-    print("=" * 50)
-    print(f"Score moyen final: {np.mean(history['rewards'][-1000:]):.2f}")
-    print(f"Taux de victoire final: {np.mean([r > 0 for r in history['rewards'][-1000:]]):.2%}")
-    print(f"Longueur moyenne partie: {np.mean(history['steps_per_episode'][-1000:]):.1f}")
-    print(f"Temps moyen par coup: {np.mean(history['time_per_step'][-1000:]) * 1000:.2f}ms")
-
+    print("Starting training...")
+    results_df = agent.train(env, episodes=100000)
+    plot_csv_data(agent.path + "_metrics.csv")
+    print("\nTraining completed!")
