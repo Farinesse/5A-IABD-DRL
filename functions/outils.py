@@ -37,7 +37,7 @@ def epsilon_greedy_action(
         return np.random.choice(available_actions)
     else:
         inverted_mask = tf.constant(1.0) - mask
-        masked_q_s = q_s * mask + tf.float32.min * inverted_mask
+        masked_q_s = q_s * mask + (1e-8) * inverted_mask
         return int(tf.argmax(masked_q_s, axis=0))
 
 

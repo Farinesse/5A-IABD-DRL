@@ -3,6 +3,9 @@ import keras
 import numpy as np
 import tensorflow as tf
 from tqdm import tqdm
+from tensorflow import keras
+import tensorflow as tf
+from keras.src import regularizers
 from environment.FarkelEnv import FarkleDQNEnv
 
 
@@ -24,19 +27,45 @@ class PPO_A2C_Style:
         self.optimizer = tf.keras.optimizers.Adam(learning_rate=alpha)
 
     def _build_model(self):
+        l2_reg = 0.01  # Force de la régularisation L2
+        dropout_rate = 0.2  # Taux de dropout pour réduire l'overfitting
         """Construit un réseau combiné pour la politique et le critique."""
         inputs = keras.layers.Input(shape=(self.state_dim,))
-        x = keras.layers.Dense(128, activation='relu')(inputs)
-        x = keras.layers.Dense(256, activation='relu')(x)
-        x = keras.layers.Dense(256, activation='relu')(x)
-        x = keras.layers.Dense(128, activation='relu')(x)
 
-        # Sortie pour la politique (distribution des actions)
-        policy = keras.layers.Dense(self.action_dim)(x)
-        # Sortie pour la valeur d'état (critique)
-        value = keras.layers.Dense(1)(x)
+        # Couche de normalisation des entrées
+        x = keras.layers.Normalization()(inputs)
+
+        # Réseau dense avec régularisation, normalisation et dropout
+        x = keras.layers.Dense(128, activation='relu', kernel_regularizer=regularizers.L2(l2_reg),
+                         kernel_initializer='he_normal')(x)
+        x = keras.layers.BatchNormalization()(x)
+        x = keras.layers.Dropout(dropout_rate)(x)
+
+        x = keras.layers.Dense(256, activation='relu', kernel_regularizer=regularizers.L2(l2_reg),
+                         kernel_initializer='he_normal')(x)
+        x = keras.layers.BatchNormalization()(x)
+        x = keras.layers.Dropout(dropout_rate)(x)
+
+        x = keras.layers.Dense(512, activation='relu', kernel_regularizer=regularizers.L2(l2_reg),
+                         kernel_initializer='he_normal')(x)
+        x = keras.layers.BatchNormalization()(x)
+        x = keras.layers.Dropout(dropout_rate)(x)
+
+        x = keras.layers.Dense(256, activation='relu', kernel_regularizer=regularizers.L2(l2_reg),
+                         kernel_initializer='he_normal')(x)
+        x = keras.layers.BatchNormalization()(x)
+        x = keras.layers.Dropout(dropout_rate)(x)
+
+        x = keras.layers.Dense(128, activation='relu', kernel_regularizer=regularizers.L2(l2_reg),
+                         kernel_initializer='he_normal')(x)
+        x = keras.layers.BatchNormalization()(x)
+        x = keras.layers.Dropout(dropout_rate)(x)
+
+        policy = keras.layers.Dense(self.action_dim, activation='linear', name="policy_output")(x)
+        value = keras.layers.Dense(1, activation='linear', name="value_output")(x)
 
         return keras.Model(inputs=inputs, outputs=[policy, value])
+
 
     def select_action(self, state, valid_actions):
         """Sélectionne une action avec exploration epsilon-greedy et masquage des actions invalides."""
@@ -150,16 +179,7 @@ class PPO_A2C_Style:
     import random
 
     def evaluate_policy(self, env: FarkleDQNEnv, episodes=100):
-        """
-        Évalue une politique dans l'environnement Farkle.
 
-        Args:
-            env (FarkleDQNEnv): L'environnement Farkle.
-            episodes (int): Nombre d'épisodes pour l'évaluation.
-
-        Returns:
-            tuple: Moyennes des récompenses, longueurs des parties et temps d'exécution.
-        """
         total_rewards = []
         total_lengths = []
         total_times = []
@@ -218,13 +238,13 @@ class PPO_A2C_Style:
 
 
 if __name__ == "__main__":
-    env = FarkleDQNEnv(num_players=2, target_score=2000)
+    env = FarkleDQNEnv(num_players=2, target_score=5000)
     agent = PPO_A2C_Style(
         state_dim=12,
         action_dim=128,
-        alpha=0.0001,
+        alpha=0.00001,
         gamma=0.99,
         clip_ratio=0.2,
-        epsilon_decay_episodes=50000
+        epsilon_decay_episodes=100
     )
     agent.train(env, episodes=50000)
