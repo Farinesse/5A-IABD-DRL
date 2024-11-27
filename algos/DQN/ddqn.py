@@ -2,7 +2,7 @@ import numpy as np
 import keras
 import tensorflow as tf
 from tqdm import tqdm
-from functions.outils import dqn_log_metrics_to_dataframe, play_with_dqn, epsilon_greedy_action
+from functions.outils import log_metrics_to_dataframe, play_with_dqn, epsilon_greedy_action
 
 
 @tf.function(reduce_retracing=True)
@@ -69,7 +69,7 @@ def double_dqn_no_replay(
 ):
     optimizer = keras.optimizers.SGD(
         learning_rate=alpha,
-        momentum=0.999,  # Ajout de momentum pour une convergence plus rapide
+        momentum=0.99,  # Ajout de momentum pour une convergence plus rapide
         nesterov=True,  # Utilisation de Nesterov momentum pour une meilleure performance
         weight_decay=1e-4 # Ajout de régularisation L2 pour éviter le surapprentissage
     )
@@ -78,13 +78,13 @@ def double_dqn_no_replay(
 
     epsilon = start_epsilon
     total_loss = 0.0
-    interval = 100
+    interval = 1000
     results_df = None
 
     for ep_id in tqdm(range(num_episodes)):
         if ep_id % interval == 0 and ep_id > 0:
 
-            results_df = dqn_log_metrics_to_dataframe(
+            results_df = log_metrics_to_dataframe(
                 function = play_with_dqn,
                 model = online_model,
                 predict_func = model_predict,

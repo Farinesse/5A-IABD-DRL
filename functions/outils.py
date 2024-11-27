@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 from statistics import mean
 
 
+
 def logarithmic_decay(episode, start_epsilon, end_epsilon, decay_rate=0.01):
     return max(end_epsilon, start_epsilon - decay_rate * math.log(1 + episode))
 
@@ -304,7 +305,7 @@ def play_with_dqn(env, model, predict_func, episodes=100):
         nb_turns = 0
 
         start_time = time.time()
-        while not env.is_game_over():
+        while not env.is_game_over() and nb_turns < 100:
             s = env.state_description()
             s_tensor = tf.convert_to_tensor(s, dtype=tf.float32)
             mask = env.action_mask()
@@ -320,15 +321,17 @@ def play_with_dqn(env, model, predict_func, episodes=100):
 
             env.step(a)
             nb_turns += 1
-        end_time = time.time()
 
+        end_time = time.time()
+        if nb_turns == 100:
+            episode_scores.append(-1)
+        else:
+            episode_scores.append(env.score())
         episode_time = end_time - start_time
-        episode_scores.append(env.score())
         episode_times.append(episode_time)
         total_time += episode_time
         episode_steps.append(nb_turns)
         step_times.append(episode_time / nb_turns)
-
 
     return (
         mean(episode_scores),
@@ -339,7 +342,7 @@ def play_with_dqn(env, model, predict_func, episodes=100):
     )
 
 
-def dqn_log_metrics_to_dataframe(
+def log_metrics_to_dataframe(
         function,
         model,
         predict_func,
@@ -384,8 +387,7 @@ def dqn_log_metrics_to_dataframe(
 
     return dataframe
 
-
-def plot_dqn_csv_data(file_path):
+def plot_csv_data(file_path):
     """
     Lit les données d'un fichier CSV et crée des graphiques pour analyser les performances d'entraînement.
 

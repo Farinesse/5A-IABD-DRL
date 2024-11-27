@@ -4,7 +4,7 @@ import numpy as np
 import tensorflow as tf
 from collections import deque
 from tqdm import tqdm
-from functions.outils import dqn_log_metrics_to_dataframe, play_with_dqn, epsilon_greedy_action
+from functions.outils import log_metrics_to_dataframe, play_with_dqn, epsilon_greedy_action
 
 
 @tf.function(reduce_retracing=True)
@@ -120,7 +120,7 @@ def deep_q_learning(
     for ep_id in tqdm(range(num_episodes)):
         if ep_id % interval == 0 and ep_id > 0:
 
-            results_df = dqn_log_metrics_to_dataframe(
+            results_df = log_metrics_to_dataframe(
                 function = play_with_dqn,
                 model = model,
                 predict_func = model_predict,

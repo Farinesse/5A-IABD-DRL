@@ -1,11 +1,15 @@
+import time
+from statistics import mean
 import keras
 import numpy as np
 import tensorflow as tf
 from tqdm import tqdm
 
+from functions.outils import log_metrics_to_dataframe, plot_csv_data
+
 
 class REINFORCE:
-    def __init__(self, state_dim, action_dim, alpha=0.0001, gamma=0.99):
+    def __init__(self, state_dim, action_dim, alpha=0.0001, gamma=0.99, path=None):
         self.state_dim = state_dim
         self.action_dim = action_dim
         self.alpha = alpha  # step size α
@@ -13,6 +17,7 @@ class REINFORCE:
         self.policy = self._build_policy()
         self.optimizer = tf.keras.optimizers.Adam(learning_rate=self.alpha)
         self.reward_buffer = []
+        self.path = path
 
     def _build_policy(self):
         # π(a|s,θ) - policy parameterization
@@ -113,39 +118,48 @@ class REINFORCE:
         return sum(rewards), loss.numpy()
 
     def train(self, env, episodes=20000):
-        history = []
-        window_size = 500
+        interval = 100
+        results_df = None
 
         for episode in tqdm(range(episodes), desc="Training Episodes"):
             env.reset()
-            total_reward, loss = self.train_episode(env)
-            history.append(total_reward)
+            _, loss = self.train_episode(env)
 
-            if (episode + 1) % 100 == 0:
-                recent_rewards = history[-window_size:]
-                avg_reward = np.mean(recent_rewards)
-                win_rate = np.mean([r > 0 for r in recent_rewards])
-                print(f"\nEpisode {episode + 1}")
-                print(f"Moyenne des récompenses: {avg_reward:.2f}")
-                print(f"Taux de victoire: {win_rate:.2%}")
+            if (episode + 1) % interval == 0 and episode > 0:
+
+                results_df = log_metrics_to_dataframe(
+                    function = play_with_reinforce,
+                    model = self.policy,
+                    predict_func = None,
+                    env = env,
+                    episode_index = episode,
+                    games = 1000,
+                    dataframe = results_df
+                )
                 print(f"Loss: {loss:.6f}")
 
-        self.save_model('tiktactoe_reinforce_model.h5')
-        return history
+        if self.path is not None:
+            self.save_model(self.path)
+            results_df.to_csv(f"{self.path}_metrics.csv", index=False)
+
 
     def save_model(self, filepath):
         self.policy.save(filepath)
 
 
-def play_with_reinforce(env, model, episodes=1, display=True):
-    total_rewards = 0
+def play_with_reinforce(env, model, predict_func = None, episodes = 100):
+    episode_scores = []
+    episode_times = []
+    episode_steps = []
+    step_times = []
+    total_time = 0
 
     for episode in range(episodes):
         env.reset()
-        done = False
-        episode_reward = 0
+        nb_turns = 0
 
-        while not done:
+        start_time = time.time()
+        while not env.is_game_over() and nb_turns < 100:
             state = env.state_description()
             state_tensor = tf.convert_to_tensor(state, dtype=tf.float32)
             valid_actions = env.available_actions_ids()
@@ -160,29 +174,30 @@ def play_with_reinforce(env, model, episodes=1, display=True):
                 action = valid_actions[np.argmax(masked_probs[valid_actions])]
             else:
                 print("Aucune action valide disponible!")
-                break
+                action = np.random.choice(env.available_actions_ids())
 
-            prev_score = env.score()
             env.step(action)
-            reward = env.score() - prev_score
-            episode_reward += reward
-            done = env.is_game_over()
+            nb_turns += 1
 
-            if display:
-                print("\nÉtat actuel:")
-                env.display()
-                print(f"Action choisie: {action}")
-                print(f"Récompense: {reward}")
-                print(f"Score cumulé: {episode_reward}")
-                print("Probabilités des actions:", masked_probs[valid_actions])
+        end_time = time.time()
+        if nb_turns == 100:
+            episode_scores.append(-1)
+        else:
+            episode_scores.append(env.score())
 
-        total_rewards += episode_reward
-        print(f"\nÉpisode {episode + 1}/{episodes} terminé")
-        print(f"Récompense totale de l'épisode: {episode_reward}")
+        episode_time = end_time - start_time
+        episode_times.append(episode_time)
+        total_time += episode_time
+        episode_steps.append(nb_turns)
+        step_times.append(episode_time / nb_turns)
 
-    mean_score = total_rewards / episodes
-    print(f"\nScore moyen sur {episodes} épisodes: {mean_score}")
-    return mean_score
+    return (
+        mean(episode_scores),
+        mean(episode_times),
+        mean(episode_steps),
+        mean(step_times),
+        episode_scores.count(1.0) / episodes
+    )
 
 
 if __name__ == "__main__":
@@ -195,10 +210,9 @@ if __name__ == "__main__":
         state_dim=27,
         action_dim=9,
         alpha=0.001,
-        gamma=0.99
+        gamma=0.99,
+        path='tiktactoe_reinforce_model.h5'
     )
 
-    history = agent.train(env, episodes=10000)
-    env.reset()
-    model = keras.models.load_model('reinforce_model.h5')
-    mean_score = play_with_reinforce(env=env, model=model, episodes=100, display=True)
+    agent.train(env, episodes=1000)
+    plot_csv_data(agent.path + "_metrics.csv")

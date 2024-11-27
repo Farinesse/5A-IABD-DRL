@@ -6,7 +6,7 @@ import keras
 from algos.DQN.ddqn import double_dqn_no_replay
 from algos.DQN.ddqn_exp_replay import double_dqn_with_replay
 from algos.DQN.deep_qlearning import deep_q_learning
-from functions.outils import plot_dqn_csv_data
+from functions.outils import plot_csv_data
 
 NUM_ACTIONS = 9
 NUM_STATE_FEATURES = 27
@@ -184,6 +184,24 @@ if __name__ == "__main__":
     )
 
 
-    plot_dqn_csv_data(
+    plot_csv_data(
         "../models/models/ttt/ddqn_model_ttt_test_10000_0-99_0-0001_1-0_0-01_16_8_100.h5_metrics.csv")
     """
+
+    """trained_model = deep_q_learning(
+        model=model,
+        target_model=target_model,
+        env=env,
+        num_episodes=10000,
+        gamma=0.99,
+        alpha=0.0001,
+        start_epsilon=1.0,
+        end_epsilon=0.01,
+        memory_size=32,
+        batch_size=16,
+        update_target_steps=100,
+        save_path ='dqn_replay_model_ttt_test_10000_0-99_0-0001_1-0_32_16_0-01_16_8_100.h5',
+        input_dim=27,
+    )"""
+
+    plot_csv_data("dqn_replay_model_ttt_test_10000_0-99_0-0001_1-0_32_16_0-01_16_8_100.h5_metrics.csv")
