@@ -5,6 +5,7 @@ import numpy as np
 import tensorflow as tf
 from tqdm import tqdm
 
+from environment.line_word import LineWorld
 from functions.outils import log_metrics_to_dataframe, plot_csv_data
 
 
@@ -205,13 +206,15 @@ if __name__ == "__main__":
 
     tf.get_logger().setLevel('ERROR')
 
-    env = TicTacToe()
+    #env = TicTacToe()
+    env = LineWorld(10)
+
     agent = REINFORCE(
-        state_dim=27,
-        action_dim=9,
+        state_dim=10,
+        action_dim=3,
         alpha=0.001,
         gamma=0.99,
-        path='tiktactoe_reinforce_model.h5'
+        path='line_reinforce_model.h5'
     )
 
     agent.train(env, episodes=1000)

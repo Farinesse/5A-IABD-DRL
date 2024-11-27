@@ -1,250 +1,193 @@
-import csv
-import keras
+import tensorflow as tf
 import numpy as np
-import tensorflow as tf
 from tqdm import tqdm
-from tensorflow import keras
-import tensorflow as tf
-from keras.src import regularizers
-from environment.FarkelEnv import FarkleDQNEnv
+import time
+from statistics import mean
 
 
-class PPO_A2C_Style:
-    def __init__(self, state_dim, action_dim, alpha=0.0003, gamma=0.99, clip_ratio=0.2, epsilon_start=1.0,
-                 epsilon_end=0.01, epsilon_decay_episodes=20000):
+class PPO:
+    def __init__(self, state_dim, action_dim, clip_epsilon=0.2, gamma=0.99, alpha=0.0003):
         self.state_dim = state_dim
         self.action_dim = action_dim
+        self.clip_epsilon = clip_epsilon
         self.gamma = gamma
-        self.clip_ratio = clip_ratio
 
-        # Exploration (epsilon-greedy)
-        self.epsilon = epsilon_start
-        self.epsilon_min = epsilon_end
-        self.epsilon_decay_rate = (epsilon_start - epsilon_end) / epsilon_decay_episodes
+        # Paramètres d'exploration
+        self.epsilon = 1.0
 
-        # Modèle combiné pour la politique (acteur) et le critique
-        self.model = self._build_model()
-        self.optimizer = tf.keras.optimizers.Adam(learning_rate=alpha)
+        # Réseaux et optimiseurs
+        self.actor = self._build_actor()
+        self.critic = self._build_critic()
+        self.actor_optimizer = tf.keras.optimizers.Adam(learning_rate=alpha)
+        self.critic_optimizer = tf.keras.optimizers.Adam(learning_rate=alpha)
 
-    def _build_model(self):
-        l2_reg = 0.01  # Force de la régularisation L2
-        dropout_rate = 0.2  # Taux de dropout pour réduire l'overfitting
-        """Construit un réseau combiné pour la politique et le critique."""
-        inputs = keras.layers.Input(shape=(self.state_dim,))
+    def _build_actor(self):
+        return tf.keras.Sequential([
+            tf.keras.layers.Input(shape=(self.state_dim,)),
+            tf.keras.layers.Dense(128, activation='relu'),
+            tf.keras.layers.Dense(256, activation='relu'),
+            tf.keras.layers.Dense(512, activation='relu'),
+            tf.keras.layers.Dense(256, activation='relu'),
+            tf.keras.layers.Dense(self.action_dim, activation='softmax')
+        ])
 
-        # Couche de normalisation des entrées
-        x = keras.layers.Normalization()(inputs)
+    def _build_critic(self):
+        return tf.keras.Sequential([
+            tf.keras.layers.Input(shape=(self.state_dim,)),
+            tf.keras.layers.Dense(128, activation='relu'),
+            tf.keras.layers.Dense(256, activation='relu'),
+            tf.keras.layers.Dense(512, activation='relu'),
+            tf.keras.layers.Dense(256, activation='relu'),
+            tf.keras.layers.Dense(1)
+        ])
 
-        # Réseau dense avec régularisation, normalisation et dropout
-        x = keras.layers.Dense(128, activation='relu', kernel_regularizer=regularizers.L2(l2_reg),
-                         kernel_initializer='he_normal')(x)
-        x = keras.layers.BatchNormalization()(x)
-        x = keras.layers.Dropout(dropout_rate)(x)
-
-        x = keras.layers.Dense(256, activation='relu', kernel_regularizer=regularizers.L2(l2_reg),
-                         kernel_initializer='he_normal')(x)
-        x = keras.layers.BatchNormalization()(x)
-        x = keras.layers.Dropout(dropout_rate)(x)
-
-        x = keras.layers.Dense(512, activation='relu', kernel_regularizer=regularizers.L2(l2_reg),
-                         kernel_initializer='he_normal')(x)
-        x = keras.layers.BatchNormalization()(x)
-        x = keras.layers.Dropout(dropout_rate)(x)
-
-        x = keras.layers.Dense(256, activation='relu', kernel_regularizer=regularizers.L2(l2_reg),
-                         kernel_initializer='he_normal')(x)
-        x = keras.layers.BatchNormalization()(x)
-        x = keras.layers.Dropout(dropout_rate)(x)
-
-        x = keras.layers.Dense(128, activation='relu', kernel_regularizer=regularizers.L2(l2_reg),
-                         kernel_initializer='he_normal')(x)
-        x = keras.layers.BatchNormalization()(x)
-        x = keras.layers.Dropout(dropout_rate)(x)
-
-        policy = keras.layers.Dense(self.action_dim, activation='linear', name="policy_output")(x)
-        value = keras.layers.Dense(1, activation='linear', name="value_output")(x)
-
-        return keras.Model(inputs=inputs, outputs=[policy, value])
-
-
-    def select_action(self, state, valid_actions):
-        """Sélectionne une action avec exploration epsilon-greedy et masquage des actions invalides."""
-        state_tensor = tf.convert_to_tensor([state], dtype=tf.float32)
-        logits, _ = self.model(state_tensor)
-        logits = logits.numpy()[0]
+    def select_action(self, state_tensor, action_mask, training=True):
+        """Sélectionne une action avec masquage des actions invalides"""
+        # Obtention des probabilités d'action
+        probs = self.actor(state_tensor[None])[0].numpy()
 
         # Masquage des actions invalides
-        mask = np.ones_like(logits) * float('-inf')
+        mask = np.ones_like(probs) * float('-inf')
+        valid_actions = np.where(action_mask == 1)[0]
         mask[valid_actions] = 0
-        masked_logits = logits + mask
+        masked_probs = tf.nn.softmax(probs + mask).numpy()
 
-        # Softmax pour obtenir les probabilités des actions
-        probs = tf.nn.softmax(masked_logits).numpy()
-
-        # Exploration epsilon-greedy
-        if np.random.random() < self.epsilon:
+        # Exploration epsilon-greedy en training
+        if training and np.random.random() < self.epsilon:
             action = np.random.choice(valid_actions)
         else:
-            action = valid_actions[np.argmax(probs[valid_actions])]
+            action = valid_actions[np.argmax(masked_probs[valid_actions])]
 
-        return action, probs
+        return action, masked_probs
 
-    def compute_advantages(self, rewards, values):
-        """Calcule les avantages (GAE) et retours pour PPO."""
-        returns, advantages = [], []
-        G = 0
-        for r, v in zip(reversed(rewards), reversed(values)):
-            G = r + self.gamma * G
-            returns.insert(0, G)
-            advantages.insert(0, G - v)
-        advantages = np.array(advantages)
-        return np.array(returns), (advantages - advantages.mean()) / (advantages.std() + 1e-8)
-
-    def train_episode(self, env):
-        """Entraîne l'agent sur un épisode unique."""
-        states, actions, rewards, old_probs, values = [], [], [], [], []
+    def train_episode(self, env, episode_num):
+        states, actions, rewards, values, old_probs = [], [], [], [], []
         state = env.state_description()
         done = False
         episode_reward = 0
 
+        # Ajustement exploration
+        if episode_num < 20000:
+            self.epsilon = max(0.01, 1.0 - (episode_num / 20000) * 0.5)
+
         while not done:
-            valid_actions = env.available_actions_ids()
-            action, probs = self.select_action(state, valid_actions)
+            state_tensor = tf.convert_to_tensor(state, dtype=tf.float32)
+            action_mask = env.action_mask()
 
+            # Sélection d'action
+            action, action_probs = self.select_action(state_tensor, action_mask)
+
+            # Exécution de l'action
             prev_score = env.score()
-
-            # Exécuter l'action
             env.step(action)
-            #print(f"descrip {env.state_description()}, Des = {env.dice_roll}, action = {env.decode_action(action)}, etat  = {env.get_observation()}")
             reward = env.score() - prev_score
             next_state = env.state_description()
             done = env.is_game_over()
 
-            # Enregistrement des données
+            # Stockage des données
             states.append(state)
             actions.append(action)
             rewards.append(reward)
-            old_probs.append(probs[action])
-            _, value = self.model(tf.convert_to_tensor([state], dtype=tf.float32))
-            values.append(value.numpy()[0, 0])
+            values.append(self.critic(state_tensor[None]).numpy()[0, 0])
+            old_probs.append(action_probs[action])
 
             state = next_state
             episode_reward += reward
 
-        # Mise à jour d'epsilon (exploration)
-        self.epsilon = max(self.epsilon_min, self.epsilon - self.epsilon_decay_rate)
-
         # Conversion en arrays
         states = np.array(states, dtype=np.float32)
         actions = np.array(actions, dtype=np.int32)
+        rewards = np.array(rewards, dtype=np.float32)
         old_probs = np.array(old_probs, dtype=np.float32)
         values = np.array(values, dtype=np.float32)
 
-        # Calcul des avantages et retours
-        returns, advantages = self.compute_advantages(rewards, values)
+        # Calcul des avantages et returns
+        returns = self.compute_returns(rewards)
+        advantages = returns - values
+        advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
 
-        # Mise à jour via PPO
-        loss, policy_loss, critic_loss = self.update_policy(states, actions, old_probs, returns, advantages)
-        return episode_reward, loss, policy_loss, critic_loss
+        # Update des réseaux
+        actor_loss = self.update_actor(states, actions, old_probs, advantages)
+        critic_loss = self.update_critic(states, returns)
 
-    def update_policy(self, states, actions, old_probs, returns, advantages):
-        """Met à jour la politique via PPO avec les gradients clippés."""
+        return episode_reward, actor_loss, critic_loss
+
+    def compute_returns(self, rewards):
+        returns = np.zeros_like(rewards)
+        G = 0
+        for t in reversed(range(len(rewards))):
+            G = rewards[t] + self.gamma * G
+            returns[t] = G
+        return returns
+
+    def update_actor(self, states, actions, old_probs, advantages):
         with tf.GradientTape() as tape:
-            logits, values = self.model(states)
-            values = tf.squeeze(values)
+            # Nouvelles probabilités
+            new_probs = self.actor(states)
+            actions_one_hot = tf.one_hot(actions, self.action_dim)
+            new_action_probs = tf.reduce_sum(new_probs * actions_one_hot, axis=1)
 
-            # Calcul des probabilités des actions prises
-            action_masks = tf.one_hot(actions, self.action_dim)
-            new_probs = tf.reduce_sum(action_masks * tf.nn.softmax(logits), axis=1)
+            # Ratio et clipping
+            ratios = new_action_probs / (old_probs + 1e-10)
+            clipped_ratios = tf.clip_by_value(ratios, 1 - self.clip_epsilon, 1 + self.clip_epsilon)
 
-            # Ratio PPO
-            ratios = new_probs / (old_probs + 1e-10)
-            clipped_ratios = tf.clip_by_value(ratios, 1 - self.clip_ratio, 1 + self.clip_ratio)
-            policy_loss = -tf.reduce_mean(
-                tf.minimum(ratios * advantages, clipped_ratios * advantages)
-            )
-
-            # Perte critique
-            critic_loss = tf.reduce_mean(tf.square(returns - values))
-
-            # Perte totale
-            total_loss = policy_loss + 0.5 * critic_loss
+            # Pertes PPO
+            surrogate1 = ratios * advantages
+            surrogate2 = clipped_ratios * advantages
+            actor_loss = -tf.reduce_mean(tf.minimum(surrogate1, surrogate2))
 
         # Application des gradients
-        grads = tape.gradient(total_loss, self.model.trainable_variables)
-        self.optimizer.apply_gradients(zip(grads, self.model.trainable_variables))
+        actor_grads = tape.gradient(actor_loss, self.actor.trainable_variables)
+        self.actor_optimizer.apply_gradients(zip(actor_grads, self.actor.trainable_variables))
 
-        return total_loss, policy_loss, critic_loss
+        return actor_loss.numpy()
 
-    import random
+    def update_critic(self, states, returns):
+        with tf.GradientTape() as tape:
+            values = self.critic(states)
+            critic_loss = tf.reduce_mean(tf.square(returns - tf.squeeze(values)))
 
-    def evaluate_policy(self, env: FarkleDQNEnv, episodes=100):
+        critic_grads = tape.gradient(critic_loss, self.critic.trainable_variables)
+        self.critic_optimizer.apply_gradients(zip(critic_grads, self.critic.trainable_variables))
 
-        total_rewards = []
-        total_lengths = []
-        total_times = []
+        return critic_loss.numpy()
+
+    def train(self, env, episodes=50000, eval_interval=1000):
+        for episode in tqdm(range(episodes), desc="Training"):
+            env.reset()
+            reward, actor_loss, critic_loss = self.train_episode(env, episode)
+
+            if (episode + 1) % eval_interval == 0:
+                eval_reward, eval_steps = self.evaluate(env)
+                print(f"\nÉpisode {episode + 1}")
+                print(f"Reward moyen: {eval_reward:.2f}")
+                print(f"Steps moyen: {eval_steps:.2f}")
+                print(f"Actor Loss: {actor_loss:.6f}")
+                print(f"Critic Loss: {critic_loss:.6f}")
+                print(f"Epsilon: {self.epsilon:.4f}")
+
+    def evaluate(self, env, episodes=100):
+        rewards = []
+        steps = []
 
         for _ in range(episodes):
             env.reset()
             state = env.state_description()
             done = False
-            rewards = 0
-            length = 0
+            episode_reward = 0
+            episode_steps = 0
 
             while not done:
-                # Tour du joueur 1 (agent)
-                valid_actions = env.available_actions_ids()
-                action, _ = self.select_action(state, valid_actions)  # Méthode `select_action` doit être définie.
-                observation, reward, done, truncated, info = env.step(action)
+                state_tensor = tf.convert_to_tensor(state, dtype=tf.float32)
+                action_mask = env.action_mask()
+                action, _ = self.select_action(state_tensor, action_mask, training=False)
 
-
-                if  done:
-                    rewards += env.score()
-
-
-                # Mise à jour de l'état
+                _, reward, done, _, _ = env.step(action)
                 state = env.state_description()
-                length += 1
+                episode_reward += reward
+                episode_steps += 1
 
-            # Enregistrer les statistiques de l'épisode
-            total_rewards.append(rewards)
-            total_lengths.append(length)
-            total_times.append(0.001)  # Placeholder pour le temps si non calculé
+            rewards.append(episode_reward)
+            steps.append(episode_steps)
 
-        # Calculer les moyennes
-        avg_reward = np.mean(total_rewards)
-        avg_length = np.mean(total_lengths)
-        avg_time = np.mean(total_times)
-
-        return avg_reward, avg_length, avg_time
-
-    def train(self, env, episodes=5000, eval_interval=500, eval_episodes=100, csv_filename="training_results_2.csv"):
-        """Entraîne l'agent sur plusieurs épisodes et enregistre les résultats."""
-        with open(csv_filename, mode='w', newline='') as file:
-            writer = csv.writer(file)
-            writer.writerow(
-                ["Episode", "Average Reward", "Max Reward", "Min Reward", "Loss", "Policy Loss", "Critic Loss"])
-
-            for episode in tqdm(range(episodes), desc="Training Episodes"):
-                env.reset()
-                reward, loss, policy_loss, critic_loss = self.train_episode(env)
-
-                # Affichage périodique
-                if (episode + 1) % eval_interval == 0:
-                    avg_reward, avg_length, avg_time_per_move = self.evaluate_policy(env, eval_episodes)
-                    writer.writerow([episode + 1, avg_reward, avg_reward, avg_reward, loss, policy_loss, critic_loss])
-                    print(
-                        f"Évaluation : Épisode {episode + 1}, Moyenne = {avg_reward:.2f}, Longueur Moyenne = {avg_length:.2f}, Loss = {loss:.2f}, Policy Loss = {policy_loss:.2f}, Critic Loss = {critic_loss:.2f}, Critic Loss = {self.epsilon:.2f} ")
-
-
-if __name__ == "__main__":
-    env = FarkleDQNEnv(num_players=2, target_score=5000)
-    agent = PPO_A2C_Style(
-        state_dim=12,
-        action_dim=128,
-        alpha=0.00001,
-        gamma=0.99,
-        clip_ratio=0.2,
-        epsilon_decay_episodes=100
-    )
-    agent.train(env, episodes=50000)
+        return np.mean(rewards), np.mean(steps)
