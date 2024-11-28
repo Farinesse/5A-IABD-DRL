@@ -1,5 +1,7 @@
 
 import random
+import secrets
+
 import keras
 import numpy as np
 import tensorflow as tf
@@ -7,7 +9,7 @@ from keras.src import regularizers
 from tqdm import tqdm
 
 from environment.tictactoe import TicTacToe
-from functions.outils import dqn_log_metrics_to_dataframe, play_with_dqn, epsilon_greedy_action
+from functions.outils import log_metrics_to_dataframe, play_with_dqn, epsilon_greedy_action, plot_csv_data
 
 
 @tf.function
@@ -30,16 +32,6 @@ def model_predict(model, s):
     return model(tf.expand_dims(s, 0))[0]
 
 
-def epsilon_greedy_action(q_s: tf.Tensor,mask: tf.Tensor,available_actions: np.ndarray,epsilon: float) -> int:
-
-    if np.random.rand() < epsilon:
-        return np.random.choice(available_actions)
-    else :
-        inverted_mask = tf.constant(1.0) - mask
-        masked_q_s = q_s * mask + (1e-8) * inverted_mask
-        return int(tf.argmax(masked_q_s, axis=0))
-
-
 def save_model(model, file_path, save_format="tf"):
     """Sauvegarde du modèle."""
     try:
@@ -58,7 +50,19 @@ def soft_update_target_network(model, target_model, tau=0.01):
     target_model.set_weights(target_weights)
 
 
-def dqn_no_replay(model, target_model, env, num_episodes, gamma, alpha, start_epsilon, end_epsilon, update_frequency, save_path, input_dim):
+def dqn_no_replay(
+        model,
+        target_model,
+        env,
+        num_episodes,
+        gamma,
+        start_epsilon,
+        end_epsilon,
+        update_frequency,
+        save_path = None,
+        input_dim = None,
+        interval = 10
+):
     """Entraînement d'un agent DQN sans mémoire de rejouabilité."""
     optimizer = tf.keras.optimizers.Adam(
         learning_rate=0.00001,  # Learning rate plus faible
@@ -115,8 +119,8 @@ def dqn_no_replay(model, target_model, env, num_episodes, gamma, alpha, start_ep
         epsilon = max(end_epsilon, start_epsilon * (1 - ep_id / num_episodes))
 
         # Sauvegarde périodique et affichage des métriques
-        if ep_id % 500 == 0 and ep_id > 0:
-            results_df = dqn_log_metrics_to_dataframe(
+        if (ep_id + 1) % interval == 0 and ep_id > 0:
+            results_df = log_metrics_to_dataframe(
                 function=play_with_dqn,
                 model=model,
                 predict_func=model_predict,
@@ -129,9 +133,32 @@ def dqn_no_replay(model, target_model, env, num_episodes, gamma, alpha, start_ep
             print(f"Épisode: {ep_id}, Perte moyenne: {total_loss / 500}, Epsilon: {epsilon}")
             total_loss = 0.0
 
-    save_model(model, f"{save_path}_finale.h5", save_format="h5")
-    if results_df is not None:
-        results_df.to_csv(f"{save_path}_metrics.csv", index=False)
+    if save_path is not None:
+        if save_path.endswith(".h5"):
+            save_path = f'{save_path[:-3]}_{secrets.token_hex(4)}.h5'
+        else:
+            save_path = f'{save_path}_{secrets.token_hex(4)}.h5'
+        csv = f'{save_path}_metrics.csv'
+        save_model(model, save_path, save_format="h5")
+        results_df.to_csv(csv, index=False)
+        algo = "DQN NO REPLAY"
+        plot_csv_data(
+            csv,
+            model = model,
+            title = f"Training Metrics {algo} - {env.env_description()}",
+            custom_dict = {
+                "Episodes": num_episodes,
+                "Gamma": gamma,
+                "Alpha": None,
+                "Start Epsilon": start_epsilon,
+                "End Epsilon": end_epsilon,
+                "Update Target Steps": update_frequency,
+                "Optimizer": optimizer.get_config()
+            },
+            algo_name = algo,
+            env_descr = env.env_description()
+        )
+
     return model, target_model
 
 
@@ -180,7 +207,6 @@ if __name__ == "__main__":
         env=env,
         num_episodes=20000,
         gamma=0.99,
-        alpha=0.00001,
         start_epsilon=1.0,
         end_epsilon=0.001,
         save_path ='models/dqn_replay/dqn_replay_model_farkel_5000_tests/20000-0.99_0-00001-500-tests/dqn_replay_model_farkel_test_10000_0-99_0-0001_1-0_0-01_64_32_100_128relu12dim_512relu_256relu_256relu_128',

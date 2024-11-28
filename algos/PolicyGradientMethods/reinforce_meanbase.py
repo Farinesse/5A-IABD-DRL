@@ -28,20 +28,34 @@ class REINFORCEBaseline:
 
     def _build_policy(self):
         # π(a|s,θ) - policy parameterization
-        return keras.Sequential([
-            keras.layers.Dense(128, activation='relu', input_dim=self.state_dim),
-            keras.layers.Dense(512, activation='relu'),
-            keras.layers.Dense(256, activation='relu'),
-            keras.layers.Dense(self.action_dim, activation='softmax')  # Sortie en distribution de probabilités
+        # Smaller network with proper initialization
+        return tf.keras.Sequential([
+            tf.keras.layers.Input(shape=(self.state_dim,)),
+            tf.keras.layers.Dense(64, activation='relu',
+                                  kernel_initializer='glorot_normal',
+                                  bias_initializer='zeros'),
+            tf.keras.layers.Dense(64, activation='relu',
+                                  kernel_initializer='glorot_normal',
+                                  bias_initializer='zeros'),
+            tf.keras.layers.Dense(self.action_dim, activation='softmax',
+                                  kernel_initializer='glorot_normal',
+                                  bias_initializer='zeros')
         ])
 
     def _build_baseline(self):
         # v̂(s,w) - state-value function
-        return keras.Sequential([
-            keras.layers.Dense(128, activation='relu', input_dim=self.state_dim),
-            keras.layers.Dense(512, activation='relu'),
-            keras.layers.Dense(256, activation='relu'),
-            keras.layers.Dense(1)
+        # Smaller network with proper initialization
+        return tf.keras.Sequential([
+            tf.keras.layers.Input(shape=(self.state_dim,)),
+            tf.keras.layers.Dense(64, activation='relu',
+                                  kernel_initializer='glorot_normal',
+                                  bias_initializer='zeros'),
+            tf.keras.layers.Dense(64, activation='relu',
+                                  kernel_initializer='glorot_normal',
+                                  bias_initializer='zeros'),
+            tf.keras.layers.Dense(1,
+                                  kernel_initializer='glorot_normal',
+                                  bias_initializer='zeros')
         ])
 
     def compute_returns(self, rewards):
@@ -74,7 +88,7 @@ class REINFORCEBaseline:
             masked_probs = tf.nn.softmax(probs + mask).numpy()
 
             # Sélection d'action selon π(a|s,θ)
-            epsilon = max(0.01, (1 - len(self.reward_buffer) / 30000))
+            epsilon = max(0.01, (1 - len(self.reward_buffer) / 70000))
             if np.random.random() < epsilon:
                 action = np.random.choice(valid_actions)
             else:
@@ -132,7 +146,7 @@ class REINFORCEBaseline:
         return sum(rewards), loss.numpy()
 
     def train(self, env, episodes=20000):
-        interval = 100
+        interval = 1000
         results_df = None
 
         for episode in tqdm(range(episodes), desc="Training Episodes"):
@@ -196,7 +210,7 @@ def play_with_reinforce_baseline(env, model, predict_func=None, episodes=100):
         if nb_turns == 100:
             episode_scores.append(-1)
         else:
-            episode_scores.append(env.score())
+            episode_scores.append(env.score(testing=True))
 
         episode_time = end_time - start_time
         episode_times.append(episode_time)

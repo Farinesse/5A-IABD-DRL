@@ -20,6 +20,10 @@ class TicTacToe:
         self._is_game_over = False
         self._score = 0.0
 
+    def env_description(self) -> str:
+        """Renvoie une description de l'environnement."""
+        return "TicTacToe"
+
     def reset(self):
         self._board = np.zeros((NUM_ACTIONS,))
         self._player = 0

@@ -19,6 +19,10 @@ class LineWorld:
         self.game_over = False  # Indique si le jeu est terminé
         self.score_val = 0.0  # Score actuel
 
+    def env_description(self) -> str:
+        """Renvoie une description de l'environnement."""
+        return f"LineWorld({len(self.all_position)})"
+
     def state_description(self) -> np.ndarray:
         """
         Returns the current state as a one-hot vector of length `self.length`.

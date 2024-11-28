@@ -1,3 +1,4 @@
+import io
 import math
 import time
 import numpy as np
@@ -37,7 +38,7 @@ def epsilon_greedy_action(
         return np.random.choice(available_actions)
     else:
         inverted_mask = tf.constant(1.0) - mask
-        masked_q_s = q_s * mask + (1e-8) * inverted_mask
+        masked_q_s = q_s * mask + (-1e-8) * inverted_mask
         return int(tf.argmax(masked_q_s, axis=0))
 
 
@@ -326,7 +327,7 @@ def play_with_dqn(env, model, predict_func, episodes=100):
         if nb_turns == 100:
             episode_scores.append(-1)
         else:
-            episode_scores.append(env.score())
+            episode_scores.append(env.score(testing=True))
         episode_time = end_time - start_time
         episode_times.append(episode_time)
         total_time += episode_time
@@ -387,17 +388,27 @@ def log_metrics_to_dataframe(
 
     return dataframe
 
-def plot_csv_data(file_path):
+def plot_csv_data(
+        file_path,
+        model = None,
+        title = "Training Metrics",
+        custom_dict = None,
+        algo_name = "",
+        env_descr = ""
+):
     """
     Lit les données d'un fichier CSV et crée des graphiques pour analyser les performances d'entraînement.
 
     Arguments:
         file_path (str): Le chemin du fichier CSV.
+        model (tf.keras.Model): Le modèle utilisé pour l'entraînement.
+        title (str): Le titre global du graphique.
+        custom_dict (dict): Un dictionnaire de paramètres personnalisés à afficher dans le graphique.
+        algo_name (str): Le nom de l'algorithme utilisé.
+        env_descr (str): La description de l'environnement utilisé.
     """
-    # Lire le fichier CSV
     data = pd.read_csv(file_path)
 
-    # Définir les colonnes importantes
     x = data['training_episode_index']
     metrics = {
         'Mean Score': data['mean_score'],
@@ -407,17 +418,49 @@ def plot_csv_data(file_path):
         'Mean Time per Step': data['mean_time_per_step']
     }
 
-    # Créer des graphiques
-    plt.figure(figsize=(15, 10))
+    plt.figure(figsize=(20, 20))
+    plt.suptitle(title, fontsize=20)
+
+    plt.subplot(4, 2, 1)
+    plt.axis('off')
+    plt.text(
+        0.5, 0.8, f"algo: {algo_name}",
+        fontsize=18,
+        ha='center', va='center', wrap=True
+    )
+    plt.text(
+        0.5, 0.6, f"env: {env_descr}",
+        fontsize=18,
+        ha='center', va='center', wrap=True
+    )
+    plt.text(
+        0.5, 0.2, str(custom_dict),
+        fontsize=17,
+        ha='center', va='center', wrap=True
+    )
+
+
+    if model is not None:
+        model_summary = io.StringIO()
+        model.summary(print_fn=lambda x: model_summary.write(x + '\n'))
+
+        plt.subplot(4, 2, 2)
+        plt.axis('off')
+        plt.text(
+            0.5, 0.6, model_summary.getvalue(),
+            fontsize=11,
+            ha='center', va='center', wrap=True
+        )
 
     for i, (label, y) in enumerate(metrics.items()):
-        plt.subplot(3, 2, i + 1)  # Disposition des sous-graphiques
-        plt.plot(x, y, marker='o')
+        plt.subplot(4, 2, i + 3)
+        plt.plot(x, y, marker="o")
         plt.title(label)
         plt.xlabel('Training Episode Index')
         plt.ylabel(label)
         plt.grid(True)
 
+    plt.subplots_adjust(hspace=0.4)
     plt.tight_layout()
     plt.show()
 

@@ -2,10 +2,12 @@ import numpy as np
 import random
 from gymnasium import spaces
 from tensorflow.python import keras
+import tensorflow as tf
 import keras
 from algos.DQN.ddqn import double_dqn_no_replay
 from algos.DQN.ddqn_exp_replay import double_dqn_with_replay
 from algos.DQN.deep_qlearning import deep_q_learning
+from algos.PolicyGradientMethods.reinforce_meanbase import REINFORCEBaseline
 from functions.outils import plot_csv_data
 
 
@@ -16,6 +18,9 @@ class FarkleEnv:
         self.action_space = spaces.Discrete(128)
         self.reset()
         self.stop = False
+
+    def env_description(self):
+        return f"FarkleEnv - Target score: {self.target_score}"
 
     def reset(self, seed=None):
         if seed is not None:
@@ -375,66 +380,31 @@ class FarkleDQNEnv(FarkleEnv):
         print(f"Jeu terminé: {self.game_over}")
 
 
-def create_farkle_model():
-    l2_reg = 0.01  # Force de la régularisation L2
-    dropout_rate = 0.2  # Taux de dropout pour réduire l'overfitting
-
-    # Création du modèle
-    model = keras.Sequential([
-        # Normalisation des entrées
-        keras.layers.InputLayer(shape=(12,)),
-        keras.layers.Normalization(),  # Ajout d'une couche de normalisation
-
-        # Couche d'entrée
-        keras.layers.Dense(128,
-                           activation='relu',
-                           kernel_regularizer=keras.regularizers.L2(l2_reg),
-                           kernel_initializer='he_normal'),
-        keras.layers.BatchNormalization(),
-        keras.layers.Dropout(dropout_rate),
-
-        # Couches cachées avec taille croissante
-        keras.layers.Dense(256,
-                           activation='relu',
-                           kernel_regularizer=keras.regularizers.L2(l2_reg),
-                           kernel_initializer='he_normal'),
-        keras.layers.BatchNormalization(),
-        keras.layers.Dropout(dropout_rate),
-
-        keras.layers.Dense(512,
-                           activation='relu',
-                           kernel_regularizer=keras.regularizers.L2(l2_reg),
-                           kernel_initializer='he_normal'),
-        keras.layers.BatchNormalization(),
-        keras.layers.Dropout(dropout_rate),
-
-        # Couches cachées avec taille décroissante
-        keras.layers.Dense(256,
-                           activation='relu',
-                           kernel_regularizer=keras.regularizers.L2(l2_reg),
-                           kernel_initializer='he_normal'),
-        keras.layers.BatchNormalization(),
-        keras.layers.Dropout(dropout_rate),
-
-        keras.layers.Dense(128,
-                           activation='relu',
-                           kernel_regularizer=keras.regularizers.L2(l2_reg),
-                           kernel_initializer='he_normal'),
-        keras.layers.BatchNormalization(),
-        keras.layers.Dropout(dropout_rate),
-
-        # Couche de sortie
-        keras.layers.Dense(128) , # Nombre d'actions possibles dans Farkle
-        keras.layers.LayerNormalization()  # Normalise les sorties
-
+def create_farkle_model(state_dim, action_dim):
+    # Smaller network with proper initialization
+    return keras.Sequential([
+        keras.layers.Input(shape=(state_dim,)),
+        keras.layers.Dense(128, activation='relu',
+                           kernel_initializer='glorot_normal',
+                           bias_initializer='zeros'),
+        keras.layers.Dense(256, activation='relu',
+                              kernel_initializer='glorot_normal',
+                              bias_initializer='zeros'),
+        keras.layers.Dense(512, activation='relu',
+                              kernel_initializer='glorot_normal',
+                              bias_initializer='zeros'),
+        keras.layers.Dense(256, activation='relu',
+                              kernel_initializer='glorot_normal',
+                              bias_initializer='zeros'),
+        keras.layers.Dense(action_dim, activation='softmax',
+                              kernel_initializer='glorot_normal',
+                              bias_initializer='zeros')
     ])
-    return model
-
 
 if __name__ == "__main__":
 
     env = FarkleDQNEnv(num_players = 2, target_score=5000)
-    model = create_farkle_model()
+    model = create_farkle_model(12, 128)
     target_model = keras.models.clone_model(model)
     target_model.set_weights(model.get_weights())
 
@@ -458,30 +428,40 @@ if __name__ == "__main__":
         online_model=model,
         target_model=target_model,
         env=env,
-        num_episodes=10000,
+        num_episodes=100000,
         gamma=0.99,
         alpha=0.0001,
         start_epsilon=1.0,
         end_epsilon=0.01,
         memory_size=32,
         batch_size=16,
-        update_target_steps=100,
-        save_path ='../models/models/ddqn_replay/ddqn_replay_model_farkel_tests/ddqn_replay_model_farkel_5000_tests/dqn_replay_model_farkel_5000_test_10000_0-99_0-0001_1-0_0-01_64_32_100_512relu12dim_256relu_dropout0.2_256relu_dropout0.2_128.h5',
+        update_target_steps=1000,
+        save_path ='farkle5000_ddqn_replay_100000episodes.h5',
         input_dim=12,
     )"""
 
-    """trained_model, _ = double_dqn_no_replay(
+    trained_model, _ = double_dqn_no_replay(
         online_model=model,
         target_model=target_model,
         env=env,
-        num_episodes=10000,
+        num_episodes=100,
         gamma=0.99,
-        alpha=0.0001,
+        alpha=0.001,
         start_epsilon=1.0,
         end_epsilon=0.01,
-        update_target_steps=100,
-        save_path ='../models/models/ddqn_no_replay/ddqn_no_replay_model_farkel_tests/ddqn_no_replay_model_farkel_5000_tests/dqn_replay_model_farkel_5000_test_10000_0-99_0-0001_1-0_0-01_100_input12_norm_dense128relu_L2_0.01_bn_dropout0.2_dense256relu_L2_0.01_bn_dropout0.2_dense512relu_L2_0.01_bn_dropout0.2_dense256relu_L2_0.01_bn_dropout0.2_dense128relu_L2_0.01_bn_dropout0.2_layernorm.h5',
+        update_target_steps=50,
+        save_path ='farkle5000_ddqn_noreplay_100000episodes',
         input_dim=12,
-    )"""
+        interval = 50
+    )
 
-    plot_csv_data('../models/models/ddqn_replay/ddqn_replay_model_farkel_tests/ddqn_replay_model_farkel_5000_tests/dqn_replay_model_farkel_5000_test_10000_0-99_0-0001_1-0_0-01_64_32_100_512relu12dim_256relu_dropout0.2_256relu_dropout0.2_128.h5_metrics.csv')
+    """agent = REINFORCEBaseline(
+        state_dim=12,
+        action_dim=128,
+        alpha_theta=0.001,
+        alpha_w=0.001,
+        gamma=0.99,
+        path='farkle5000_reinforce_baseline_100000episodes.h5'
+    )
+
+    agent.train(env, episodes=100000)"""

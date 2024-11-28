@@ -1,10 +1,12 @@
 import random
+import secrets
+
 import keras
 import numpy as np
 import tensorflow as tf
 from tqdm import tqdm
 from collections import deque
-from functions.outils import log_metrics_to_dataframe, play_with_dqn, epsilon_greedy_action
+from functions.outils import log_metrics_to_dataframe, play_with_dqn, epsilon_greedy_action, plot_csv_data
 
 
 @tf.function(reduce_retracing=True)
@@ -68,8 +70,9 @@ def double_dqn_with_replay(
         memory_size=512,
         batch_size=32,
         update_target_steps=1000,
-        save_path='double_dqn_with_exp_rep_model_tictactoe.h5',
-        input_dim=12
+        save_path=None,
+        input_dim=None,
+        interval = 10
 ):
     optimizer = keras.optimizers.SGD(
         learning_rate=alpha,
@@ -83,12 +86,10 @@ def double_dqn_with_replay(
     memory = deque(maxlen=memory_size)
     epsilon = start_epsilon
     total_loss = 0.0
-    interval = 100
     results_df = None
 
     for ep_id in tqdm(range(num_episodes)):
-        if ep_id % interval == 0 and ep_id > 0:
-
+        if (ep_id + 1) % interval == 0 and ep_id > 0:
             results_df = log_metrics_to_dataframe(
                 function = play_with_dqn,
                 model = online_model,
@@ -153,8 +154,31 @@ def double_dqn_with_replay(
         if ep_id % update_target_steps == 0:
             target_model.set_weights(online_model.get_weights())
 
-    save_model(online_model, save_path, save_format="h5")
 
-    results_df.to_csv(f'{save_path}_metrics.csv', index=False)
+    if save_path is not None:
+        if save_path.endswith(".h5"):
+            save_path = f'{save_path[:-3]}_{secrets.token_hex(4)}.h5'
+        else:
+            save_path = f'{save_path}_{secrets.token_hex(4)}.h5'
+        csv = f'{save_path}_metrics.csv'
+        save_model(online_model, save_path, save_format="h5")
+        results_df.to_csv(csv, index=False)
+        algo = "DDQN EXP REPLAY"
+        plot_csv_data(
+            csv,
+            model = online_model,
+            title = f"Training Metrics {algo} - {env.env_description()}",
+            custom_dict = {
+                "Episodes": num_episodes,
+                "Gamma": gamma,
+                "Alpha": alpha,
+                "Start Epsilon": start_epsilon,
+                "End Epsilon": end_epsilon,
+                "Update Target Steps": update_target_steps,
+                "Optimizer": optimizer.get_config()
+            },
+            algo_name = algo,
+            env_descr = env.env_description()
+        )
 
     return online_model, target_model

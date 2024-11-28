@@ -20,6 +20,10 @@ class GridWorld:
         self.game_over = False  # Etat du jeu
         self.score_val = 0.0  # Score actuel
 
+    def env_description(self) -> str:
+        """Renvoie une description de l'environnement."""
+        return f"GridWorld({self.width}, {self.height})"
+
     def state_description(self) -> np.ndarray:
         """Renvoie la description de l'état actuel sous forme d'un tableau binaire pour chaque position."""
         state = np.zeros((self.width, self.height))
