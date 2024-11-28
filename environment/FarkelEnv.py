@@ -1,7 +1,7 @@
 import numpy as np
 import random
 from gymnasium import spaces
-from tensorflow.python import keras
+import tensorflow as tf
 import keras
 from algos.DQN.ddqn import double_dqn_no_replay
 from algos.DQN.ddqn_exp_replay import double_dqn_with_replay
@@ -239,6 +239,9 @@ class FarkleEnv:
             return [int(b) for b in format(random_action, '07b')]
         else:
             return [0] * 6 + [1]
+    def decode_action_1(self, action_id):
+        """Conversion ID -> action binaire."""
+        return [int(b) for b in format(action_id, '07b')]
 
 
 class FarkleDQNEnv(FarkleEnv):
@@ -375,84 +378,47 @@ class FarkleDQNEnv(FarkleEnv):
         print(f"Jeu terminé: {self.game_over}")
 
 
-def create_farkle_model():
-    l2_reg = 0.01  # Force de la régularisation L2
-    dropout_rate = 0.2  # Taux de dropout pour réduire l'overfitting
-
-    # Création du modèle
-    model = keras.Sequential([
-        # Normalisation des entrées
-        keras.layers.InputLayer(shape=(12,)),
-        keras.layers.Normalization(),  # Ajout d'une couche de normalisation
-
-        # Couche d'entrée
-        keras.layers.Dense(128,
-                           activation='relu',
-                           kernel_regularizer=keras.regularizers.L2(l2_reg),
-                           kernel_initializer='he_normal'),
-        keras.layers.BatchNormalization(),
-        keras.layers.Dropout(dropout_rate),
-
-        # Couches cachées avec taille croissante
-        keras.layers.Dense(256,
-                           activation='relu',
-                           kernel_regularizer=keras.regularizers.L2(l2_reg),
-                           kernel_initializer='he_normal'),
-        keras.layers.BatchNormalization(),
-        keras.layers.Dropout(dropout_rate),
-
-        keras.layers.Dense(512,
-                           activation='relu',
-                           kernel_regularizer=keras.regularizers.L2(l2_reg),
-                           kernel_initializer='he_normal'),
-        keras.layers.BatchNormalization(),
-        keras.layers.Dropout(dropout_rate),
-
-        # Couches cachées avec taille décroissante
-        keras.layers.Dense(256,
-                           activation='relu',
-                           kernel_regularizer=keras.regularizers.L2(l2_reg),
-                           kernel_initializer='he_normal'),
-        keras.layers.BatchNormalization(),
-        keras.layers.Dropout(dropout_rate),
-
-        keras.layers.Dense(128,
-                           activation='relu',
-                           kernel_regularizer=keras.regularizers.L2(l2_reg),
-                           kernel_initializer='he_normal'),
-        keras.layers.BatchNormalization(),
-        keras.layers.Dropout(dropout_rate),
-
-        # Couche de sortie
-        keras.layers.Dense(128) , # Nombre d'actions possibles dans Farkle
-        keras.layers.LayerNormalization()  # Normalise les sorties
-
+def create_farkle_model(state_dim=12, action_dim=128):
+    return tf.keras.Sequential([
+        # Correction ici : (state_dim,) au lieu de state_dim
+        tf.keras.layers.Input(shape=(state_dim,)),
+        tf.keras.layers.Dense(64, activation='relu',
+                            kernel_initializer='glorot_normal',
+                            bias_initializer='zeros'),
+        tf.keras.layers.Dense(128, activation='relu',
+                            kernel_initializer='glorot_normal',
+                            bias_initializer='zeros'),
+        tf.keras.layers.Dense(64, activation='relu',
+                            kernel_initializer='glorot_normal',
+                            bias_initializer='zeros'),
+        tf.keras.layers.Dense(action_dim,
+                            kernel_initializer='glorot_normal',
+                            bias_initializer='zeros')
     ])
-    return model
 
 
 if __name__ == "__main__":
 
     env = FarkleDQNEnv(num_players = 2, target_score=5000)
-    model = create_farkle_model()
+    model = create_farkle_model(state_dim=12,action_dim=128)
     target_model = keras.models.clone_model(model)
     target_model.set_weights(model.get_weights())
 
-    """trained_model = deep_q_learning(
+    trained_model = deep_q_learning(
         model=model,
         target_model=target_model,
         env=env,
-        num_episodes=1000,
+        num_episodes=10000,
         gamma=0.99,
         alpha=0.0001,
         start_epsilon=1.0,
         end_epsilon=0.01,
-        memory_size=32,
-        batch_size=8,
+        memory_size=1000,
+        batch_size=64,
         update_target_steps=100,
-        save_path ='../models/models/dqn_replay/dqn_replay_model_farkel_1000_tests/dqn_replay_model_farkel_1000_test_1000_0-99_0-001_1-0_0-01_32_8_100_512relu12dim_256relu_dropout0.2_256relu_dropout0.2_128.h5',
+        save_path ='../models/models/dqn_replay/dqn_replay_model_farkel_10000_tests/dqn_replay_model_farkel_1000_test_1000_0-99_0-001_1-0_0-01_32_8_100_512relu12dim_256relu_dropout0.2_256relu_dropout0.2_128.h5',
         input_dim=12,
-    )"""
+    )
 
     """trained_model, _ = double_dqn_with_replay(
         online_model=model,

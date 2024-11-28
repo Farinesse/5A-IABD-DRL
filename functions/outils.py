@@ -27,19 +27,21 @@ def custom_two_phase_decay(episode, start_epsilon, end_epsilon, total_episodes, 
         return 0.5 * math.exp(-5 * progress)  # 0.5 est la valeur d'epsilon au point de transition
 
 
-def epsilon_greedy_action(
-        q_s: tf.Tensor,
-        mask: tf.Tensor,
-        available_actions: np.ndarray,
-        epsilon: float
-) -> int:
+def epsilon_greedy_action(q_s: tf.Tensor,
+                          mask: tf.Tensor,
+                          available_actions: np.ndarray,
+                          epsilon: float) -> int:
     if np.random.rand() < epsilon:
         return np.random.choice(available_actions)
     else:
+        # Masquer les actions invalides avec -inf
         inverted_mask = tf.constant(1.0) - mask
-        masked_q_s = q_s * mask + (1e-8) * inverted_mask
-        return int(tf.argmax(masked_q_s, axis=0))
+        masked_q_s = q_s * mask + (-1e9) * inverted_mask
 
+        # S'assurer de choisir parmi les actions valides
+        masked_q_values = masked_q_s.numpy()
+        valid_q_values = masked_q_values[available_actions]
+        return available_actions[np.argmax(valid_q_values)]
 
 def human_move(game):
     """
@@ -326,7 +328,7 @@ def play_with_dqn(env, model, predict_func, episodes=100):
         if nb_turns == 100:
             episode_scores.append(-1)
         else:
-            episode_scores.append(env.score())
+            episode_scores.append(env.score(testing=False))
         episode_time = end_time - start_time
         episode_times.append(episode_time)
         total_time += episode_time

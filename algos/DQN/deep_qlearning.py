@@ -98,7 +98,7 @@ def deep_q_learning(
         end_epsilon,
         memory_size=512,
         batch_size=32,
-        update_target_steps=1000,
+        update_target_steps=100,
         save_path='dqn_model_farkel.h5',
         input_dim=12
 ):
@@ -126,7 +126,7 @@ def deep_q_learning(
                 predict_func = model_predict,
                 env = env,
                 episode_index = ep_id,
-                games = 1000,
+                games = 100,
                 dataframe = results_df
             )
 

@@ -2,16 +2,20 @@ import tkinter as tk
 from tkinter import messagebox
 from tkinter import ttk
 from PIL import Image, ImageTk, ImageOps
+
+from GUI.test import load_model, action_agent
 from environment.FarkelEnv import FarkleEnv
 
 class FarkleGUI:
-    def __init__(self, master, players=2):
+    def __init__(self, master, players=2, agent = False, path_model = None):
         self.master = master
         self.master.title("Farkle - Jeu de Dés")
         self.master.geometry("800x600")
         self.master.configure(bg='#E0E0E0')
+        self.agent = agent
 
         self.env = FarkleEnv(num_players=players)
+        self.model = load_model(path_model)
         self.dice_images = {}
         self.selected_dice = []
 
@@ -117,24 +121,26 @@ class FarkleGUI:
             self.continue_button.config(state=tk.NORMAL)
 
     def take_action(self, stop):
-
-        self.env.stop = stop
-        valid_actions = self.env.get_valid_actions()
-
-        if self.env.current_player == 1:
-            self.play_random()
+        if (self.agent):
+           action = self.play_agent()
         else:
-            if stop:
-                for i, va in enumerate(valid_actions[::-1]):
-                    if va == 1:
-                        action = [int(b) for b in format(127 - i, '07b')]
-                        break
-            else:
-                action = self.get_action_from_selection()
+            self.env.stop = stop
+            valid_actions = self.env.get_valid_actions()
 
-            if not stop and not self.selected_dice:
-                messagebox.showinfo("Action invalide", "Vous devez sélectionner des dés valides avant de continuer.")
-                return
+            if self.env.current_player == 1:
+                self.play_random()
+            else:
+                if stop:
+                    for i, va in enumerate(valid_actions[::-1]):
+                        if va == 1:
+                            action = [int(b) for b in format(127 - i, '07b')]
+                            break
+                else:
+                    action = self.get_action_from_selection()
+
+                if not stop and not self.selected_dice:
+                    messagebox.showinfo("Action invalide", "Vous devez sélectionner des dés valides avant de continuer.")
+                    return
 
             observation, reward, done, _, info = self.env.step(action)
 
@@ -172,8 +178,6 @@ class FarkleGUI:
             self.master.update()
 
 
-
-
             if done:
                 self.game_over()
                 break
@@ -190,6 +194,36 @@ class FarkleGUI:
         if done:
             self.game_over()
 
+    def play_agent(self):
+        while self.env.current_player == 0:  # Pour l'agent (joueur 0)
+            # Obtenir l'action de l'agent
+            action = action_agent(self.env, self.model)
+
+            # Exécuter l'action
+            observation, reward, done, _, info = self.env.step(action)
+
+            # Mettre à jour l'affichage
+            self.update_display()
+            self.master.update()
+
+            # Vérifier si le jeu est terminé
+            if done:
+                self.game_over()
+                break
+
+            # Vérifier si le tour est terminé
+            if info.get("farkle", False) or info.get("stopped", False):
+                break
+
+            # Pause entre les actions
+            self.master.after(1000)
+
+        # Mise à jour finale de l'affichage
+        self.update_display()
+
+        # Vérification finale de fin de partie
+        if done:
+            self.game_over()
     def update_display(self):
         """Met à jour l'interface graphique avec l'état actuel du jeu."""
         self.player_var.set(f"Joueur {self.env.current_player + 1}")
@@ -240,8 +274,9 @@ class FarkleGUI:
 
 def main_gui(players=2):
     root = tk.Tk()
-    app = FarkleGUI(root, players)
+    app = FarkleGUI(root, players,agent = True, path_model = r"C:\Users\farin\PycharmProjects\5A-IABD-DRL\GUI\ddqn_noreplay_model_farkel_5000_test_100000_0-99_0-0001_1-0_0-01_1000_512relu12dim_256relu_dropout0_2_256relu_dropout0_2_128.h5")
     root.mainloop()
 
 if __name__ == "__main__":
-    main_gui()
+    players = int(input("number of players : "))
+    main_gui(players)

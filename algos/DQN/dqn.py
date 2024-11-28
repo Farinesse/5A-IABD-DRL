@@ -7,7 +7,7 @@ from keras.src import regularizers
 from tqdm import tqdm
 
 from environment.tictactoe import TicTacToe
-from functions.outils import dqn_log_metrics_to_dataframe, play_with_dqn, epsilon_greedy_action
+from functions.outils import log_metrics_to_dataframe, play_with_dqn, epsilon_greedy_action
 
 
 @tf.function

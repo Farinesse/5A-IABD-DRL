@@ -131,7 +131,7 @@ class MCTS:
                 draw_count += 1
 
             # Affiche les statistiques tous les 100 épisodes
-            if (episode + 1) % 100 == 0:
+            if (episode + 1) % 1000 == 0:
                 win_rate = win_count / (episode + 1)
                 draw_rate = draw_count / (episode + 1)
                 avg_score = total_score / (episode + 1)
@@ -188,10 +188,10 @@ def play_game_mcts(agent: MCTS, env: TicTacToe, display=True):
 # Dans la partie principale (main), ajouter :
 if __name__ == "__main__":
     env = TicTacToe()
-    mcts_agent = MCTS(n_simulations=1000, C=sqrt(2))
+    mcts_agent = MCTS(n_simulations=100, C=sqrt(2))
 
     print("Début de l'entraînement MCTS...")
-    history = mcts_agent.train(env, episodes=1000)
+    history = mcts_agent.train(env, episodes=10000)
 
     print("\nJouer des parties de démonstration...")
     demo_scores = []
