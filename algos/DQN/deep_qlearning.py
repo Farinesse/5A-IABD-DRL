@@ -193,7 +193,7 @@ def deep_q_learning(
         plot_csv_data(
             csv,
             model = model,
-            title = f"Training Metrics {algo} - {env.env_description()}",
+            title = f"Training Metrics {algo} - {env.env_description()} - {save_path}",
             custom_dict = {
                 "Episodes": num_episodes,
                 "Gamma": gamma,

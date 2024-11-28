@@ -154,7 +154,7 @@ def double_dqn_no_replay(
         plot_csv_data(
             csv,
             model = online_model,
-            title = f"Training Metrics {algo} - {env.env_description()}",
+            title = f"Training Metrics {algo} - {env.env_description()} - {save_path}",
             custom_dict = {
                 "Episodes": num_episodes,
                 "Gamma": gamma,
