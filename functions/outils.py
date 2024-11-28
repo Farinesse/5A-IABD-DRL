@@ -447,7 +447,7 @@ def plot_csv_data(
         plt.subplot(4, 2, 2)
         plt.axis('off')
         plt.text(
-            0.5, 0.6, model_summary.getvalue(),
+            0.5, 0.5, model_summary.getvalue(),
             fontsize=11,
             ha='center', va='center', wrap=True
         )
