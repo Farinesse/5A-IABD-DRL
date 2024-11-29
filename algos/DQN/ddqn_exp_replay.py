@@ -143,7 +143,9 @@ def double_dqn_with_replay(
             end_epsilon,
             update_target_steps,
             optimizer,
-            save_path=save_path
+            save_path=save_path,
+            memory_size=memory_size,
+            batch_size=batch_size
         )
 
     return online_model, target_model

@@ -170,7 +170,9 @@ def deep_q_learning(
             end_epsilon,
             update_target_steps,
             optimizer,
-            save_path=save_path
+            save_path=save_path,
+            memory_size=memory_size,
+            batch_size=batch_size
         )
 
     return model

@@ -63,7 +63,9 @@ def save_files(
         end_epsilon,
         update_target_steps,
         optimizer,
-        save_path=None
+        save_path=None,
+        memory_size=None,
+        batch_size=None
 ):
     if save_path is not None:
         if save_path.endswith(".pkl"):
@@ -105,6 +107,8 @@ def save_files(
                 "Start Epsilon": start_epsilon,
                 "End Epsilon": end_epsilon,
                 "Update Target Steps": update_target_steps,
+                "Memory": memory_size,
+                "Batch Size": batch_size,
                 "Optimizer": optimizer.get_config()
             },
             algo_name = algo_name,
