@@ -156,6 +156,7 @@ if __name__ == "__main__":
         save_path="dqn_model_ttt_test_10000_0-99_0-0001_1-0_0-01_16_8_100.h5",
         input_dim=27
     )"""
+
     trained_model, target_model = double_dqn_no_replay(
         online_model=model,
         target_model=target_model,

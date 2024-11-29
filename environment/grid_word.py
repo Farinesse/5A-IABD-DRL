@@ -125,20 +125,20 @@ if __name__ == "__main__":
     target_model = keras.models.clone_model(model)
     target_model.set_weights(model.get_weights())
 
-    trained_model, target_model = double_dqn_no_replay(
+    """trained_model, target_model = double_dqn_no_replay(
         online_model=model,
         target_model=target_model,
         env=env,
         num_episodes=100000,
         gamma=0.99,
-        alpha=0.001,
+        alpha=0.0001,
         start_epsilon=1.0,
         end_epsilon=0.01,
         update_target_steps=1000,
         save_path="ddqn_noreplay_gridworld",
         input_dim=25,
         interval=1000
-    )
+    )"""
 
     """trained_model = deep_q_learning(
         model=model,
@@ -157,7 +157,7 @@ if __name__ == "__main__":
         interval=1000
     )"""
 
-    """model, target_model = dqn_no_replay(
+    model, target_model = dqn_no_replay(
         model=model,
         target_model=target_model,
         env=env,
@@ -169,4 +169,4 @@ if __name__ == "__main__":
         save_path="dqn_noreplay_gridworld",
         input_dim=25,
         interval=1000
-    )"""
+    )

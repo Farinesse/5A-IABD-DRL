@@ -1,6 +1,8 @@
 import io
 import math
+import os
 import pickle
+import secrets
 import time
 
 import keras
@@ -26,6 +28,7 @@ def save_model(model, file_path):
     :param file_path: Le chemin du fichier où sauvegarder le modèle
     """
     try:
+
         with open(file_path, 'wb') as f:
             pickle.dump(model, f)
         print(f"Modèle sauvegardé avec succès dans {file_path} au format Pickle")
@@ -48,6 +51,65 @@ def load_model_pkl(file_path):
     except Exception as e:
         print(f"Erreur lors du chargement du modèle : {e}")
 
+def save_files(
+        online_model,
+        algo_name,
+        results_df,
+        env,
+        num_episodes,
+        gamma,
+        alpha,
+        start_epsilon,
+        end_epsilon,
+        update_target_steps,
+        optimizer,
+        save_path=None
+):
+    if save_path is not None:
+        if save_path.endswith(".pkl"):
+            save_path = f'{save_path[:-4]}_{secrets.token_hex(4)}.pkl'
+        else:
+            save_path = f'{save_path}_{secrets.token_hex(4)}.pkl'
+
+        dirn = save_path.replace(".pkl", "")
+
+        if not os.path.exists(dirn):
+            try:
+                os.makedirs(dirn)
+                print(f"Directory created: {dirn}")
+            except OSError as e:
+                print(f"Error creating directory {dirn}: {e}")
+        else:
+            print(f"Directory already exists: {dirn}")
+
+
+        save_path = f'{dirn}/{save_path}'
+
+        csv = f'{save_path}_metrics.csv'
+
+        print(f"Saving model to {save_path}")
+        save_model(online_model, save_path)
+
+        print(f"Saving results to {csv}")
+        results_df.to_csv(csv, index=False)
+
+        print(f"Plotting training metrics to {csv}.png")
+        plot_csv_data(
+            csv,
+            model = online_model,
+            title = f"Training Metrics {algo_name} - {env.env_description()} - {save_path}",
+            custom_dict = {
+                "Episodes": num_episodes,
+                "Gamma": gamma,
+                "Alpha": alpha,
+                "Start Epsilon": start_epsilon,
+                "End Epsilon": end_epsilon,
+                "Update Target Steps": update_target_steps,
+                "Optimizer": optimizer.get_config()
+            },
+            algo_name = algo_name,
+            env_descr = env.env_description()
+        )
 
 def logarithmic_decay(episode, start_epsilon, end_epsilon, decay_rate=0.01):
     return max(end_epsilon, start_epsilon - decay_rate * math.log(1 + episode))
@@ -502,8 +564,7 @@ def plot_csv_data(
 
     plt.subplots_adjust(hspace=0.4)
     plt.tight_layout()
-    plt.show()
-
     plt.savefig(f'{file_path}.png')
+    plt.show()
     plt.close()
 

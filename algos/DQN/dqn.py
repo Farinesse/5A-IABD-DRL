@@ -7,7 +7,7 @@ from functions.outils import (
     epsilon_greedy_action,
     plot_csv_data,
     save_model,
-    dqn_model_predict as model_predict
+    dqn_model_predict as model_predict, save_files
 )
 
 @tf.function
@@ -115,29 +115,19 @@ def dqn_no_replay(
             total_loss = 0.0
 
     if save_path is not None:
-        if save_path.endswith(".pkl"):
-            save_path = f'{save_path[:-3]}_{secrets.token_hex(4)}.pkl'
-        else:
-            save_path = f'{save_path}_{secrets.token_hex(4)}.pkl'
-        csv = f'{save_path}_metrics.csv'
-        save_model(model, save_path)
-        results_df.to_csv(csv, index=False)
-        algo = "DQN NO REPLAY"
-        plot_csv_data(
-            csv,
-            model = model,
-            title = f"Training Metrics {algo} - {env.env_description()} - {save_path}",
-            custom_dict = {
-                "Episodes": num_episodes,
-                "Gamma": gamma,
-                "Alpha": None,
-                "Start Epsilon": start_epsilon,
-                "End Epsilon": end_epsilon,
-                "Update Target Steps": update_frequency,
-                "Optimizer": optimizer.get_config()
-            },
-            algo_name = algo,
-            env_descr = env.env_description()
+        save_files(
+            model,
+            "DQN NO REPLAY",
+            results_df,
+            env,
+            num_episodes,
+            gamma,
+            optimizer.learning_rate,
+            start_epsilon,
+            end_epsilon,
+            update_frequency,
+            optimizer,
+            save_path=save_path
         )
 
     return model, target_model
