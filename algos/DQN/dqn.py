@@ -1,16 +1,14 @@
-
-import random
 import secrets
-
-import keras
-import numpy as np
 import tensorflow as tf
-from keras.src import regularizers
 from tqdm import tqdm
-
-from environment.tictactoe import TicTacToe
-from functions.outils import log_metrics_to_dataframe, play_with_dqn, epsilon_greedy_action, plot_csv_data
-
+from functions.outils import (
+    log_metrics_to_dataframe,
+    play_with_dqn,
+    epsilon_greedy_action,
+    plot_csv_data,
+    save_model,
+    dqn_model_predict as model_predict
+)
 
 @tf.function
 def gradient_step(model, s, a, target, optimizer, input_dim):
@@ -23,22 +21,6 @@ def gradient_step(model, s, a, target, optimizer, input_dim):
     gradients = tape.gradient(loss, model.trainable_variables)
     optimizer.apply_gradients(zip(gradients, model.trainable_variables))
     return loss
-
-
-@tf.function
-def model_predict(model, s):
-    """Prédiction des Q-valeurs pour un état donné."""
-    s = tf.ensure_shape(s, (None,))
-    return model(tf.expand_dims(s, 0))[0]
-
-
-def save_model(model, file_path, save_format="tf"):
-    """Sauvegarde du modèle."""
-    try:
-        model.save(file_path, save_format=save_format)
-        print(f"Modèle sauvegardé avec succès dans {file_path} au format {save_format}")
-    except Exception as e:
-        print(f"Erreur lors de la sauvegarde du modèle : {e}")
 
 
 def soft_update_target_network(model, target_model, tau=0.01):
@@ -129,17 +111,16 @@ def dqn_no_replay(
                 games=100,
                 dataframe=results_df
             )
-            save_model(model, f"{save_path}_episode_{ep_id}.h5", save_format="h5")
             print(f"Épisode: {ep_id}, Perte moyenne: {total_loss / 500}, Epsilon: {epsilon}")
             total_loss = 0.0
 
     if save_path is not None:
-        if save_path.endswith(".h5"):
-            save_path = f'{save_path[:-3]}_{secrets.token_hex(4)}.h5'
+        if save_path.endswith(".pkl"):
+            save_path = f'{save_path[:-3]}_{secrets.token_hex(4)}.pkl'
         else:
-            save_path = f'{save_path}_{secrets.token_hex(4)}.h5'
+            save_path = f'{save_path}_{secrets.token_hex(4)}.pkl'
         csv = f'{save_path}_metrics.csv'
-        save_model(model, save_path, save_format="h5")
+        save_model(model, save_path)
         results_df.to_csv(csv, index=False)
         algo = "DQN NO REPLAY"
         plot_csv_data(
@@ -161,55 +142,3 @@ def dqn_no_replay(
 
     return model, target_model
 
-
-if __name__ == "__main__":
-    from environment.FarkelEnv import FarkleDQNEnv
-
-    # Configuration
-    env = FarkleDQNEnv(num_players=2, target_score=5000)
-    l2_reg = 0.01  # Force de la régularisation L2
-    dropout_rate = 0.2  # Taux de dropout pour réduire l'overfitting
-
-    # Création du modèle
-    model = keras.Sequential([keras.layers.InputLayer(input_shape=(12,)),keras.layers.Normalization(),  # Ajout d'une couche de normalisation
-
-        # Couche d'entrée
-        keras.layers.Dense(128,activation='relu',kernel_regularizer=regularizers.L2(l2_reg),kernel_initializer='he_normal'),
-        keras.layers.BatchNormalization(),
-        keras.layers.Dropout(dropout_rate),
-
-        # Couches cachées avec taille croissante
-        keras.layers.Dense(256,activation='relu',kernel_regularizer=regularizers.L2(l2_reg),kernel_initializer='he_normal'),
-        keras.layers.BatchNormalization(),
-        keras.layers.Dropout(dropout_rate),
-
-        keras.layers.Dense(512,activation='relu',kernel_regularizer=regularizers.L2(l2_reg),kernel_initializer='he_normal'),
-        keras.layers.BatchNormalization(),
-        keras.layers.Dropout(dropout_rate),
-
-        # Couches cachées avec taille décroissante
-        keras.layers.Dense(256, activation='relu', kernel_regularizer=regularizers.L2(l2_reg),kernel_initializer='he_normal'),
-        keras.layers.BatchNormalization(),
-        keras.layers.Dropout(dropout_rate),
-
-        keras.layers.Dense(128, activation='relu', kernel_regularizer=regularizers.L2(l2_reg), kernel_initializer='he_normal'),
-        keras.layers.BatchNormalization(),
-        keras.layers.Dropout(dropout_rate),
-        keras.layers.Dense(128) ,
-        keras.layers.LayerNormalization()
-
-    ])
-
-    # Entraînement
-    model = dqn_no_replay(
-        model=model,
-        target_model=model,
-        env=env,
-        num_episodes=20000,
-        gamma=0.99,
-        start_epsilon=1.0,
-        end_epsilon=0.001,
-        save_path ='models/dqn_replay/dqn_replay_model_farkel_5000_tests/20000-0.99_0-00001-500-tests/dqn_replay_model_farkel_test_10000_0-99_0-0001_1-0_0-01_64_32_100_128relu12dim_512relu_256relu_256relu_128',
-        input_dim = 12,
-        update_frequency=500
-    )

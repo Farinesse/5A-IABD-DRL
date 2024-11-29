@@ -6,6 +6,7 @@ from typing import List, Tuple
 
 from algos.DQN.ddqn import double_dqn_no_replay
 from algos.DQN.deep_qlearning import deep_q_learning
+from algos.DQN.dqn import dqn_no_replay
 from functions.outils import plot_csv_data
 
 NUM_ACTIONS = 4  # 0: haut, 1: bas, 2: gauche, 3: droite
@@ -76,7 +77,7 @@ class GridWorld:
         """Retourne True si la partie est terminée."""
         return self.agent_position in self.terminal_position
 
-    def score(self) -> float:
+    def score(self, testing=None) -> float:
         """Renvoie la récompense actuelle."""
         if self.agent_position == self.terminal_position[0]:
             return -1.0  # Récompense négative pour l'état terminal (0, 0)
@@ -124,35 +125,48 @@ if __name__ == "__main__":
     target_model = keras.models.clone_model(model)
     target_model.set_weights(model.get_weights())
 
-    """trained_model, target_model = double_dqn_no_replay(
+    trained_model, target_model = double_dqn_no_replay(
         online_model=model,
         target_model=target_model,
         env=env,
-        num_episodes=10000,
+        num_episodes=100000,
         gamma=0.99,
-        alpha=0.0001,
+        alpha=0.001,
         start_epsilon=1.0,
         end_epsilon=0.01,
         update_target_steps=1000,
-        save_path="ddqn_model_grid_test_10000_0-99_0-0001_1-0_0-01_16_8_100.h5",
-        input_dim=25
-    )"""
+        save_path="ddqn_noreplay_gridworld",
+        input_dim=25,
+        interval=1000
+    )
 
-    trained_model = deep_q_learning(
+    """trained_model = deep_q_learning(
         model=model,
         target_model=target_model,
         env=env,
-        num_episodes=10000,
+        num_episodes=100000,
         gamma=0.99,
         alpha=0.0001,
         start_epsilon=1.0,
         end_epsilon=0.01,
         memory_size=32,
         batch_size=16,
-        update_target_steps=100,
-        save_path ='dqn_replay_model_grid_test_10000_0-99_0-0001_1-0_32_16_0-01_16_8_100.h5',
+        update_target_steps=1000,
+        save_path ='dqn_replay_gridworld.h5',
         input_dim=25,
-    )
+        interval=1000
+    )"""
 
-    plot_csv_data("dqn_replay_model_grid_test_10000_0-99_0-0001_1-0_32_16_0-01_16_8_100.h5_metrics.csv")
-
+    """model, target_model = dqn_no_replay(
+        model=model,
+        target_model=target_model,
+        env=env,
+        num_episodes=100000,
+        gamma=0.99,
+        start_epsilon=1.0,
+        end_epsilon=0.01,
+        update_frequency=1000,
+        save_path="dqn_noreplay_gridworld",
+        input_dim=25,
+        interval=1000
+    )"""

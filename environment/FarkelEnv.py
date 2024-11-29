@@ -245,6 +245,10 @@ class FarkleEnv:
         else:
             return [0] * 6 + [1]
 
+    def decode_action_1(self, action_id):
+        """Conversion ID -> action binaire."""
+        return [int(b) for b in format(action_id, '07b')]
+
 
 class FarkleDQNEnv(FarkleEnv):
     def __init__(self, num_players=2, target_score=5000):
@@ -382,24 +386,14 @@ class FarkleDQNEnv(FarkleEnv):
 
 def create_farkle_model(state_dim, action_dim):
     # Smaller network with proper initialization
-    return keras.Sequential([
-        keras.layers.Input(shape=(state_dim,)),
-        keras.layers.Dense(128, activation='relu',
-                           kernel_initializer='glorot_normal',
-                           bias_initializer='zeros'),
-        keras.layers.Dense(256, activation='relu',
-                              kernel_initializer='glorot_normal',
-                              bias_initializer='zeros'),
-        keras.layers.Dense(512, activation='relu',
-                              kernel_initializer='glorot_normal',
-                              bias_initializer='zeros'),
-        keras.layers.Dense(256, activation='relu',
-                              kernel_initializer='glorot_normal',
-                              bias_initializer='zeros'),
-        keras.layers.Dense(action_dim, activation='softmax',
-                              kernel_initializer='glorot_normal',
-                              bias_initializer='zeros')
-    ])
+    return keras.Sequential(
+        [
+            keras.layers.Dense(128, activation='relu', input_dim=state_dim),
+            keras.layers.Dense(256, activation='relu'),
+            keras.layers.Dense(128, activation='relu'),
+            keras.layers.Dense(action_dim)
+        ]
+    )
 
 if __name__ == "__main__":
 
@@ -444,15 +438,15 @@ if __name__ == "__main__":
         online_model=model,
         target_model=target_model,
         env=env,
-        num_episodes=100,
+        num_episodes=1000,
         gamma=0.99,
-        alpha=0.001,
+        alpha=0.0001,
         start_epsilon=1.0,
         end_epsilon=0.01,
-        update_target_steps=50,
-        save_path ='farkle5000_ddqn_noreplay_100000episodes',
+        update_target_steps=100,
+        save_path ='farkle5000_100000_ddqn_noreplay',
         input_dim=12,
-        interval = 50
+        interval = 100
     )
 
     """agent = REINFORCEBaseline(

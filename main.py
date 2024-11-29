@@ -1,9 +1,9 @@
 import sys
 import os
 import numpy as np
-from tensorflow import keras
+from GUI.test import load_model
 import time
-import tensorflow as tf
+import keras
 from GUI.Farkel_GUI import main_gui
 from algos.DQN.ddqn import double_dqn_no_replay
 from algos.DQN.deep_qlearning import deep_q_learning
@@ -164,6 +164,8 @@ if __name__ == "__main__":
                 memory_size=1024,
                 save_path='models/TEST3_double_dqn_exp_replay_tictactoe_final.h5'
             )'''
+
+            trained_model = load_model('/Users/smveer/PycharmProjects/5A-IABD-DRL/environment/ddqn_noreplay_tictactoe_8bf83172.pkl')
 
             # Jouer une partie avec l'agent DQN contre un agent random
             play_dqn_vs_random(tic_tac_toe, trained_model, random_agent_func=random_agent, episodes=100)

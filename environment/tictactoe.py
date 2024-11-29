@@ -6,8 +6,8 @@ import keras
 from algos.DQN.ddqn import double_dqn_no_replay
 from algos.DQN.ddqn_exp_replay import double_dqn_with_replay
 from algos.DQN.deep_qlearning import deep_q_learning
+from algos.DQN.dqn import dqn_no_replay
 from algos.PolicyGradientMethods.reinforce_meanbase import REINFORCEBaseline
-from functions.outils import plot_csv_data
 
 NUM_ACTIONS = 9
 NUM_STATE_FEATURES = 27
@@ -112,7 +112,7 @@ class TicTacToe:
     def is_game_over(self) -> bool:
         return self._is_game_over
 
-    def score(self) -> float:
+    def score(self, testing=None) -> float:
         return self._score
 
 
@@ -127,7 +127,6 @@ class TicTacToe:
 def create_ttt_model():
     model = keras.Sequential([
         keras.layers.Dense(128, activation='relu', input_dim=27),
-        keras.layers.Dense(256, activation='relu'),
         keras.layers.Dense(256, activation='relu'),
         keras.layers.Dense(9)
     ])
@@ -156,23 +155,23 @@ if __name__ == "__main__":
         update_target_steps=100,
         save_path="dqn_model_ttt_test_10000_0-99_0-0001_1-0_0-01_16_8_100.h5",
         input_dim=27
-    )
-
+    )"""
     trained_model, target_model = double_dqn_no_replay(
         online_model=model,
         target_model=target_model,
         env=env,
-        num_episodes=10000,
+        num_episodes=1000,
         gamma=0.99,
         alpha=0.0001,
         start_epsilon=1.0,
         end_epsilon=0.01,
         update_target_steps=100,
-        save_path="ddqn_model_ttt_test_10000_0-99_0-0001_1-0_0-01_16_8_100.h5",
-        input_dim=27
+        save_path="ddqn_noreplay_tictactoe",
+        input_dim=27,
+        interval=100
     )
 
-    trained_model, target_model = double_dqn_with_replay(
+    """trained_model, target_model = double_dqn_with_replay(
         online_model=model,
         target_model=target_model,
         env=env,
@@ -209,7 +208,7 @@ if __name__ == "__main__":
         input_dim=27,
     )"""
 
-    agent = REINFORCEBaseline(
+    """agent = REINFORCEBaseline(
         state_dim=27,
         action_dim=9,
         alpha_theta=0.0001,
@@ -219,6 +218,18 @@ if __name__ == "__main__":
     )
 
     agent.train(env, episodes=10000)
-    plot_csv_data(agent.path + "_metrics.csv")
+    plot_csv_data(agent.path + "_metrics.csv")"""
 
-    #plot_csv_data("dqn_replay_model_ttt_test_10000_0-99_0-0001_1-0_32_16_0-01_16_8_100.h5_metrics.csv")
+    """model, target_model = dqn_no_replay(
+        model=model,
+        target_model=target_model,
+        env=env,
+        num_episodes=100000,
+        gamma=0.99,
+        start_epsilon=1.0,
+        end_epsilon=0.01,
+        update_frequency=1000,
+        save_path="dqn_noreplay_tictactoe",
+        input_dim=27,
+        interval=1000
+    )"""

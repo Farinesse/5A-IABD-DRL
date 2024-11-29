@@ -1,12 +1,52 @@
 import io
 import math
+import pickle
 import time
+
+import keras
 import numpy as np
 import pandas as pd
 import tensorflow as tf
 import matplotlib.pyplot as plt
 from statistics import mean
 
+
+@tf.function
+def dqn_model_predict(model, s):
+    """Prédiction des Q-valeurs pour un état donné."""
+    s = tf.ensure_shape(s, (None,))
+    return model(tf.expand_dims(s, 0))[0]
+
+
+def save_model(model, file_path):
+    """
+    Sauvegarde le modèle en utilisant Pickle.
+
+    :param model: Le modèle à sauvegarder
+    :param file_path: Le chemin du fichier où sauvegarder le modèle
+    """
+    try:
+        with open(file_path, 'wb') as f:
+            pickle.dump(model, f)
+        print(f"Modèle sauvegardé avec succès dans {file_path} au format Pickle")
+    except Exception as e:
+        print(f"Erreur lors de la sauvegarde du modèle : {e}")
+
+
+def load_model_pkl(file_path):
+    """
+    Charge un modèle sauvegardé avec Pickle.
+
+    :param file_path: Le chemin du fichier où le modèle est sauvegardé
+    :return: Le modèle chargé
+    """
+    try:
+        with open(file_path, 'rb') as f:
+            model = pickle.load(f)
+        print(f"Modèle chargé avec succès à partir de {file_path}")
+        return model
+    except Exception as e:
+        print(f"Erreur lors du chargement du modèle : {e}")
 
 
 def logarithmic_decay(episode, start_epsilon, end_epsilon, decay_rate=0.01):
@@ -38,7 +78,7 @@ def epsilon_greedy_action(
         return np.random.choice(available_actions)
     else:
         inverted_mask = tf.constant(1.0) - mask
-        masked_q_s = q_s * mask + (-1e-8) * inverted_mask
+        masked_q_s = q_s * mask + tf.float32.min * inverted_mask
         return int(tf.argmax(masked_q_s, axis=0))
 
 
@@ -463,4 +503,7 @@ def plot_csv_data(
     plt.subplots_adjust(hspace=0.4)
     plt.tight_layout()
     plt.show()
+
+    plt.savefig(f'{file_path}.png')
+    plt.close()
 

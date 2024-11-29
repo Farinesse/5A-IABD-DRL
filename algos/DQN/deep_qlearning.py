@@ -1,12 +1,18 @@
 import random
 import secrets
-
 import keras
 import numpy as np
 import tensorflow as tf
 from collections import deque
 from tqdm import tqdm
-from functions.outils import log_metrics_to_dataframe, play_with_dqn, epsilon_greedy_action, plot_csv_data
+from functions.outils import (
+    log_metrics_to_dataframe,
+    play_with_dqn,
+    epsilon_greedy_action,
+    plot_csv_data,
+    save_model,
+    dqn_model_predict as model_predict
+)
 
 
 @tf.function(reduce_retracing=True)
@@ -26,15 +32,6 @@ def gradient_step(
     gradients = tape.gradient(loss, model.trainable_variables)
     optimizer.apply_gradients(zip(gradients, model.trainable_variables))
     return loss
-
-
-@tf.function(reduce_retracing=True)
-def model_predict(
-        model,
-        s
-):
-    s = tf.ensure_shape(s, [None])  # Ensure constant shape
-    return model(tf.expand_dims(s, 0))[0]
 
 
 def debug_action_selection(
@@ -66,27 +63,6 @@ def debug_action_selection(
     assert action in available_actions, f"Action {action} non valide!"
 
     return action
-
-
-def save_model(
-        model,
-        file_path,
-        save_format="tf"
-):
-    """
-    Sauvegarde le modèle dans un fichier.
-
-    :param model: Le modèle à sauvegarder
-    :param file_path: Le chemin du fichier où sauvegarder le modèle
-    :param save_format: Le format de sauvegarde ('tf' pour TensorFlow ou 'h5' pour HDF5)
-    """
-    try:
-        model.save(file_path, save_format=save_format)
-        print(f"Modèle sauvegardé avec succès dans {file_path} au format {save_format}")
-    except ImportError as e:
-        print(f"Erreur d'importation (vérifiez TensorFlow et h5py) : {e}")
-    except Exception as e:
-        print(f"Erreur lors de la sauvegarde du modèle : {e}")
 
 
 def deep_q_learning(
@@ -182,12 +158,12 @@ def deep_q_learning(
             target_model.set_weights(model.get_weights())
 
     if save_path is not None:
-        if save_path.endswith(".h5"):
-            save_path = f'{save_path[:-3]}_{secrets.token_hex(4)}.h5'
+        if save_path.endswith(".pkl"):
+            save_path = f'{save_path[:-3]}_{secrets.token_hex(4)}.pkl'
         else:
-            save_path = f'{save_path}_{secrets.token_hex(4)}.h5'
+            save_path = f'{save_path}_{secrets.token_hex(4)}.pkl'
         csv = f'{save_path}_metrics.csv'
-        save_model(model, save_path, save_format="h5")
+        save_model(model, save_path)
         results_df.to_csv(csv, index=False)
         algo = "DQN EXP REPLAY"
         plot_csv_data(
