@@ -3,7 +3,7 @@ from tkinter import messagebox
 from tkinter import ttk
 from PIL import Image, ImageTk, ImageOps
 
-from GUI.test import load_model, action_agent
+from GUI.test import load_model_pkl, action_agent
 from environment.FarkelEnv import FarkleEnv
 
 class FarkleGUI:
@@ -15,7 +15,7 @@ class FarkleGUI:
         self.agent = agent
 
         self.env = FarkleEnv(num_players=players)
-        self.model = load_model(path_model)
+        self.model = load_model_pkl(path_model)
         self.dice_images = {}
         self.selected_dice = []
 
@@ -121,44 +121,43 @@ class FarkleGUI:
             self.continue_button.config(state=tk.NORMAL)
 
     def take_action(self, stop):
-        if (self.agent):
-           action = self.play_agent()
+
+
+        self.env.stop = stop
+        valid_actions = self.env.get_valid_actions()
+
+        if self.env.current_player == 1:
+            self.play_random()
         else:
-            self.env.stop = stop
-            valid_actions = self.env.get_valid_actions()
-
-            if self.env.current_player == 1:
-                self.play_random()
+            if stop:
+                for i, va in enumerate(valid_actions[::-1]):
+                    if va == 1:
+                        action = [int(b) for b in format(127 - i, '07b')]
+                        break
             else:
-                if stop:
-                    for i, va in enumerate(valid_actions[::-1]):
-                        if va == 1:
-                            action = [int(b) for b in format(127 - i, '07b')]
-                            break
-                else:
-                    action = self.get_action_from_selection()
+                action = self.get_action_from_selection()
 
-                if not stop and not self.selected_dice:
-                    messagebox.showinfo("Action invalide", "Vous devez sélectionner des dés valides avant de continuer.")
-                    return
+            if not stop and not self.selected_dice:
+                messagebox.showinfo("Action invalide", "Vous devez sélectionner des dés valides avant de continuer.")
+                return
 
-            observation, reward, done, _, info = self.env.step(action)
+        observation, reward, done, _, info = self.env.step(action)
 
-            if info.get("invalid_action", False):
-                messagebox.showinfo("Action invalide", "Sélection de dés non valide")
-            elif info.get("farkle", False):
-                lost_points = info.get("lost_points", 0)
-                messagebox.showinfo("Farkle", f"Pas de points! Vous perdez {lost_points} points. Tour terminé.")
-            elif info.get("stopped", False):
-                messagebox.showinfo("Tour terminé", f"Points marqués : {reward}")
+        if info.get("invalid_action", False):
+            messagebox.showinfo("Action invalide", "Sélection de dés non valide")
+        elif info.get("farkle", False):
+            lost_points = info.get("lost_points", 0)
+            messagebox.showinfo("Farkle", f"Pas de points! Vous perdez {lost_points} points. Tour terminé.")
+        elif info.get("stopped", False):
+            messagebox.showinfo("Tour terminé", f"Points marqués : {reward}")
 
-            self.selected_dice = []
-            self.update_display()
+        self.selected_dice = []
+        self.update_display()
 
-            if done:
-                self.game_over()
-            elif self.env.current_player == 1:
-                self.master.after(1000, self.play_random)
+        if done:
+            self.game_over()
+        elif self.env.current_player == 1 and (self.agent) :
+            self.master.after(1000, self.play_agent())
 
     def wait_for_action(self):
         self.action_received.set(False)
@@ -274,7 +273,7 @@ class FarkleGUI:
 
 def main_gui(players=2):
     root = tk.Tk()
-    app = FarkleGUI(root, players,agent = True, path_model = r"C:\Users\farin\PycharmProjects\5A-IABD-DRL\GUI\ddqn_noreplay_model_farkel_5000_test_100000_0-99_0-0001_1-0_0-01_1000_512relu12dim_256relu_dropout0_2_256relu_dropout0_2_128.h5")
+    app = FarkleGUI(root, players,agent = True, path_model = r"C:\Users\farin\PycharmProjects\5A-IABD-DRL\environment\farkle5000_100000_ddqn_noreplay_3d00ef49.pkl")
     root.mainloop()
 
 if __name__ == "__main__":

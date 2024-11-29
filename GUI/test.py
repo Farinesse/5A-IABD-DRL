@@ -1,39 +1,51 @@
+import pickle
+
+import keras
 import numpy as np
 import tensorflow as tf
 from tensorflow.python.keras import losses
-from functions.outils import epsilon_greedy_action
-from tensorflow.keras.models import load_model as tf_load_model
-
-def predict_func(model, state):
-    # Sélectionner seulement les 11 premières caractéristiques
-    state = state[:11]
-    s = tf.ensure_shape(state, (None,))
-    return model(tf.expand_dims(s, 0))[0]
 
 
-def load_model(model_path, save_format="tf"):
-    """
-    Charge un modèle à partir d'un fichier donné.
+@tf.function(reduce_retracing=True)
+def predict_func(model, s):
+    s = tf.ensure_shape(s, [None])  # Assurez-vous que la forme est correcte
+    output = model(tf.expand_dims(s, 0))
 
-    :param model_path: Le chemin du fichier contenant le modèle
-    :param save_format: Le format de sauvegarde utilisé ("tf" ou "h5")
-    :return: Le modèle chargé
-    """
+    # Affichez le contenu de la sortie pour débogage
+    print(f"Output from model: {output}")
+
+def epsilon_greedy_action(
+        q_s: tf.Tensor,
+        mask: tf.Tensor,
+        available_actions: np.ndarray,
+        epsilon: float
+) -> int:
+    if np.random.rand() < epsilon:
+        return np.random.choice(available_actions)
+    else:
+        # inverted_mask = tf.constant(1.0) - mask
+        masked_q_s = q_s * mask + (1.0 - mask) * tf.float32.min
+        return int(tf.argmax(masked_q_s, axis=0))
+
+
+def load_model_pkl(file_path):
+    import pickle
+
+    file_path = r'C:\Users\farin\PycharmProjects\5A-IABD-DRL\environment\farkle5000_100000_ddqn_noreplay_3d00ef49.pkl'
+
+
     try:
-        # Charger le modèle
-        model = tf_load_model(model_path, custom_objects=None, compile=True)
-        print(f"Modèle chargé avec succès à partir de {model_path} au format {save_format}")
-        return model
-    except ValueError as ve:
-        print(f"Erreur lors du chargement du modèle : {ve}")
-    except ImportError as ie:
-        print(f"Erreur d'importation (vérifiez TensorFlow et h5py) : {ie}")
+        with open(file_path, "rb") as f:
+            model = pickle.load(f)
+            print(type(model))  # Vérifier si le modèle est de type keras.Model
     except Exception as e:
-        print(f"Erreur inattendue lors du chargement du modèle : {e}")
+        print(f"Erreur : {e}")
 
 
 def action_agent(env, model):
     s = env.state_description()
+    print(s)
+
     s_tensor = tf.convert_to_tensor(s, dtype=tf.float32)
 
     # Obtenir le masque des actions valides
@@ -44,11 +56,12 @@ def action_agent(env, model):
 
     # Prédire l'action
     q_s = predict_func(model, s_tensor)
-    a = epsilon_greedy_action(q_s.numpy(), mask_tensor, env.get_valid_actions(), 0.000001)
+    a = epsilon_greedy_action(q_s, mask_tensor, env.get_valid_actions(), 0.000001)
 
     # Vérifier la validité de l'action
     if a not in env.get_valid_actions():
         print(f"Action {a} invalide, prise aléatoire à la place.")
         a = np.random.choice(env.available_actions_ids())
-
-    return env.decode_action_1(a)  # Changé de decode_action_1 à decode_action
+    action = env.decode_action_1(a)
+    print(action)
+    return action # Changé de decode_action_1 à decode_action
