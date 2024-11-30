@@ -1,5 +1,4 @@
 import pickle
-
 import keras
 import numpy as np
 import tensorflow as tf
@@ -8,44 +7,35 @@ from tensorflow.python.keras import losses
 
 @tf.function(reduce_retracing=True)
 def predict_func(model, s):
-    s = tf.ensure_shape(s, [None])  # Assurez-vous que la forme est correcte
+    s = tf.ensure_shape(s, [None])
     output = model(tf.expand_dims(s, 0))
+    return output
 
-    # Affichez le contenu de la sortie pour débogage
-    print(f"Output from model: {output}")
 
-def epsilon_greedy_action(
-        q_s: tf.Tensor,
-        mask: tf.Tensor,
-        available_actions: np.ndarray,
-        epsilon: float
-) -> int:
+def epsilon_greedy_action(q_s: tf.Tensor, mask: tf.Tensor, available_actions: np.ndarray, epsilon: float) -> int:
     if np.random.rand() < epsilon:
         return np.random.choice(available_actions)
     else:
-        # inverted_mask = tf.constant(1.0) - mask
         masked_q_s = q_s * mask + (1.0 - mask) * tf.float32.min
-        return int(tf.argmax(masked_q_s, axis=0))
+        # Modification ici pour gérer correctement le tensor
+        return int(tf.argmax(masked_q_s[0]).numpy())  # Ajout de [0] et .numpy()
 
 
 def load_model_pkl(file_path):
-    import pickle
-
     file_path = r'C:\Users\farin\PycharmProjects\5A-IABD-DRL\environment\farkle5000_100000_ddqn_noreplay_3d00ef49.pkl'
-
-
     try:
         with open(file_path, "rb") as f:
             model = pickle.load(f)
-            print(type(model))  # Vérifier si le modèle est de type keras.Model
+            print(type(model))
+            return model
     except Exception as e:
         print(f"Erreur : {e}")
+        return None
 
 
 def action_agent(env, model):
     s = env.state_description()
     print(s)
-
     s_tensor = tf.convert_to_tensor(s, dtype=tf.float32)
 
     # Obtenir le masque des actions valides
@@ -62,6 +52,7 @@ def action_agent(env, model):
     if a not in env.get_valid_actions():
         print(f"Action {a} invalide, prise aléatoire à la place.")
         a = np.random.choice(env.available_actions_ids())
+
     action = env.decode_action_1(a)
     print(action)
-    return action # Changé de decode_action_1 à decode_action
+    return action

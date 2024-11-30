@@ -18,6 +18,8 @@ class FarkleGUI:
         self.player_types = player_types or ["human", "random"]
         self.env = FarkleEnv(num_players=players)
         self.model = load_model_pkl(path_model)
+        if self.model is None:
+            print("Warning: Failed to load model, agent will use random actions")
         self.dice_images = {}
         self.selected_dice = []
 
@@ -244,7 +246,7 @@ class FarkleGUI:
             self.master.quit()
 
 
-def main_gui(player1_type="random", player2_type="random", path_model=None):
+def main_gui(player1_type="human", player2_type="random", path_model=None):
     root = tk.Tk()
     app = FarkleGUI(
         root,
@@ -257,4 +259,4 @@ def main_gui(player1_type="random", player2_type="random", path_model=None):
 
 
 if __name__ == "__main__":
-    main_gui()
+    main_gui(player2_type = "agent", path_model=r'C:\Users\farin\PycharmProjects\5A-IABD-DRL\environment\farkle5000_100000_ddqn_noreplay_3d00ef49.pkl')
