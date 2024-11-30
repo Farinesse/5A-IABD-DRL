@@ -50,6 +50,13 @@ class TicTacToe:
     def action_mask(self) -> np.ndarray:
         return np.where(self._board == 0, 1, 0).astype(np.float32)
 
+    def copy(self):
+        """Créer une copie de l'environnement."""
+        new_env = TicTacToe()
+        new_env._board = self._board.copy()  # Copie du plateau
+        new_env._player = self._player  # Copie du joueur courant
+        new_env._is_game_over = self._is_game_over  # Copie de l'état de la partie
+        return new_env
     def step(self, action: int):
         if self._is_game_over:
             raise ValueError("Game is over, please reset the environment.")

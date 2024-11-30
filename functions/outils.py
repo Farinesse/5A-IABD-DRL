@@ -6,6 +6,7 @@ import tensorflow as tf
 import matplotlib.pyplot as plt
 from statistics import mean
 
+from tqdm import tqdm
 
 
 def logarithmic_decay(episode, start_epsilon, end_epsilon, decay_rate=0.01):
@@ -422,4 +423,115 @@ def plot_csv_data(file_path):
 
     plt.tight_layout()
     plt.show()
+
+
+def play_with_mcts(env, agent, episodes=100):
+    """Fonction pour jouer plusieurs épisodes et collecter les statistiques."""
+    episode_scores = []
+    episode_times = []
+    episode_steps = []
+    step_times = []
+    total_time = 0
+
+    for episode in range(episodes):
+        env.reset()
+        nb_turns = 0
+
+        start_time = time.time()
+        while not env.is_game_over() and nb_turns < 100:
+            # Gestion des tours pour Farkle
+
+            action = agent.select_action(env)
+            env.step(action)
+            env.display()
+            nb_turns += 1
+
+        end_time = time.time()
+
+        # Enregistrement des statistiques
+        if nb_turns == 100:  # Limite de tours atteinte
+            episode_scores.append(-1)
+        else:
+            episode_scores.append(env.score())
+
+        episode_time = end_time - start_time
+        episode_times.append(episode_time)
+        total_time += episode_time
+        episode_steps.append(nb_turns)
+        step_times.append(episode_time / nb_turns if nb_turns > 0 else 0)
+
+    return (
+        mean(episode_scores),
+        mean(episode_times),
+        mean(episode_steps),
+        mean(step_times),
+        episode_scores.count(1.0) / episodes
+    )
+
+
+def log_metrics_to_dataframe_mcts(function, agent, env, episode_index, games=100, dataframe=None):
+    """Enregistre les métriques dans un DataFrame."""
+    if dataframe is None:
+        dataframe = pd.DataFrame({
+            'training_episode_index': pd.Series(dtype='int'),
+            'mean_score': pd.Series(dtype='float'),
+            'mean_time_per_episode': pd.Series(dtype='float'),
+            'win_rate': pd.Series(dtype='float'),
+            'mean_steps_per_episode': pd.Series(dtype='float'),
+            'mean_time_per_step': pd.Series(dtype='float')
+        })
+
+    (
+        mean_score,
+        mean_time_per_episode,
+        mean_steps_per_episode,
+        mean_time_per_step,
+        win_rate
+    ) = function(env, agent, games)
+
+    print(f"Episode {episode_index}: Mean Score: {mean_score:.3f}, Mean Time: {mean_time_per_episode:.3f}, "
+          f"Win Rate: {win_rate:.2%}, Mean Steps: {mean_steps_per_episode:.1f}, "
+          f"Mean Time per Step: {mean_time_per_step:.3f}")
+
+    dataframe = pd.concat([
+        dataframe,
+        pd.DataFrame([{
+            'training_episode_index': episode_index,
+            'mean_score': mean_score,
+            'mean_time_per_episode': mean_time_per_episode,
+            'win_rate': win_rate,
+            'mean_steps_per_episode': mean_steps_per_episode,
+            'mean_time_per_step': mean_time_per_step
+        }])
+    ], ignore_index=True)
+
+    return dataframe
+
+
+def plot_mcts_metrics(file_path, title="MCTS Training Metrics", agent=None, custom_dict=None):
+    """Plot les métriques d'entraînement."""
+    data = pd.read_csv(file_path)
+
+    x = data['training_episode_index']
+    metrics = {
+        'Mean Score': data['mean_score'],
+        'Mean Time per Episode': data['mean_time_per_episode'],
+        'Win Rate': data['win_rate'],
+        'Mean Steps per Episode': data['mean_steps_per_episode'],
+        'Mean Time per Step': data['mean_time_per_step']
+    }
+
+    # Création du plot avec matplotlib
+    plt.figure(figsize=(15, 10))
+    for i, (metric_name, metric_data) in enumerate(metrics.items(), 1):
+        plt.subplot(2, 3, i)
+        plt.plot(x, metric_data)
+        plt.title(metric_name)
+        plt.xlabel('Training Episode')
+        plt.grid(True)
+
+    plt.tight_layout()
+    plt.suptitle(title, y=1.02, fontsize=16)
+    plt.show()
+
 

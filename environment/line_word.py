@@ -9,7 +9,7 @@ from algos.DQN.ddqn import double_dqn_no_replay
 from algos.DQN.deep_qlearning import deep_q_learning
 from functions.outils import plot_csv_data
 
-NUM_ACTIONS = 3  # 0: rester sur place, 1: gauche, 2: droite
+NUM_ACTIONS = 2  # 0: rester sur place, 1: gauche, 2: droite
 
 class LineWorld:
     def __init__(self, length: int):

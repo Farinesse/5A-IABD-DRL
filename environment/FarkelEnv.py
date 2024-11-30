@@ -377,6 +377,20 @@ class FarkleDQNEnv(FarkleEnv):
         print(f"Scores des joueurs: {self.scores}")
         print(f"Jeu terminé: {self.game_over}")
 
+    def copy(self):
+        """Crée une copie de l'environnement FarkleDQNEnv."""
+        # Crée un nouvel environnement
+        new_env = FarkleDQNEnv(num_players=self.num_players, target_score=self.target_score)
+        # Duplique l'état de l'environnement actuel
+        new_env.scores = self.scores.copy()
+        new_env.current_player = self.current_player
+        new_env.round_score = self.round_score
+        new_env.remaining_dice = self.remaining_dice
+        new_env.dice_roll = self.dice_roll.copy()
+        new_env.game_over = self.game_over
+        new_env.last_action_stop = self.last_action_stop
+        return new_env
+
 
 def create_farkle_model(state_dim=12, action_dim=128):
     return tf.keras.Sequential([

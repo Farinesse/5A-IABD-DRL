@@ -246,7 +246,7 @@ class FarkleGUI:
             self.master.quit()
 
 
-def main_gui(player1_type="human", player2_type="random", path_model=None):
+def main_gui(player1_type="random", player2_type="random", path_model=None):
     root = tk.Tk()
     app = FarkleGUI(
         root,

@@ -35,7 +35,6 @@ def load_model_pkl(file_path):
 
 def action_agent(env, model):
     s = env.state_description()
-    print(s)
     s_tensor = tf.convert_to_tensor(s, dtype=tf.float32)
 
     # Obtenir le masque des actions valides
@@ -46,13 +45,7 @@ def action_agent(env, model):
 
     # Prédire l'action
     q_s = predict_func(model, s_tensor)
-    a = epsilon_greedy_action(q_s, mask_tensor, env.get_valid_actions(), 0.000001)
-
-    # Vérifier la validité de l'action
-    if a not in env.get_valid_actions():
-        print(f"Action {a} invalide, prise aléatoire à la place.")
-        a = np.random.choice(env.available_actions_ids())
-
-    action = env.decode_action_1(a)
-    print(action)
-    return action
+    a = epsilon_greedy_action(q_s.numpy(), mask_tensor, env.get_valid_actions(), 0.000001)
+    print('state', env.state_description())
+    print('action', env.decode_action_1(a))
+    return env.decode_action_1(a)
