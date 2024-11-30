@@ -4,6 +4,8 @@ import numpy as np
 from tqdm import tqdm
 import time
 from statistics import mean
+
+from environment.line_word import LineWorld
 from functions.outils import log_metrics_to_dataframe, plot_csv_data
 
 
@@ -217,16 +219,16 @@ if __name__ == "__main__":
     from environment.tictactoe import TicTacToe
 
     tf.get_logger().setLevel('ERROR')
-    env = TicTacToe()
+    env = LineWorld()
 
     agent = REINFORCEBaseline(
-        state_dim=27,
-        action_dim=9,
+        state_dim=10,
+        action_dim=3,
         alpha_theta=0.001,
         alpha_w=0.001,
         gamma=0.99,
         path='tictactoe_reinforce_baseline.h5'
     )
 
-    agent.train(env, episodes=50000)
+    agent.train(env, episodes=5000)
     plot_csv_data(agent.path + "_metrics.csv")

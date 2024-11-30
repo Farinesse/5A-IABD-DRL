@@ -15,7 +15,7 @@ class LineWorld:
     def __init__(self, length: int):
         self.all_position = list(range(length))
         self.terminal_position = [0, length - 1]
-        self.agent_position = random.randint(0, length - 1)
+        self.agent_position = random.randint(1, length - 2)
         self.game_over = False  # Indique si le jeu est terminé
         self.score_val = 0.0  # Score actuel
 
