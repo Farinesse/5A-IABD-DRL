@@ -1,4 +1,6 @@
 import secrets
+
+import keras
 import tensorflow as tf
 from tqdm import tqdm
 from functions.outils import (
@@ -38,6 +40,7 @@ def dqn_no_replay(
         env,
         num_episodes,
         gamma,
+        alpha,
         start_epsilon,
         end_epsilon,
         update_frequency,
@@ -46,8 +49,8 @@ def dqn_no_replay(
         interval = 10
 ):
     """Entraînement d'un agent DQN sans mémoire de rejouabilité."""
-    optimizer = tf.keras.optimizers.Adam(
-        learning_rate=0.00001,  # Learning rate plus faible
+    optimizer = keras.optimizers.Adam(
+        learning_rate=alpha,  # Learning rate plus faible
         clipnorm=1.0,
         beta_1=0.9,
         beta_2=0.999,
@@ -122,7 +125,7 @@ def dqn_no_replay(
             env,
             num_episodes,
             gamma,
-            optimizer.learning_rate,
+            alpha,
             start_epsilon,
             end_epsilon,
             update_frequency,
