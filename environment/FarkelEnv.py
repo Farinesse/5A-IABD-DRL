@@ -7,7 +7,6 @@ import keras
 from algos.DQN.ddqn import double_dqn_no_replay
 from algos.DQN.ddqn_exp_replay import double_dqn_with_replay
 from algos.DQN.deep_qlearning import deep_q_learning
-from algos.PolicyGradientMethods.reinforce_meanbase import REINFORCEBaseline
 from functions.outils import plot_csv_data
 
 

@@ -6,31 +6,25 @@ import time
 from statistics import mean
 
 from environment.line_word import LineWorld
-from functions.outils import log_metrics_to_dataframe, plot_csv_data
+from functions.outils import log_metrics_to_dataframe, plot_csv_data, save_files
 
 
-class REINFORCEBaseline:
-    def __init__(self, state_dim, action_dim, alpha_theta=0.0001, alpha_w=0.0001, gamma=0.99, path=None):
+class REINFORCEMeanBaseline:
+    def __init__(self, state_dim, action_dim, alpha=0.0001, gamma=0.99, path=None):
         self.state_dim = state_dim
         self.action_dim = action_dim
-        self.alpha_theta = alpha_theta  # Learning rate for policy (θ)
-        self.alpha_w = alpha_w  # Learning rate for baseline (w)
-        self.gamma = gamma  # discount factor
+        self.alpha = alpha  # Learning rate for policy
+        self.gamma = gamma
         self.path = path
 
-        # Initialize networks
+        # Initialize policy network
         self.policy = self._build_policy()
-        self.baseline = self._build_baseline()
+        self.optimizer = tf.keras.optimizers.Adam(learning_rate=self.alpha)
 
-        # Initialize optimizers
-        self.policy_optimizer = tf.keras.optimizers.Adam(learning_rate=self.alpha_theta)
-        self.baseline_optimizer = tf.keras.optimizers.Adam(learning_rate=self.alpha_w)
-
+        # Pour le suivi des performances
         self.reward_buffer = []
 
     def _build_policy(self):
-        # π(a|s,θ) - policy parameterization
-        # Smaller network with proper initialization
         return tf.keras.Sequential([
             tf.keras.layers.Input(shape=(self.state_dim,)),
             tf.keras.layers.Dense(64, activation='relu',
@@ -44,24 +38,7 @@ class REINFORCEBaseline:
                                   bias_initializer='zeros')
         ])
 
-    def _build_baseline(self):
-        # v̂(s,w) - state-value function
-        # Smaller network with proper initialization
-        return tf.keras.Sequential([
-            tf.keras.layers.Input(shape=(self.state_dim,)),
-            tf.keras.layers.Dense(64, activation='relu',
-                                  kernel_initializer='glorot_normal',
-                                  bias_initializer='zeros'),
-            tf.keras.layers.Dense(64, activation='relu',
-                                  kernel_initializer='glorot_normal',
-                                  bias_initializer='zeros'),
-            tf.keras.layers.Dense(1,
-                                  kernel_initializer='glorot_normal',
-                                  bias_initializer='zeros')
-        ])
-
     def compute_returns(self, rewards):
-        # Calcul de Gt selon la formule Σ(k=t+1 to T) γ^(k-t-1) * Rk
         returns = []
         G = 0
         for r in reversed(rewards):
@@ -89,14 +66,10 @@ class REINFORCEBaseline:
             mask[valid_actions] = 0
             masked_probs = tf.nn.softmax(probs + mask).numpy()
 
-            # Sélection d'action selon π(a|s,θ)
-            epsilon = max(0.01, (1 - len(self.reward_buffer) / 70000))
-            if np.random.random() < epsilon:
-                action = np.random.choice(valid_actions)
-            else:
-                action = np.random.choice(self.action_dim, p=masked_probs)
+            # Sélection d'action
+            action = np.random.choice(self.action_dim, p=masked_probs)
 
-            # Exécuter l'action et observer R, S'
+            # Exécuter l'action
             env.step(action)
             reward = env.score() if env.is_game_over() else 0
             next_state = env.state_description()
@@ -111,44 +84,39 @@ class REINFORCEBaseline:
             t += 1
 
         # Conversion en tensors
-        states = np.array(states, dtype=np.float32)
-        actions = np.array(actions, dtype=np.int32)
-        time_steps = np.array(time_steps, dtype=np.float32)
+        states = tf.convert_to_tensor(states, dtype=tf.float32)
+        actions = tf.convert_to_tensor(actions, dtype=tf.int32)
+        time_steps = tf.convert_to_tensor(time_steps, dtype=tf.float32)
         returns = self.compute_returns(rewards)
 
-        # Update baseline (state-value function)
-        with tf.GradientTape() as tape:
-            baseline_values = tf.squeeze(self.baseline(states))
-            baseline_loss = tf.reduce_mean(tf.square(returns - baseline_values))
-
-        baseline_grads = tape.gradient(baseline_loss, self.baseline.trainable_variables)
-        self.baseline_optimizer.apply_gradients(zip(baseline_grads, self.baseline.trainable_variables))
+        # Calcul du mean baseline
+        baseline = tf.reduce_mean(returns)
 
         # Update policy
         with tf.GradientTape() as tape:
-            logits = self.policy(states, training=True)
+            logits = self.policy(states)
             action_masks = tf.one_hot(actions, self.action_dim)
             log_probs = tf.reduce_sum(tf.math.log(logits + 1e-10) * action_masks, axis=1)
 
-            # Calculate advantage (δ)
-            advantages = returns - tf.stop_gradient(tf.squeeze(self.baseline(states)))
+            # Avantages avec mean baseline
+            advantages = returns - baseline
 
-            # γ^t δ
+            # Pondération temporelle
             gamma_t = tf.pow(self.gamma, time_steps)
             time_discounted_advantages = advantages * gamma_t
 
-            # Loss function (négatif car on veut maximiser)
+            # Loss function
             loss = -tf.reduce_mean(log_probs * time_discounted_advantages)
 
-        # Update policy parameters θ
-        policy_grads = tape.gradient(loss, self.policy.trainable_variables)
-        policy_grads, _ = tf.clip_by_global_norm(policy_grads, 0.5)
-        self.policy_optimizer.apply_gradients(zip(policy_grads, self.policy.trainable_variables))
+        # Update policy parameters
+        grads = tape.gradient(loss, self.policy.trainable_variables)
+        grads, _ = tf.clip_by_global_norm(grads, 0.5)
+        self.optimizer.apply_gradients(zip(grads, self.policy.trainable_variables))
 
-        return sum(rewards), loss.numpy()
+        return sum(rewards), float(loss)
 
     def train(self, env, episodes=20000):
-        interval = 1000
+        interval = 100
         results_df = None
 
         for episode in tqdm(range(episodes), desc="Training Episodes"):
@@ -163,19 +131,23 @@ class REINFORCEBaseline:
                     predict_func=None,
                     env=env,
                     episode_index=episode,
-                    games=1000,
+                    games=100,
                     dataframe=results_df
                 )
                 print(f"Loss: {loss:.6f}")
 
         if self.path is not None:
-            self.save_models(self.path)
-            results_df.to_csv(f"{self.path}_metrics.csv", index=False)
-
-    def save_models(self, filepath):
-        self.policy.save(f"policy_{filepath}")
-        self.baseline.save(f"baseline_{filepath}")
-
+            save_files(
+                online_model=self.policy,
+                algo_name="REINFORCE_MEAN_BASELINE",
+                results_df=results_df,
+                env=env,
+                num_episodes=episodes,
+                gamma=self.gamma,
+                alpha=self.alpha,
+                optimizer=self.optimizer,
+                save_path=self.path
+            )
 
 def play_with_reinforce_baseline(env, model, predict_func=None, episodes=100):
     episode_scores = []
@@ -233,16 +205,15 @@ if __name__ == "__main__":
     from environment.tictactoe import TicTacToe
 
     tf.get_logger().setLevel('ERROR')
-    env = LineWorld()
+    env = LineWorld(10)
 
-    agent = REINFORCEBaseline(
+    agent = REINFORCEMeanBaseline(
         state_dim=10,
         action_dim=3,
-        alpha_theta=0.001,
-        alpha_w=0.001,
+        alpha=0.001,
         gamma=0.99,
-        path='tictactoe_reinforce_baseline.h5'
+        path='tictactoe_reinforce_baseline'
     )
 
-    agent.train(env, episodes=50000)
+    agent.train(env, episodes=200)
     plot_csv_data(agent.path + "_metrics.csv")

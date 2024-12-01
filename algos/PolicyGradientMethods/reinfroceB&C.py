@@ -7,6 +7,7 @@ from statistics import mean
 
 from environment.FarkelEnv import FarkleDQNEnv
 from environment.tictactoe import TicTacToe
+from functions.outils import save_files, play_with_reinforce_critic, log_metrics_to_dataframe
 
 
 class REINFORCEWithCritic:
@@ -52,20 +53,14 @@ class REINFORCEWithCritic:
 
     def select_action(self, state_tensor, action_mask, valid_actions):
         """Sélection d'action avec masquage"""
-        # Obtenir les logits bruts
         logits = self.policy(state_tensor[None])[0].numpy()
 
-        # Masquer les actions invalides
         mask = np.ones_like(logits) * float('-inf')
         mask[valid_actions] = 0
 
-        # Appliquer softmax sur les logits masqués
         probs = tf.nn.softmax(logits + mask).numpy()
-
-        # Normalisation numérique
         probs = probs / np.sum(probs)
 
-        # Vérification de validité
         if not np.isclose(np.sum(probs), 1.0) or np.any(np.isnan(probs)):
             probs = np.zeros_like(logits)
             probs[valid_actions] = 1.0 / len(valid_actions)
@@ -119,7 +114,7 @@ class REINFORCEWithCritic:
 
             # Sélectionner et exécuter l'action
             action = self.select_action(state_tensor, action_mask, valid_actions)
-            prev_score = env.score(self, testing=False)
+            prev_score = env.score()
             env.step(action)
             reward = env.score() - prev_score  # Utiliser uniquement la vraie récompense
             next_state = env.state_description()
@@ -180,73 +175,45 @@ class REINFORCEWithCritic:
     def train(self, env, episodes=10000):
         """Boucle d'entraînement principale"""
         interval = 100
-        best_reward = float('-inf')
-        metrics_data = []
+        results_df = None
 
         for episode in tqdm(range(episodes), desc="Training"):
             env.reset()
             total_reward, policy_loss, critic_loss = self.train_episode(env)
 
             if (episode + 1) % interval == 0:
-                eval_rewards = self.evaluate(env, n_episodes=100)
-                avg_eval_reward = np.mean(eval_rewards)
-                std_eval_reward = np.std(eval_rewards)
-                success_rate = np.mean([r > 0 for r in eval_rewards])
 
-                metrics = {
-                    'episode': episode + 1,
-                    'avg_reward': avg_eval_reward,
-                    'std_reward': std_eval_reward,
-                    'success_rate': success_rate,
-                    'policy_loss': policy_loss,
+
+                results_df = log_metrics_to_dataframe(
+                    function=play_with_reinforce_critic,
+                    model=self.policy,
+                    predict_func=None,
+                    env=env,
+                    episode_index=episode,
+                    games=100,
+                    dataframe=results_df
+                )
+
+        # Utiliser save_files à la fin de l'entraînement
+        if self.path is not None:
+            save_files(
+                online_model=self.policy,
+                algo_name="REINFORCE_CRITIC",
+                results_df=results_df,
+                env=env,
+                num_episodes=episodes,
+                gamma=self.gamma,
+                alpha=self.alpha_theta,  # Learning rate de la politique
+                optimizer=self.policy_optimizer,
+                save_path=self.path,
+                custom_metrics={
+                    'critic_learning_rate': self.alpha_w,
                     'critic_loss': critic_loss
                 }
-                metrics_data.append(metrics)
+            )
 
-                if self.path:
-                    pd.DataFrame(metrics_data).to_csv(f"{self.path}_metrics.csv", index=False)
+        return results_df
 
-                print(f"\n{'=' * 50}")
-                print(f"Episode {episode + 1}")
-                print(f"Average Eval Reward: {avg_eval_reward:.2f} ± {std_eval_reward:.2f}")
-                print(f"Success Rate: {success_rate:.2%}")
-                print(f"Policy Loss: {policy_loss:.6f}")
-                print(f"Critic Loss: {critic_loss:.6f}")
-
-                if avg_eval_reward > best_reward:
-                    best_reward = avg_eval_reward
-                    if self.path:
-                        self.save_model(f"{self.path}_best.pkl")
-
-        if self.path:
-            self.save_model(f"{self.path}_final.pkl")
-
-        return pd.DataFrame(metrics_data)
-
-    def evaluate(self, env, n_episodes=100):
-        """Évaluation du modèle"""
-        rewards = []
-        for _ in range(n_episodes):
-            env.reset()
-            done = False
-            total_reward = 0
-            state = env.state_description()
-
-            while not done:
-                state_tensor = tf.convert_to_tensor(state, dtype=tf.float32)
-                action_mask = env.action_mask()
-                valid_actions = env.available_actions_ids()
-                action = self.select_action(state_tensor, action_mask, valid_actions)
-
-                env.step(action)
-                reward = env.score(testing=True)
-                done = env.is_game_over()
-                state = env.state_description()
-                total_reward += reward
-
-            rewards.append(total_reward)
-
-        return rewards
 
 
     def get_weights(self):
@@ -316,18 +283,18 @@ if __name__ == "__main__":
 
     # Configuration
     env = TicTacToe()
-    env = FarkleDQNEnv(num_players=2, target_score=5000)
+    #env = FarkleDQNEnv(num_players=2, target_score=5000)
     agent = REINFORCEWithCritic(
-        state_dim=12,
-        action_dim=128,
+        state_dim=27,
+        action_dim=9,
         alpha_theta=0.0003,
         alpha_w=0.001,
         gamma=0.99,
-        path='./models/Farkel_reinforce'
+        path='Farkel_reinforce'
     )
 
     # Entraînement avec suivi des métriques
-    metrics_df = agent.train(env, episodes=10000)
+    metrics_df = agent.train(env, episodes=200)
 
     # Afficher un résumé des métriques
     print("\nRésumé des métriques:")

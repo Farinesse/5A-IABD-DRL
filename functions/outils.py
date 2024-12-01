@@ -61,15 +61,16 @@ def save_files(
         results_df,
         env,
         num_episodes,
-        gamma,
-        alpha,
-        start_epsilon,
-        end_epsilon,
-        update_target_steps,
-        optimizer,
+        gamma=None,
+        alpha=None,
+        start_epsilon=None,
+        end_epsilon=None,
+        update_target_steps=None,
+        optimizer=None,
         save_path=None,
         memory_size=None,
-        batch_size=None
+        batch_size=None,
+        custom_metrics = None
 ):
     if save_path is not None:
         if save_path.endswith(".pkl"):
@@ -560,6 +561,59 @@ def plot_csv_data(
     plt.show()
     plt.close()
 
+def play_with_reinforce(env, model, predict_func = None, episodes = 100):
+    episode_scores = []
+    episode_times = []
+    episode_steps = []
+    step_times = []
+    total_time = 0
+
+    for episode in range(episodes):
+        env.reset()
+        nb_turns = 0
+
+        start_time = time.time()
+        while not env.is_game_over() and nb_turns < 100:
+            state = env.state_description()
+            state_tensor = tf.convert_to_tensor(state, dtype=tf.float32)
+            valid_actions = env.available_actions_ids()
+
+            probs = model(tf.expand_dims(state_tensor, 0), training=False)[0]
+            mask = np.ones_like(probs.numpy()) * float('-inf')
+            mask[valid_actions] = 0
+            masked_probs = tf.nn.softmax(probs + mask).numpy()
+
+            # En évaluation, on prend l'action la plus probable
+            if len(valid_actions) > 0:
+                action = valid_actions[np.argmax(masked_probs[valid_actions])]
+            else:
+                print("Aucune action valide disponible!")
+                action = np.random.choice(env.available_actions_ids())
+
+            env.step(action)
+            nb_turns += 1
+
+        end_time = time.time()
+        if nb_turns == 100:
+            episode_scores.append(-1)
+        else:
+            episode_scores.append(env.score())
+
+        episode_time = end_time - start_time
+        episode_times.append(episode_time)
+        total_time += episode_time
+        episode_steps.append(nb_turns)
+        step_times.append(0 if nb_turns == 0 else episode_time / nb_turns)
+
+
+    return (
+        mean(episode_scores),
+        mean(episode_times),
+        mean(episode_steps),
+        mean(step_times),
+        episode_scores.count(1.0) / episodes
+    )
+
 
 def play_with_mcts(env, agent, episodes=100):
     """Fonction pour jouer plusieurs épisodes et collecter les statistiques."""
@@ -602,6 +656,110 @@ def play_with_mcts(env, agent, episodes=100):
         mean(episode_steps),
         mean(step_times),
         episode_scores.count(1.0) / episodes
+    )
+
+
+def play_with_reinforce_critic(env, model, predict_func=None, episodes=100):
+    """Fonction d'évaluation standard"""
+    episode_scores = []
+    episode_times = []
+    episode_steps = []
+    step_times = []
+    total_time = 0
+
+    for episode in range(episodes):
+        env.reset()
+        nb_turns = 0
+        start_time = time.time()
+        state = env.state_description()
+        done = False
+        total_reward = 0
+
+        while not done and nb_turns < 100:
+            state_tensor = tf.convert_to_tensor(state, dtype=tf.float32)
+            valid_actions = env.available_actions_ids()
+            action_mask = env.action_mask()
+
+            # En évaluation, on prend l'action la plus probable
+            logits = model(state_tensor[None])[0].numpy()
+            mask = np.ones_like(logits) * float('-inf')
+            mask[valid_actions] = 0
+            masked_probs = tf.nn.softmax(logits + mask).numpy()
+            action = valid_actions[np.argmax(masked_probs[valid_actions])]
+
+            env.step(action)
+            reward = env.score(testing=True)
+            done = env.is_game_over()
+            state = env.state_description()
+            total_reward += reward
+            nb_turns += 1
+
+        end_time = time.time()
+        episode_time = end_time - start_time
+
+        episode_scores.append(total_reward)
+        episode_times.append(episode_time)
+        episode_steps.append(nb_turns)
+        step_times.append(episode_time / nb_turns if nb_turns > 0 else 0)
+
+    return (
+        mean(episode_scores),
+        mean(episode_times),
+        mean(episode_steps),
+        mean(step_times),
+        len([s for s in episode_scores if s > 0]) / episodes
+    )
+
+
+def play_with_ppo(env, model, predict_func=None, episodes=100):
+    """Fonction d'évaluation standardisée"""
+    episode_scores = []
+    episode_times = []
+    episode_steps = []
+    step_times = []
+    total_time = 0
+
+    for episode in range(episodes):
+        env.reset()
+        nb_turns = 0
+        start_time = time.time()
+        state = env.state_description()
+        done = False
+        episode_reward = 0
+
+        while not done and nb_turns < 100:
+            state_tensor = tf.convert_to_tensor(state, dtype=tf.float32)
+            action_mask = env.action_mask()
+            valid_actions = env.available_actions_ids()
+
+            # En évaluation, on prend l'action avec la plus haute probabilité
+            probs = model(state_tensor[None])[0].numpy()
+            mask = np.ones_like(probs) * float('-inf')
+            mask[valid_actions] = 0
+            masked_probs = tf.nn.softmax(probs + mask).numpy()
+
+            action = valid_actions[np.argmax(masked_probs[valid_actions])]
+
+            env.step(action)
+            reward = env.score()
+            done = env.is_game_over()
+            state = env.state_description()
+            episode_reward += reward
+            nb_turns += 1
+
+        end_time = time.time()
+        episode_scores.append(episode_reward)
+        episode_time = end_time - start_time
+        episode_times.append(episode_time)
+        episode_steps.append(nb_turns)
+        step_times.append(episode_time / nb_turns if nb_turns > 0 else 0)
+
+    return (
+        mean(episode_scores),
+        mean(episode_times),
+        mean(episode_steps),
+        mean(step_times),
+        len([s for s in episode_scores if s > 0]) / episodes
     )
 
 

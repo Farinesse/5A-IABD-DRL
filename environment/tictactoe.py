@@ -7,7 +7,7 @@ from algos.DQN.ddqn import double_dqn_no_replay
 from algos.DQN.ddqn_exp_replay import double_dqn_with_replay
 from algos.DQN.deep_qlearning import deep_q_learning
 from algos.DQN.dqn import dqn_no_replay
-from algos.PolicyGradientMethods.reinforce_meanbase import REINFORCEBaseline
+
 
 NUM_ACTIONS = 9
 NUM_STATE_FEATURES = 27

@@ -57,13 +57,13 @@ def double_dqn_no_replay(
     for ep_id in tqdm(range(num_episodes)):
         if (ep_id + 1) % interval == 0 and ep_id > 0:
             results_df = log_metrics_to_dataframe(
-                function = play_with_dqn,
-                model = online_model,
-                predict_func = model_predict,
-                env = env,
-                episode_index = ep_id,
-                games = 1000,
-                dataframe = results_df
+                function=play_with_dqn,
+                model=online_model,
+                predict_func=model_predict,
+                env=env,
+                episode_index=ep_id,
+                games=1000,
+                dataframe=results_df
             )
             print(f"Mean Loss: {total_loss / interval}, Epsilon: {epsilon}")
             total_loss = 0.0
