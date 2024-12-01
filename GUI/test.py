@@ -45,7 +45,9 @@ def action_agent(env, model):
 
     # Prédire l'action
     q_s = predict_func(model, s_tensor)
+
     a = epsilon_greedy_action_bis(q_s.numpy(), mask_tensor, env.get_valid_actions(), 0.000001)
     print('state', env.state_description())
     print('action', env.decode_action_1(a))
     return env.decode_action_1(a)
+

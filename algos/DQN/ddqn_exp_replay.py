@@ -1,11 +1,18 @@
 import random
+import secrets
 import keras
 import numpy as np
 import tensorflow as tf
 from tqdm import tqdm
 from collections import deque
-from functions.outils import log_metrics_to_dataframe, play_with_dqn, epsilon_greedy_action
-
+from functions.outils import (
+    log_metrics_to_dataframe,
+    play_with_dqn,
+    epsilon_greedy_action,
+    plot_csv_data,
+    save_model,
+    dqn_model_predict as model_predict, save_files
+)
 
 @tf.function(reduce_retracing=True)
 def gradient_step(
@@ -26,36 +33,6 @@ def gradient_step(
     return loss
 
 
-@tf.function(reduce_retracing=True)
-def model_predict(
-        model,
-        s
-):
-    s = tf.ensure_shape(s, [None])  # Ensure constant shape
-    return model(tf.expand_dims(s, 0))[0]
-
-
-def save_model(
-        model,
-        file_path,
-        save_format="tf"
-):
-    """
-    Sauvegarde le modèle dans un fichier.
-
-    :param model: Le modèle à sauvegarder
-    :param file_path: Le chemin du fichier où sauvegarder le modèle
-    :param save_format: Le format de sauvegarde ('tf' pour TensorFlow ou 'h5' pour HDF5)
-    """
-    try:
-        model.save(file_path, save_format=save_format)
-        print(f"Modèle sauvegardé avec succès dans {file_path} au format {save_format}")
-    except ImportError as e:
-        print(f"Erreur d'importation (vérifiez TensorFlow et h5py) : {e}")
-    except Exception as e:
-        print(f"Erreur lors de la sauvegarde du modèle : {e}")
-
-
 def double_dqn_with_replay(
         online_model,
         target_model,
@@ -68,8 +45,9 @@ def double_dqn_with_replay(
         memory_size=512,
         batch_size=32,
         update_target_steps=1000,
-        save_path='double_dqn_with_exp_rep_model_tictactoe.h5',
-        input_dim=12
+        save_path=None,
+        input_dim=None,
+        interval = 10
 ):
     optimizer = keras.optimizers.SGD(
         learning_rate=alpha,
@@ -83,12 +61,10 @@ def double_dqn_with_replay(
     memory = deque(maxlen=memory_size)
     epsilon = start_epsilon
     total_loss = 0.0
-    interval = 100
     results_df = None
 
     for ep_id in tqdm(range(num_episodes)):
-        if ep_id % interval == 0 and ep_id > 0:
-
+        if (ep_id + 1) % interval == 0 and ep_id > 0:
             results_df = log_metrics_to_dataframe(
                 function = play_with_dqn,
                 model = online_model,
@@ -153,8 +129,23 @@ def double_dqn_with_replay(
         if ep_id % update_target_steps == 0:
             target_model.set_weights(online_model.get_weights())
 
-    save_model(online_model, save_path, save_format="h5")
 
-    results_df.to_csv(f'{save_path}_metrics.csv', index=False)
+    if save_path is not None:
+        save_files(
+            online_model,
+            "DDQN EXP REPLAY",
+            results_df,
+            env,
+            num_episodes,
+            gamma,
+            alpha,
+            start_epsilon,
+            end_epsilon,
+            update_target_steps,
+            optimizer,
+            save_path=save_path,
+            memory_size=memory_size,
+            batch_size=batch_size
+        )
 
     return online_model, target_model

@@ -1,11 +1,13 @@
 import numpy as np
 import random
 from gymnasium import spaces
+from tensorflow.python import keras
 import tensorflow as tf
 import keras
 from algos.DQN.ddqn import double_dqn_no_replay
 from algos.DQN.ddqn_exp_replay import double_dqn_with_replay
 from algos.DQN.deep_qlearning import deep_q_learning
+from algos.PolicyGradientMethods.reinforce_meanbase import REINFORCEBaseline
 from functions.outils import plot_csv_data
 
 
@@ -16,6 +18,9 @@ class FarkleEnv:
         self.action_space = spaces.Discrete(128)
         self.reset()
         self.stop = False
+
+    def env_description(self):
+        return f"FarkleEnv - Target score: {self.target_score}"
 
     def reset(self, seed=None):
         if seed is not None:
@@ -243,6 +248,10 @@ class FarkleEnv:
         """Conversion ID -> action binaire."""
         return [int(b) for b in format(action_id, '07b')]
 
+    def decode_action_1(self, action_id):
+        """Conversion ID -> action binaire."""
+        return [int(b) for b in format(action_id, '07b')]
+
 
 class FarkleDQNEnv(FarkleEnv):
     def __init__(self, num_players=2, target_score=5000):
@@ -391,24 +400,16 @@ class FarkleDQNEnv(FarkleEnv):
         new_env.last_action_stop = self.last_action_stop
         return new_env
 
-
-def create_farkle_model(state_dim=12, action_dim=128):
-    return tf.keras.Sequential([
-        # Correction ici : (state_dim,) au lieu de state_dim
-        tf.keras.layers.Input(shape=(state_dim,)),
-        tf.keras.layers.Dense(64, activation='relu',
-                            kernel_initializer='glorot_normal',
-                            bias_initializer='zeros'),
-        tf.keras.layers.Dense(128, activation='relu',
-                            kernel_initializer='glorot_normal',
-                            bias_initializer='zeros'),
-        tf.keras.layers.Dense(64, activation='relu',
-                            kernel_initializer='glorot_normal',
-                            bias_initializer='zeros'),
-        tf.keras.layers.Dense(action_dim,
-                            kernel_initializer='glorot_normal',
-                            bias_initializer='zeros')
-    ])
+def create_farkle_model(state_dim, action_dim):
+    # Smaller network with proper initialization
+    return keras.Sequential(
+        [
+            keras.layers.Dense(128, activation='relu', input_dim=state_dim),
+            keras.layers.Dense(256, activation='relu'),
+            keras.layers.Dense(128, activation='relu'),
+            keras.layers.Dense(action_dim)
+        ]
+    )
 
 
 if __name__ == "__main__":
@@ -438,30 +439,40 @@ if __name__ == "__main__":
         online_model=model,
         target_model=target_model,
         env=env,
-        num_episodes=10000,
+        num_episodes=100000,
         gamma=0.99,
         alpha=0.0001,
         start_epsilon=1.0,
         end_epsilon=0.01,
         memory_size=32,
         batch_size=16,
-        update_target_steps=100,
-        save_path ='../models/models/ddqn_replay/ddqn_replay_model_farkel_tests/ddqn_replay_model_farkel_5000_tests/dqn_replay_model_farkel_5000_test_10000_0-99_0-0001_1-0_0-01_64_32_100_512relu12dim_256relu_dropout0.2_256relu_dropout0.2_128.h5',
+        update_target_steps=1000,
+        save_path ='farkle5000_ddqn_replay_100000episodes.h5',
         input_dim=12,
     )"""
 
-    """trained_model, _ = double_dqn_no_replay(
+    trained_model, _ = double_dqn_no_replay(
         online_model=model,
         target_model=target_model,
         env=env,
-        num_episodes=10000,
+        num_episodes=1000,
         gamma=0.99,
         alpha=0.0001,
         start_epsilon=1.0,
         end_epsilon=0.01,
         update_target_steps=100,
-        save_path ='../models/models/ddqn_no_replay/ddqn_no_replay_model_farkel_tests/ddqn_no_replay_model_farkel_5000_tests/dqn_replay_model_farkel_5000_test_10000_0-99_0-0001_1-0_0-01_100_input12_norm_dense128relu_L2_0.01_bn_dropout0.2_dense256relu_L2_0.01_bn_dropout0.2_dense512relu_L2_0.01_bn_dropout0.2_dense256relu_L2_0.01_bn_dropout0.2_dense128relu_L2_0.01_bn_dropout0.2_layernorm.h5',
+        save_path ='farkle5000_100000_ddqn_noreplay',
         input_dim=12,
-    )"""
+        interval = 100
+    )
 
-    plot_csv_data('../models/models/ddqn_replay/ddqn_replay_model_farkel_tests/ddqn_replay_model_farkel_5000_tests/dqn_replay_model_farkel_5000_test_10000_0-99_0-0001_1-0_0-01_64_32_100_512relu12dim_256relu_dropout0.2_256relu_dropout0.2_128.h5_metrics.csv')
+    """agent = REINFORCEBaseline(
+        state_dim=12,
+        action_dim=128,
+        alpha_theta=0.001,
+        alpha_w=0.001,
+        gamma=0.99,
+        path='farkle5000_reinforce_baseline_100000episodes.h5'
+    )
+
+    agent.train(env, episodes=100000)"""

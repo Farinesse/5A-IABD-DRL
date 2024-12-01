@@ -1,5 +1,11 @@
+import io
 import math
+import os
+import pickle
+import secrets
 import time
+
+import keras
 import numpy as np
 import pandas as pd
 import tensorflow as tf
@@ -11,6 +17,107 @@ from tqdm import tqdm
 
 from GUI.test import predict_func, epsilon_greedy_action_bis
 
+@tf.function
+def dqn_model_predict(model, s):
+    """Prédiction des Q-valeurs pour un état donné."""
+    s = tf.ensure_shape(s, (None,))
+    return model(tf.expand_dims(s, 0))[0]
+
+
+def save_model(model, file_path):
+    """
+    Sauvegarde le modèle en utilisant Pickle.
+
+    :param model: Le modèle à sauvegarder
+    :param file_path: Le chemin du fichier où sauvegarder le modèle
+    """
+    try:
+
+        with open(file_path, 'wb') as f:
+            pickle.dump(model, f)
+        print(f"Modèle sauvegardé avec succès dans {file_path} au format Pickle")
+    except Exception as e:
+        print(f"Erreur lors de la sauvegarde du modèle : {e}")
+
+
+def load_model_pkl(file_path):
+    """
+    Charge un modèle sauvegardé avec Pickle.
+
+    :param file_path: Le chemin du fichier où le modèle est sauvegardé
+    :return: Le modèle chargé
+    """
+    try:
+        with open(file_path, 'rb') as f:
+            model = pickle.load(f)
+        print(f"Modèle chargé avec succès à partir de {file_path}")
+        return model
+    except Exception as e:
+        print(f"Erreur lors du chargement du modèle : {e}")
+
+def save_files(
+        online_model,
+        algo_name,
+        results_df,
+        env,
+        num_episodes,
+        gamma,
+        alpha,
+        start_epsilon,
+        end_epsilon,
+        update_target_steps,
+        optimizer,
+        save_path=None,
+        memory_size=None,
+        batch_size=None
+):
+    if save_path is not None:
+        if save_path.endswith(".pkl"):
+            save_path = f'{save_path[:-4]}_{secrets.token_hex(4)}.pkl'
+        else:
+            save_path = f'{save_path}_{secrets.token_hex(4)}.pkl'
+
+        dirn = save_path.replace(".pkl", "")
+
+        if not os.path.exists(dirn):
+            try:
+                os.makedirs(dirn)
+                print(f"Directory created: {dirn}")
+            except OSError as e:
+                print(f"Error creating directory {dirn}: {e}")
+        else:
+            print(f"Directory already exists: {dirn}")
+
+
+        save_path = f'{dirn}/{save_path}'
+
+        csv = f'{save_path}_metrics.csv'
+
+        print(f"Saving model to {save_path}")
+        save_model(online_model, save_path)
+
+        print(f"Saving results to {csv}")
+        results_df.to_csv(csv, index=False)
+
+        print(f"Plotting training metrics to {csv}.png")
+        plot_csv_data(
+            csv,
+            model = online_model,
+            title = f"Training Metrics {algo_name} - {env.env_description()} - {save_path}",
+            custom_dict = {
+                "Episodes": num_episodes,
+                "Gamma": gamma,
+                "Alpha": alpha,
+                "Start Epsilon": start_epsilon,
+                "End Epsilon": end_epsilon,
+                "Update Target Steps": update_target_steps,
+                "Memory": memory_size,
+                "Batch Size": batch_size,
+                "Optimizer": optimizer.get_config()
+            },
+            algo_name = algo_name,
+            env_descr = env.env_description()
+        )
 
 def logarithmic_decay(episode, start_epsilon, end_epsilon, decay_rate=0.01):
     return max(end_epsilon, start_epsilon - decay_rate * math.log(1 + episode))
@@ -38,14 +145,9 @@ def epsilon_greedy_action(q_s: tf.Tensor,
     if np.random.rand() < epsilon:
         return np.random.choice(available_actions)
     else:
-        # Masquer les actions invalides avec -inf
         inverted_mask = tf.constant(1.0) - mask
-        masked_q_s = q_s * mask + (-1e9) * inverted_mask
-
-        # S'assurer de choisir parmi les actions valides
-        masked_q_values = masked_q_s.numpy()
-        valid_q_values = masked_q_values[available_actions]
-        return available_actions[np.argmax(valid_q_values)]
+        masked_q_s = q_s * mask + tf.float32.min * inverted_mask
+        return int(tf.argmax(masked_q_s, axis=0))
 
 def human_move(game):
     """
@@ -318,7 +420,8 @@ def play_with_dqn(env, model, predict_func, episodes=100):
         if nb_turns == 100:
             episode_scores.append(-1)
         else:
-            episode_scores.append(env.score(testing=False))
+            episode_scores.append(env.score(testing=True))
+            
         episode_time = end_time - start_time
         episode_times.append(episode_time)
         total_time += episode_time
@@ -379,17 +482,27 @@ def log_metrics_to_dataframe(
 
     return dataframe
 
-def plot_csv_data(file_path):
+def plot_csv_data(
+        file_path,
+        model = None,
+        title = "Training Metrics",
+        custom_dict = None,
+        algo_name = "",
+        env_descr = ""
+):
     """
     Lit les données d'un fichier CSV et crée des graphiques pour analyser les performances d'entraînement.
 
     Arguments:
         file_path (str): Le chemin du fichier CSV.
+        model (tf.keras.Model): Le modèle utilisé pour l'entraînement.
+        title (str): Le titre global du graphique.
+        custom_dict (dict): Un dictionnaire de paramètres personnalisés à afficher dans le graphique.
+        algo_name (str): Le nom de l'algorithme utilisé.
+        env_descr (str): La description de l'environnement utilisé.
     """
-    # Lire le fichier CSV
     data = pd.read_csv(file_path)
 
-    # Définir les colonnes importantes
     x = data['training_episode_index']
     metrics = {
         'Mean Score': data['mean_score'],
@@ -399,19 +512,53 @@ def plot_csv_data(file_path):
         'Mean Time per Step': data['mean_time_per_step']
     }
 
-    # Créer des graphiques
-    plt.figure(figsize=(15, 10))
+    plt.figure(figsize=(20, 20))
+    plt.suptitle(title, fontsize=20)
+
+    plt.subplot(4, 2, 1)
+    plt.axis('off')
+    plt.text(
+        0.5, 0.8, f"algo: {algo_name}",
+        fontsize=18,
+        ha='center', va='center', wrap=True
+    )
+    plt.text(
+        0.5, 0.6, f"env: {env_descr}",
+        fontsize=18,
+        ha='center', va='center', wrap=True
+    )
+    plt.text(
+        0.5, 0.2, str(custom_dict),
+        fontsize=17,
+        ha='center', va='center', wrap=True
+    )
+
+
+    if model is not None:
+        model_summary = io.StringIO()
+        model.summary(print_fn=lambda x: model_summary.write(x + '\n'))
+
+        plt.subplot(4, 2, 2)
+        plt.axis('off')
+        plt.text(
+            0.5, 0.5, model_summary.getvalue(),
+            fontsize=11,
+            ha='center', va='center', wrap=True
+        )
 
     for i, (label, y) in enumerate(metrics.items()):
-        plt.subplot(3, 2, i + 1)  # Disposition des sous-graphiques
-        plt.plot(x, y, marker='o')
+        plt.subplot(4, 2, i + 3)
+        plt.plot(x, y, marker="o")
         plt.title(label)
         plt.xlabel('Training Episode Index')
         plt.ylabel(label)
         plt.grid(True)
 
+    plt.subplots_adjust(hspace=0.4)
     plt.tight_layout()
+    plt.savefig(f'{file_path}.png')
     plt.show()
+    plt.close()
 
 
 def play_with_mcts(env, agent, episodes=100):
