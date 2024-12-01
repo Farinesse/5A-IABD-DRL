@@ -257,6 +257,3 @@ def main_gui(player1_type="random", player2_type="random", path_model=None):
     )
     root.mainloop()
 
-
-if __name__ == "__main__":
-    main_gui(player2_type = "agent", path_model=r'C:\Users\farin\PycharmProjects\5A-IABD-DRL\environment\farkle5000_100000_ddqn_noreplay_3d00ef49.pkl')

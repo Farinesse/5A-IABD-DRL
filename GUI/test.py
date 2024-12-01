@@ -12,7 +12,7 @@ def predict_func(model, s):
     return output
 
 
-def epsilon_greedy_action(q_s: tf.Tensor, mask: tf.Tensor, available_actions: np.ndarray, epsilon: float) -> int:
+def epsilon_greedy_action_bis(q_s: tf.Tensor, mask: tf.Tensor, available_actions: np.ndarray, epsilon: float) -> int:
     if np.random.rand() < epsilon:
         return np.random.choice(available_actions)
     else:
@@ -22,7 +22,7 @@ def epsilon_greedy_action(q_s: tf.Tensor, mask: tf.Tensor, available_actions: np
 
 
 def load_model_pkl(file_path):
-    file_path = r'C:\Users\farin\PycharmProjects\5A-IABD-DRL\environment\farkle5000_100000_ddqn_noreplay_3d00ef49.pkl'
+    #file_path = r'C:\Users\farin\PycharmProjects\5A-IABD-DRL\environment\farkle5000_100000_ddqn_noreplay_3d00ef49.pkl'
     try:
         with open(file_path, "rb") as f:
             model = pickle.load(f)
@@ -45,7 +45,7 @@ def action_agent(env, model):
 
     # Prédire l'action
     q_s = predict_func(model, s_tensor)
-    a = epsilon_greedy_action(q_s.numpy(), mask_tensor, env.get_valid_actions(), 0.000001)
+    a = epsilon_greedy_action_bis(q_s.numpy(), mask_tensor, env.get_valid_actions(), 0.000001)
     print('state', env.state_description())
     print('action', env.decode_action_1(a))
     return env.decode_action_1(a)

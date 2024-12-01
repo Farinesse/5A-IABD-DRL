@@ -132,7 +132,7 @@ if __name__ == "__main__":
         memory_size=32,
         batch_size=16,
         update_target_steps=100,
-        save_path ='dqn_replay_model_line_test_10000_0-99_0-0001_1-0_32_16_0-01_16_8_100.h5',
+        save_path ='renforce.pkl',
         input_dim=10,
     )
 
