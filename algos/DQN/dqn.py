@@ -49,13 +49,20 @@ def dqn_no_replay(
         interval = 10
 ):
     """Entraînement d'un agent DQN sans mémoire de rejouabilité."""
-    optimizer = keras.optimizers.Adam(
+    """optimizer = keras.optimizers.Adam(
         learning_rate=alpha,  # Learning rate plus faible
         clipnorm=1.0,
         beta_1=0.9,
         beta_2=0.999,
         epsilon=1e-07
+    )"""
+    optimizer = keras.optimizers.SGD(
+        learning_rate=alpha,
+        momentum=0.99,  # Ajout de momentum pour une convergence plus rapide
+        nesterov=True,  # Utilisation de Nesterov momentum pour une meilleure performance
+        weight_decay=1e-4 # Ajout de régularisation L2 pour éviter le surapprentissage
     )
+
     epsilon = start_epsilon
     total_loss = 0.0
     results_df = None

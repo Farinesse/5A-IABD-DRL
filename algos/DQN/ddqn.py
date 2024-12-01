@@ -60,6 +60,8 @@ def double_dqn_no_replay(
     total_loss = 0.0
     results_df = None
 
+    save_path = save_path + secrets.token_hex(4) if save_path is not None else None
+
 
     for ep_id in tqdm(range(num_episodes)):
         if (ep_id + 1) % interval == 0 and ep_id > 0:
@@ -74,6 +76,22 @@ def double_dqn_no_replay(
             )
             print(f"Mean Loss: {total_loss / interval}, Epsilon: {epsilon}")
             total_loss = 0.0
+
+        if save_path is not None and (ep_id + 1) % (interval*10) == 0:
+            save_files(
+                online_model,
+                "DDQN NO REPLAY",
+                results_df,
+                env,
+                num_episodes,
+                gamma,
+                alpha,
+                start_epsilon,
+                end_epsilon,
+                update_target_steps,
+                optimizer,
+                save_path=save_path + f"_{ep_id}"
+            )
 
         env.reset()
         if env.is_game_over():
@@ -132,7 +150,7 @@ def double_dqn_no_replay(
             end_epsilon,
             update_target_steps,
             optimizer,
-            save_path=save_path
+            save_path="final_" + save_path
         )
 
     return online_model, target_model
