@@ -244,6 +244,9 @@ class FarkleEnv:
             return [int(b) for b in format(random_action, '07b')]
         else:
             return [0] * 6 + [1]
+    def decode_action_1(self, action_id):
+        """Conversion ID -> action binaire."""
+        return [int(b) for b in format(action_id, '07b')]
 
     def decode_action_1(self, action_id):
         """Conversion ID -> action binaire."""
@@ -383,6 +386,19 @@ class FarkleDQNEnv(FarkleEnv):
         print(f"Scores des joueurs: {self.scores}")
         print(f"Jeu terminé: {self.game_over}")
 
+    def copy(self):
+        """Crée une copie de l'environnement FarkleDQNEnv."""
+        # Crée un nouvel environnement
+        new_env = FarkleDQNEnv(num_players=self.num_players, target_score=self.target_score)
+        # Duplique l'état de l'environnement actuel
+        new_env.scores = self.scores.copy()
+        new_env.current_player = self.current_player
+        new_env.round_score = self.round_score
+        new_env.remaining_dice = self.remaining_dice
+        new_env.dice_roll = self.dice_roll.copy()
+        new_env.game_over = self.game_over
+        new_env.last_action_stop = self.last_action_stop
+        return new_env
 
 def create_farkle_model(state_dim, action_dim):
     # Smaller network with proper initialization
@@ -395,28 +411,29 @@ def create_farkle_model(state_dim, action_dim):
         ]
     )
 
+
 if __name__ == "__main__":
 
     env = FarkleDQNEnv(num_players = 2, target_score=5000)
-    model = create_farkle_model(12, 128)
+    model = create_farkle_model(state_dim=12,action_dim=128)
     target_model = keras.models.clone_model(model)
     target_model.set_weights(model.get_weights())
 
-    """trained_model = deep_q_learning(
+    trained_model = deep_q_learning(
         model=model,
         target_model=target_model,
         env=env,
-        num_episodes=1000,
+        num_episodes=10000,
         gamma=0.99,
         alpha=0.0001,
         start_epsilon=1.0,
         end_epsilon=0.01,
-        memory_size=32,
-        batch_size=8,
+        memory_size=1000,
+        batch_size=64,
         update_target_steps=100,
-        save_path ='../models/models/dqn_replay/dqn_replay_model_farkel_1000_tests/dqn_replay_model_farkel_1000_test_1000_0-99_0-001_1-0_0-01_32_8_100_512relu12dim_256relu_dropout0.2_256relu_dropout0.2_128.h5',
+        save_path ='../models/models/dqn_replay/dqn_replay_model_farkel_10000_tests/dqn_replay_model_farkel_1000_test_1000_0-99_0-001_1-0_0-01_32_8_100_512relu12dim_256relu_dropout0.2_256relu_dropout0.2_128.h5',
         input_dim=12,
-    )"""
+    )
 
     """trained_model, _ = double_dqn_with_replay(
         online_model=model,

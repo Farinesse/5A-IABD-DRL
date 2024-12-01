@@ -12,6 +12,10 @@ import tensorflow as tf
 import matplotlib.pyplot as plt
 from statistics import mean
 
+from colorama import Fore
+from tqdm import tqdm
+
+from GUI.test import predict_func, epsilon_greedy_action_bis
 
 @tf.function
 def dqn_model_predict(model, s):
@@ -134,19 +138,16 @@ def custom_two_phase_decay(episode, start_epsilon, end_epsilon, total_episodes, 
         return 0.5 * math.exp(-5 * progress)  # 0.5 est la valeur d'epsilon au point de transition
 
 
-def epsilon_greedy_action(
-        q_s: tf.Tensor,
-        mask: tf.Tensor,
-        available_actions: np.ndarray,
-        epsilon: float
-) -> int:
+def epsilon_greedy_action(q_s: tf.Tensor,
+                          mask: tf.Tensor,
+                          available_actions: np.ndarray,
+                          epsilon: float) -> int:
     if np.random.rand() < epsilon:
         return np.random.choice(available_actions)
     else:
         inverted_mask = tf.constant(1.0) - mask
         masked_q_s = q_s * mask + tf.float32.min * inverted_mask
         return int(tf.argmax(masked_q_s, axis=0))
-
 
 def human_move(game):
     """
@@ -166,31 +167,16 @@ def human_move(game):
     return val
 
 
-def play(game, player_x, player_o, print_game=True):
+def play(game, player_x, print_game=True):
     """
     Permet à deux joueurs (humain ou IA) de jouer une partie de TicTacToe.
     """
     if print_game:
         game.display()
 
-        print("state")
-        game.state_description()
-        print("ACTION")
-        game.available_actions_ids()
-        print("ACTION MASK")
-        game.action_mask()
     letter = 'X'  # Le premier joueur commence avec 'X'
     while not game.is_game_over():
-        ''' if letter == 'O':
-            print("Joueur O à jouer")
-            # Utilisation de l'agent random pour O
-            square = player_o(game)
-            game.step(square)  # Exécute l'action
-        else:
-            print("Joueur X à jouer")
-            # Utilisation du joueur humain pour X
-            #square = player_x(game)
-            '''
+
         square = player_x(game)
         game.step(square)  # Exécute l'action
         print("state : ", game.state_description())
@@ -199,9 +185,7 @@ def play(game, player_x, player_o, print_game=True):
         print("ACTION MASK : ", game.action_mask())
 
         if print_game:
-            print(f'{letter} a joué sur la case {square}')
             game.display()
-            print('')
 
         if game.is_game_over():
             if print_game:
@@ -209,6 +193,8 @@ def play(game, player_x, player_o, print_game=True):
                     print(f'{letter} a gagné!')
                 elif game.score() == 0.0:
                     print('C\'est un match nul!')
+                else :
+                    print(f'O a gagné!')
             return letter  # Retourne le gagnant ou None en cas de match nul
 
         # Changement de joueur
@@ -237,7 +223,7 @@ def human_move_line_world(game):
     return action
 
 
-def play_line_world(game, player_human, player_random, print_game=True):
+def play_line_grid_world(game, player_human=None, player_random=None, print_game=True):
     """
     Permet à un humain et un agent aléatoire de jouer à LineWorld.
     """
@@ -245,27 +231,28 @@ def play_line_world(game, player_human, player_random, print_game=True):
         game.display()
 
     while not game.is_game_over():
-        # Tour de l'humain
-        action = player_human(game)
-        game.step(action)
-        if print_game:
-            game.display()
-
-        if game.is_game_over():
+        if player_human:
+            action = player_human(game)
+            game.step(action)
             if print_game:
-                print("Jeu terminé ! L'agent est dans un état terminal.")
-            break
+                game.display()
 
-        # Tour de l'agent aléatoire
-        action = player_random(game)
-        game.step(action)
-        if print_game:
-            game.display()
+            if game.is_game_over():
+                if print_game:
+                    print("Jeu terminé ! L'agent est dans un état terminal.")
+                break
 
-        if game.is_game_over():
+        if player_random:
+            # Tour de l'agent aléatoire
+            action = player_random(game)
+            game.step(action)
             if print_game:
-                print("Jeu terminé ! L'agent est dans un état terminal.")
-            break
+                game.display()
+
+            if game.is_game_over():
+                if print_game:
+                    print("Jeu terminé ! L'agent est dans un état terminal.")
+                break
 
 
 def human_move_grid_world(game):
@@ -434,6 +421,7 @@ def play_with_dqn(env, model, predict_func, episodes=100):
             episode_scores.append(-1)
         else:
             episode_scores.append(env.score(testing=True))
+            
         episode_time = end_time - start_time
         episode_times.append(episode_time)
         total_time += episode_time
@@ -572,3 +560,279 @@ def plot_csv_data(
     plt.show()
     plt.close()
 
+
+def play_with_mcts(env, agent, episodes=100):
+    """Fonction pour jouer plusieurs épisodes et collecter les statistiques."""
+    episode_scores = []
+    episode_times = []
+    episode_steps = []
+    step_times = []
+    total_time = 0
+
+    for episode in range(episodes):
+        env.reset()
+        nb_turns = 0
+
+        start_time = time.time()
+        while not env.is_game_over() and nb_turns < 100:
+            # Gestion des tours pour Farkle
+
+            action = agent.select_action(env)
+            env.step(action)
+            env.display()
+            nb_turns += 1
+
+        end_time = time.time()
+
+        # Enregistrement des statistiques
+        if nb_turns == 100:  # Limite de tours atteinte
+            episode_scores.append(-1)
+        else:
+            episode_scores.append(env.score())
+
+        episode_time = end_time - start_time
+        episode_times.append(episode_time)
+        total_time += episode_time
+        episode_steps.append(nb_turns)
+        step_times.append(episode_time / nb_turns if nb_turns > 0 else 0)
+
+    return (
+        mean(episode_scores),
+        mean(episode_times),
+        mean(episode_steps),
+        mean(step_times),
+        episode_scores.count(1.0) / episodes
+    )
+
+
+def log_metrics_to_dataframe_mcts(function, agent, env, episode_index, games=100, dataframe=None):
+    """Enregistre les métriques dans un DataFrame."""
+    if dataframe is None:
+        dataframe = pd.DataFrame({
+            'training_episode_index': pd.Series(dtype='int'),
+            'mean_score': pd.Series(dtype='float'),
+            'mean_time_per_episode': pd.Series(dtype='float'),
+            'win_rate': pd.Series(dtype='float'),
+            'mean_steps_per_episode': pd.Series(dtype='float'),
+            'mean_time_per_step': pd.Series(dtype='float')
+        })
+
+    (
+        mean_score,
+        mean_time_per_episode,
+        mean_steps_per_episode,
+        mean_time_per_step,
+        win_rate
+    ) = function(env, agent, games)
+
+    print(f"Episode {episode_index}: Mean Score: {mean_score:.3f}, Mean Time: {mean_time_per_episode:.3f}, "
+          f"Win Rate: {win_rate:.2%}, Mean Steps: {mean_steps_per_episode:.1f}, "
+          f"Mean Time per Step: {mean_time_per_step:.3f}")
+
+    dataframe = pd.concat([
+        dataframe,
+        pd.DataFrame([{
+            'training_episode_index': episode_index,
+            'mean_score': mean_score,
+            'mean_time_per_episode': mean_time_per_episode,
+            'win_rate': win_rate,
+            'mean_steps_per_episode': mean_steps_per_episode,
+            'mean_time_per_step': mean_time_per_step
+        }])
+    ], ignore_index=True)
+
+    return dataframe
+
+
+def plot_mcts_metrics(file_path, title="MCTS Training Metrics", agent=None, custom_dict=None):
+    """Plot les métriques d'entraînement."""
+    data = pd.read_csv(file_path)
+
+    x = data['training_episode_index']
+    metrics = {
+        'Mean Score': data['mean_score'],
+        'Mean Time per Episode': data['mean_time_per_episode'],
+        'Win Rate': data['win_rate'],
+        'Mean Steps per Episode': data['mean_steps_per_episode'],
+        'Mean Time per Step': data['mean_time_per_step']
+    }
+
+    # Création du plot avec matplotlib
+    plt.figure(figsize=(15, 10))
+    for i, (metric_name, metric_data) in enumerate(metrics.items(), 1):
+        plt.subplot(2, 3, i)
+        plt.plot(x, metric_data)
+        plt.title(metric_name)
+        plt.xlabel('Training Episode')
+        plt.grid(True)
+
+    plt.tight_layout()
+    plt.suptitle(title, y=1.02, fontsize=16)
+    plt.show()
+
+
+def play_agent_vs_random_tictactoe(env, model, num_games: int = 100) -> None:
+    try:
+        wins = 0
+        losses = 0
+        draws = 0
+
+        print(Fore.CYAN + f"\n=== Agent vs Random sur {num_games} parties ===")
+
+        for game in range(num_games):
+            env.reset()
+            game_done = False
+
+            while not game_done:
+                # Tour de l'agent
+                state = env.state_description()
+                s_tensor = tf.convert_to_tensor(state, dtype=tf.float32)
+                mask = env.action_mask()
+
+                q_s = predict_func(model, s_tensor)
+                print(q_s,mask,s_tensor)
+
+                masked_q_values = q_s[0].numpy() * mask - 1e9 * (1 - mask)
+                action = np.argmax(masked_q_values)
+
+                reward = env.step(action)
+                env.display()
+                game_done = env.is_game_over()
+
+                if game_done:
+                    break
+
+            # Résultat de la partie
+            if env.score() > 0:
+                wins += 1
+            elif env.score() < 0:
+                losses += 1
+            else:
+                draws += 1
+
+            if (game + 1) % 10 == 0:
+                print(Fore.GREEN + f"\rParties jouées : {game + 1}/{num_games}", end="")
+
+        print(Fore.GREEN + "\n\nRésultats :")
+        print(f"Victoires : {wins} ({wins / num_games * 100:.1f}%)")
+        print(f"Défaites : {losses} ({losses / num_games * 100:.1f}%)")
+        print(f"Nuls : {draws} ({draws / num_games * 100:.1f}%)")
+
+    except Exception as e:
+        print(Fore.RED + f"\nErreur lors du chargement du modèle : {e}")
+        print(Fore.YELLOW + "Le modèle n'a pas pu être chargé")
+
+
+def play_with_agent_gridworld(env, model, num_games: int = 100) -> None:
+    try:
+        wins = 0
+        losses = 0
+        draws = 0
+
+        print(Fore.CYAN + f"\n=== Agent vs Random sur {num_games} parties ===")
+
+        for game in range(num_games):
+            env.reset()
+            game_done = False
+            cumulative_reward = 0
+
+            while not game_done:
+                state = env.state_description()
+                s_tensor = tf.convert_to_tensor(state, dtype=tf.float32)
+                mask = env.action_mask()
+                mask_array = np.array(mask, dtype=np.float32)
+
+                q_s = predict_func(model, s_tensor)
+                print(q_s, mask, s_tensor)
+
+                masked_q_values = q_s[0].numpy() * mask_array - 1e9 * (1 - mask_array)
+                action = np.argmax(masked_q_values)
+
+                reward = env.step(action)
+                env.display()
+                game_done = env.is_game_over()
+
+                # Gestion de la récompense qui peut être None
+                if reward is not None:
+                    cumulative_reward += reward
+
+            # Évaluation de la performance à la fin de la partie
+            if cumulative_reward > 0:
+                wins += 1
+            elif cumulative_reward < 0:
+                losses += 1
+            else:
+                draws += 1
+
+            if (game + 1) % 10 == 0:
+                print(Fore.GREEN + f"\rParties jouées : {game + 1}/{num_games}", end="")
+
+        print(Fore.GREEN + "\n\nRésultats :")
+        print(f"Victoires : {wins} ({wins / num_games * 100:.1f}%)")
+        print(f"Défaites : {losses} ({losses / num_games * 100:.1f}%)")
+        print(f"Nuls : {draws} ({draws / num_games * 100:.1f}%)")
+
+    except Exception as e:
+        print(Fore.RED + f"\nErreur lors du chargement du modèle : {e}")
+        print(Fore.YELLOW + "Le modèle n'a pas pu être chargé")
+
+
+def play_with_agent_lineworld(env, model, num_games: int = 100) -> None:
+    try:
+        wins = 0
+        losses = 0
+        draws = 0
+
+        print(f"\n=== Agent vs Random sur {num_games} parties ===")
+
+        for game in range(num_games):
+            env.reset()
+            game_done = False
+            cumulative_reward = 0
+
+            while not game_done:
+                state = env.state_description()
+                s_tensor = tf.convert_to_tensor(state, dtype=tf.float32)
+                env.display()
+                mask = env.action_mask()
+                print(f"Mask: {mask}")
+                print(f"State tensor: {s_tensor}")
+
+                try:
+                    q_s = predict_func(model, s_tensor)
+                    print(f"Q-values: {q_s}")
+                    masked_q_values = q_s[0].numpy() * mask - 1e9 * (1 - mask)
+                    action = np.argmax(masked_q_values)
+                    reward = env.step(action)
+                    game_done = env.is_game_over()
+
+                    # Accumulation des récompenses non-nulles
+                    if reward is not None:
+                        cumulative_reward += reward
+                except Exception as e:
+                    print(f"Erreur lors de la prédiction du modèle : {e}")
+                    break
+
+            # Évaluation de la performance
+            if cumulative_reward > 0:
+                wins += 1
+            elif cumulative_reward < 0:
+                losses += 1
+            else:
+                draws += 1
+
+            # Affichage de la progression
+            if (game + 1) % 10 == 0:
+                print(f"\rParties jouées : {game + 1}/{num_games} (Victoires: {wins}, Pertes: {losses}, Nuls: {draws})",
+                      end="")
+
+        # Statistiques finales
+        print("\n\nRésultats finaux :")
+        print(f"Victoires : {wins} ({wins / num_games * 100:.1f}%)")
+        print(f"Défaites : {losses} ({losses / num_games * 100:.1f}%)")
+        print(f"Nuls : {draws} ({draws / num_games * 100:.1f}%)")
+        print(f"Score moyen par partie : {cumulative_reward / num_games:.2f}")
+
+    except Exception as e:
+        print(f"\nErreur lors du chargement du modèle : {e}")
+        print("Le modèle n'a pas pu être chargé")

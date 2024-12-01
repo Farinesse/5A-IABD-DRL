@@ -103,7 +103,7 @@ def deep_q_learning(
                 predict_func = model_predict,
                 env = env,
                 episode_index = ep_id,
-                games = 1000,
+                games = 100,
                 dataframe = results_df
             )
 

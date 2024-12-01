@@ -1,9 +1,14 @@
 import random
 
 import tensorflow as tf
+from colorama import Fore
+
 from environment.tictactoe import TicTacToe
 import numpy as np
 import os
+
+
+
 
 
 def saved_tictactoe_model(model_path, num_games=10000):
@@ -45,8 +50,6 @@ def saved_tictactoe_model(model_path, num_games=10000):
 
             action = np.argmax(masked_q_values)
 
-
-
             print(f"Agent DQN choisit l'action {action}")
 
             env.step(action)
@@ -76,16 +79,7 @@ def saved_tictactoe_model(model_path, num_games=10000):
     return win_rate, loss_rate, draw_rate
 
 def play_random_with_mask(env):
-    """
-    Joue un épisode complet de manière aléatoire dans l'environnement,
-    tout en affichant les informations de l'état, du masque et des actions disponibles.
 
-    Args:
-        env: L'environnement (doit implémenter `state_description`, `action_mask`, et `available_actions_ids`).
-
-    Returns:
-        score_total: Score final obtenu dans cet épisode.
-    """
     env.reset()
     score_total = 0
 

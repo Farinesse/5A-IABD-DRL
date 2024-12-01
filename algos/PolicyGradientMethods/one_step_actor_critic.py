@@ -67,9 +67,11 @@ class OneStepActorCritic:
 
     def select_action(self, state_tensor, action_mask, exploration=True):
         """Modified action selection with epsilon-greedy and numerically stable masking."""
-        valid_actions = np.where(action_mask == 1)[0]
+        valid_actions = env.available_actions_ids()
+        action_mask = np.array(action_mask)
 
         if exploration and np.random.random() < self.epsilon:
+            env.display()
             return np.random.choice(valid_actions)
 
         q_s = self.policy(state_tensor[None])[0].numpy()
@@ -93,12 +95,15 @@ class OneStepActorCritic:
 
         while not done:
             action_mask = env.action_mask()
+
             action = self.select_action(s_tensor, action_mask)
 
             prev_score = env.score()
-            _, _, _, _, info = env.step(action)
+            #_, _, _, _, info = env.step(action)
+            env.step(action)
             next_state = env.state_description()
-            reward = env.score(info=info) - prev_score
+            #reward = env.score(info=info) - prev_score
+            reward = env.score() - prev_score
             done = env.is_game_over()
 
             next_state_tensor = tf.convert_to_tensor(next_state, dtype=tf.float32)
@@ -106,14 +111,18 @@ class OneStepActorCritic:
             with tf.GradientTape(persistent=True) as tape:
                 # Value network update
                 current_value = self.value(s_tensor[None])
+
                 next_value = tf.zeros_like(current_value) if done else self.value(next_state_tensor[None])
                 td_target = reward + self.gamma * next_value
                 td_error = td_target - current_value
                 value_loss = 0.5 * tf.reduce_mean(tf.square(td_error))
 
                 # Policy network update with numerical stability
+                #env.display()
+                #print(action_mask)
                 action_probs = self.policy(s_tensor[None])
-                action_mask_tensor = tf.convert_to_tensor(action_mask[None], dtype=tf.float32)
+                #print("action prop", action_probs)
+                action_mask_tensor = tf.convert_to_tensor(action_mask, dtype=tf.float32)
                 masked_probs = action_probs * action_mask_tensor
                 normalized_probs = masked_probs / (tf.reduce_sum(masked_probs, axis=1, keepdims=True) + 1e-8)
 
@@ -224,7 +233,7 @@ def play_with_actor_critic(env, model, predict_func=None, episodes=100):
         if nb_turns == 100:
             episode_scores.append(-1)
         else:
-            episode_scores.append(env.score(True))
+            episode_scores.append(env.score())
 
         episode_time = end_time - start_time
         episode_times.append(episode_time)
@@ -244,17 +253,17 @@ def play_with_actor_critic(env, model, predict_func=None, episodes=100):
 if __name__ == "__main__":
     from environment.FarkelEnv import FarkleDQNEnv
 
-    env = FarkleDQNEnv(target_score=5000)
-    #env = LineWorld(10)
+    #env = FarkleDQNEnv(target_score=5000)
+    env = LineWorld(10)
 
     #env = TicTacToe()
     agent = OneStepActorCritic(
-        state_dim=12,
-        action_dim=128,
+        state_dim=10,
+        action_dim=3,
         alpha_theta=0.0001,
         alpha_w=0.001,
         gamma=0.99,
-        path='./actor_critic_model/Lineworld_10000_5000_0.0001_0.99'
+        path='./actor_critic_model/Lineworld_1_10000_5000_0.0001_0.99'
     )
 
     print("Starting training...")

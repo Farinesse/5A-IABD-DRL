@@ -1,5 +1,6 @@
 import time
 from statistics import mean
+
 import keras
 import numpy as np
 import tensorflow as tf
@@ -190,7 +191,8 @@ def play_with_reinforce(env, model, predict_func = None, episodes = 100):
         episode_times.append(episode_time)
         total_time += episode_time
         episode_steps.append(nb_turns)
-        step_times.append(episode_time / nb_turns)
+        step_times.append(0 if nb_turns == 0 else episode_time / nb_turns)
+
 
     return (
         mean(episode_scores),
@@ -214,7 +216,7 @@ if __name__ == "__main__":
         action_dim=3,
         alpha=0.001,
         gamma=0.99,
-        path='line_reinforce_model.h5'
+        path='line_world_model.h5'
     )
 
     agent.train(env, episodes=1000)

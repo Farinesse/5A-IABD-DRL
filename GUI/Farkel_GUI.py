@@ -2,30 +2,36 @@ import tkinter as tk
 from tkinter import messagebox
 from tkinter import ttk
 from PIL import Image, ImageTk, ImageOps
+
+from GUI.test import load_model_pkl, action_agent
 from environment.FarkelEnv import FarkleEnv
 
+
 class FarkleGUI:
-    def __init__(self, master, players=2):
+    def __init__(self, master, players=2, agent=False, path_model=None, player_types=None):
         self.master = master
         self.master.title("Farkle - Jeu de Dés")
         self.master.geometry("800x600")
         self.master.configure(bg='#E0E0E0')
 
+        self.agent = agent
+        self.player_types = player_types or ["human", "random"]
         self.env = FarkleEnv(num_players=players)
+        self.model = load_model_pkl(path_model)
+        if self.model is None:
+            print("Warning: Failed to load model, agent will use random actions")
         self.dice_images = {}
         self.selected_dice = []
-
-
-
-        # Ajout de l'initialisation de action_received
-        self.action_received = tk.BooleanVar(value=False)
-        self.action = None
 
         self.create_widgets()
         self.load_dice_images()
         self.update_display()
 
+        # Démarrer automatiquement le tour si c'est un joueur non-humain
+        self.master.after(1000, self.check_automatic_turn)
+
     def create_widgets(self):
+        # Top Frame
         self.top_frame = tk.Frame(self.master, bg='#E0E0E0')
         self.top_frame.pack(pady=10)
 
@@ -44,6 +50,7 @@ class FarkleGUI:
                                    font=('Helvetica', 12), bg='#E0E0E0', fg='#666666')
         self.info_label.pack()
 
+        # Dice Frame
         self.dice_frame = tk.Frame(self.master, bg='#E0E0E0')
         self.dice_frame.pack(pady=20)
 
@@ -54,6 +61,7 @@ class FarkleGUI:
             label.bind('<Button-1>', lambda e, i=i: self.toggle_dice(i))
             self.dice_labels.append(label)
 
+        # Button Frame
         self.button_frame = tk.Frame(self.master, bg='#E0E0E0')
         self.button_frame.pack(pady=20)
 
@@ -65,6 +73,7 @@ class FarkleGUI:
                                      command=lambda: self.take_action(stop=True))
         self.stop_button.pack(side=tk.LEFT, padx=10)
 
+        # Scores Frame
         self.scores_frame = tk.Frame(self.master, bg='#E0E0E0')
         self.scores_frame.pack(pady=10)
 
@@ -76,12 +85,12 @@ class FarkleGUI:
             label.pack()
             self.score_vars.append(var)
 
-        # Ajouter des barres de progression pour chaque joueur
         self.progress_bars = []
         for i in range(self.env.num_players):
             progress_label = tk.Label(self.scores_frame, text=f"Progression Joueur {i + 1} :", bg='#E0E0E0')
             progress_label.pack()
-            progress_bar = ttk.Progressbar(self.scores_frame, orient="horizontal", length=300, mode="determinate", maximum=100)
+            progress_bar = ttk.Progressbar(self.scores_frame, orient="horizontal", length=300, mode="determinate",
+                                           maximum=100)
             progress_bar.pack(pady=5)
             self.progress_bars.append(progress_bar)
 
@@ -90,10 +99,66 @@ class FarkleGUI:
             img = Image.open(f"C:/Users/farin/PycharmProjects/5A-IABD-DRL/Images/dice{i}.png")
             img = img.resize((60, 60))
             self.dice_images[i] = ImageTk.PhotoImage(img)
-
-            # Créer une version "sélectionnée" de l'image avec un contour
             selected_img = ImageOps.expand(img, border=3, fill='red')
             self.dice_images[f"{i}_selected"] = ImageTk.PhotoImage(selected_img)
+
+    def check_automatic_turn(self):
+        """Vérifie et exécute les tours automatiques pour les joueurs non-humains."""
+        player_type = self.player_types[self.env.current_player]
+        if player_type == "random":
+            self.play_random()
+        elif player_type == "agent":
+            self.play_agent()
+
+    def take_action(self, stop):
+        """Gère l'action du joueur."""
+        self.env.stop = stop
+        player_type = self.player_types[self.env.current_player]
+
+        if player_type == "human":
+            if stop:
+                action = self.get_stop_action(self.env.get_valid_actions())
+            else:
+                if not self.selected_dice:
+                    messagebox.showinfo("Action invalide",
+                                        "Vous devez sélectionner des dés valides avant de continuer.")
+                    return
+                action = self.get_action_from_selection()
+
+            observation, reward, done, _, info = self.env.step(action)
+            self.handle_action_feedback(info, reward, done)
+            if not done:
+                self.master.after(1000, self.check_automatic_turn)
+
+    def play_random(self):
+        """Exécute le tour du joueur aléatoire."""
+        action = self.env.get_random_action()
+        observation, reward, done, _, info = self.env.step(action)
+
+        self.update_display()
+        self.master.update()
+
+        if done:
+            self.game_over()
+        elif info.get("farkle", False) or info.get("stopped", False):
+            self.master.after(1000, self.check_automatic_turn)
+        else:
+            self.master.after(1000, self.play_random)
+
+    def play_agent(self):
+        """Exécute le tour de l'agent."""
+        action = action_agent(self.env, self.model)
+        observation, reward, done, _, info = self.env.step(action)
+
+        self.update_display()
+        self.master.update()
+
+        if done:
+            self.game_over()
+        elif info.get("farkle", False) or info.get("stopped", False):
+            self.master.after(1000, self.check_automatic_turn)
+        else:
+            self.master.after(1000, self.play_agent)
 
     def toggle_dice(self, index):
         if index < len(self.env.dice_roll):
@@ -105,97 +170,40 @@ class FarkleGUI:
             self.update_selection_info()
 
     def update_selection_info(self):
-
         if not self.env._validate_dice_selection(self.env.dice_roll, self.get_action_from_selection()):
             self.info_var.set("Sélectionnez des dés qui rapportent des points")
             self.continue_button.config(state=tk.DISABLED)
         else:
-            # Calculer le score potentiel des dés sélectionnés
             selected_dice_values = [self.env.dice_roll[i] for i in self.selected_dice]
             potential_score = self.env._calculate_score(selected_dice_values)
             self.info_var.set(f"Score potentiel : {potential_score}")
             self.continue_button.config(state=tk.NORMAL)
 
-    def take_action(self, stop):
+    def get_stop_action(self, valid_actions):
+        for i, va in enumerate(valid_actions[::-1]):
+            if va == 1:
+                return [int(b) for b in format(127 - i, '07b')]
+        return [0] * 7
 
-        self.env.stop = stop
-        valid_actions = self.env.get_valid_actions()
+    def handle_action_feedback(self, info, reward, done):
+        if info.get("invalid_action", False):
+            messagebox.showinfo("Action invalide", "Sélection de dés non valide")
+        elif info.get("farkle", False):
+            lost_points = info.get("lost_points", 0)
+            messagebox.showinfo("Farkle", f"Pas de points! Vous perdez {lost_points} points. Tour terminé.")
+        elif info.get("stopped", False):
+            messagebox.showinfo("Tour terminé", f"Points marqués : {reward}")
 
-        if self.env.current_player == 1:
-            self.play_random()
-        else:
-            if stop:
-                for i, va in enumerate(valid_actions[::-1]):
-                    if va == 1:
-                        action = [int(b) for b in format(127 - i, '07b')]
-                        break
-            else:
-                action = self.get_action_from_selection()
-
-            if not stop and not self.selected_dice:
-                messagebox.showinfo("Action invalide", "Vous devez sélectionner des dés valides avant de continuer.")
-                return
-
-            observation, reward, done, _, info = self.env.step(action)
-
-            if info.get("invalid_action", False):
-                messagebox.showinfo("Action invalide", "Sélection de dés non valide")
-            elif info.get("farkle", False):
-                lost_points = info.get("lost_points", 0)
-                messagebox.showinfo("Farkle", f"Pas de points! Vous perdez {lost_points} points. Tour terminé.")
-            elif info.get("stopped", False):
-                messagebox.showinfo("Tour terminé", f"Points marqués : {reward}")
-
-            self.selected_dice = []
-            self.update_display()
-
-            if done:
-                self.game_over()
-            elif self.env.current_player == 1:
-                self.master.after(1000, self.play_random)
-
-    def wait_for_action(self):
-        self.action_received.set(False)
-        self.continue_button.config(state=tk.NORMAL)
-        self.stop_button.config(state=tk.NORMAL)
-        self.master.wait_variable(self.action_received)
-        self.continue_button.config(state=tk.DISABLED)
-        self.stop_button.config(state=tk.DISABLED)
-        return self.action
-
-    def play_random(self):
-        while self.env.current_player == 1:
-            action = self.env.get_random_action()
-            observation, reward, done, _, info = self.env.step(action)
-
-            self.update_display()
-            self.master.update()
-
-
-
-
-            if done:
-                self.game_over()
-                break
-
-            if info.get("farkle", False) or info.get("stopped", False):
-                break
-
-            self.master.after(1000)
-
-        # Mettre à jour l'affichage après l'action
+        self.selected_dice = []
         self.update_display()
 
-        # Vérifier si la partie est terminée
         if done:
             self.game_over()
 
     def update_display(self):
-        """Met à jour l'interface graphique avec l'état actuel du jeu."""
         self.player_var.set(f"Joueur {self.env.current_player + 1}")
         self.round_score_var.set(f"Score du tour: {self.env.round_score}")
 
-        # Mettre à jour l'affichage des dés
         for i, label in enumerate(self.dice_labels):
             if i < len(self.env.dice_roll):
                 dice_value = self.env.dice_roll[i]
@@ -206,7 +214,6 @@ class FarkleGUI:
             else:
                 label.config(image='')
 
-        # Mettre à jour les scores et barres de progression
         for i, var in enumerate(self.score_vars):
             var.set(f"Joueur {i + 1}: {self.env.scores[i]}")
         self.update_progress_bars()
@@ -214,7 +221,6 @@ class FarkleGUI:
         self.update_selection_info()
 
     def update_progress_bars(self):
-        """Met à jour les barres de progression pour chaque joueur."""
         for i, progress_bar in enumerate(self.progress_bars):
             progress = (self.env.scores[i] / self.env.target_score) * 100
             progress_bar['value'] = progress
@@ -235,13 +241,19 @@ class FarkleGUI:
             self.env.reset()
             self.selected_dice = []
             self.update_display()
+            self.master.after(1000, self.check_automatic_turn)
         else:
             self.master.quit()
 
-def main_gui(players=2):
+
+def main_gui(player1_type="random", player2_type="random", path_model=None):
     root = tk.Tk()
-    app = FarkleGUI(root, players)
+    app = FarkleGUI(
+        root,
+        players=2,
+        agent=(player1_type == "agent" or player2_type == "agent"),
+        path_model=path_model,
+        player_types=[player1_type, player2_type]
+    )
     root.mainloop()
 
-if __name__ == "__main__":
-    main_gui()

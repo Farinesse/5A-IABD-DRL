@@ -16,7 +16,7 @@ class LineWorld:
     def __init__(self, length: int):
         self.all_position = list(range(length))
         self.terminal_position = [0, length - 1]
-        self.agent_position = random.randint(0, length - 1)
+        self.agent_position = random.randint(1, length - 2)
         self.game_over = False  # Indique si le jeu est terminé
         self.score_val = 0.0  # Score actuel
 
@@ -152,7 +152,7 @@ if __name__ == "__main__":
         memory_size=32,
         batch_size=16,
         update_target_steps=1000,
-        save_path ='dqn_replay_lineworld.h5',
+        save_path ='dqn_replay_lineworld',
         input_dim=10,
         interval=1000
     )"""
