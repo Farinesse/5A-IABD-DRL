@@ -67,7 +67,7 @@ class DRLInterface:
                 "Double Deep Q-Learning with Experience Replay": r"",
                 "REINFORCE": r"",
                 "REINFORCE with Mean Baseline": r"",
-                "REINFORCE with Baseline Learned by a Critic": r"",
+                "REINFORCE with Baseline Learned by a Critic": r"C:\Users\farin\PycharmProjects\5A-IABD-DRL\algos\PolicyGradientMethods\models\Farkel_reinforce_final.pkl",
                 "PPO": r"",
                 "Random Rollout": r"",
                 "MCTS (UCT)": r""
