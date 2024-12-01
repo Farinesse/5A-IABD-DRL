@@ -1,5 +1,13 @@
 import random
+
+import keras
+import numpy as np
 from typing import List, Tuple
+
+from algos.DQN.ddqn import double_dqn_no_replay
+from algos.DQN.deep_qlearning import deep_q_learning
+from algos.DQN.dqn import dqn_no_replay
+from functions.outils import plot_csv_data
 
 NUM_ACTIONS = 4  # 0: haut, 1: bas, 2: gauche, 3: droite
 
@@ -13,11 +21,17 @@ class GridWorld:
         self.game_over = False  # Etat du jeu
         self.score_val = 0.0  # Score actuel
 
-    def state_description(self) -> List[float]:
-        """Renvoie la description de l'état actuel sous forme d'un tableau binaire pour chaque position."""
-        return [1.0 if self.agent_position == (x, y) else 0.0 for x in range(self.width) for y in range(self.height)]
+    def env_description(self) -> str:
+        """Renvoie une description de l'environnement."""
+        return f"GridWorld({self.width}, {self.height})"
 
-    def available_actions_ids(self) -> List[int]:
+    def state_description(self) -> np.ndarray:
+        """Renvoie la description de l'état actuel sous forme d'un tableau binaire pour chaque position."""
+        state = np.zeros((self.width, self.height))
+        state[self.agent_position] = 1.0  # Marque la position actuelle de l'agent
+        return state.flatten()  # Aplatis le tableau 2D en un vecteur 1D
+
+    def available_actions_ids(self) -> np.ndarray:
         """Renvoie une liste des actions disponibles."""
         actions = []
         x, y = self.agent_position
@@ -29,7 +43,7 @@ class GridWorld:
             actions.append(2)  # gauche
         if x < self.width - 1:
             actions.append(3)  # droite
-        return actions
+        return np.array(actions)
 
     def action_mask(self) -> List[float]:
         """Renvoie un masque binaire indiquant les actions possibles."""
@@ -63,7 +77,7 @@ class GridWorld:
         """Retourne True si la partie est terminée."""
         return self.agent_position in self.terminal_position
 
-    def score(self) -> float:
+    def score(self, testing=None) -> float:
         """Renvoie la récompense actuelle."""
         if self.agent_position == self.terminal_position[0]:
             return -1.0  # Récompense négative pour l'état terminal (0, 0)
@@ -75,6 +89,8 @@ class GridWorld:
     def reset(self):
         """Réinitialise la position de l'agent et l'état du jeu."""
         self.agent_position = random.choice(self.all_position)
+        while self.agent_position in self.terminal_position:
+            self.agent_position = random.choice(self.all_position)
         self.game_over = False
         self.score_val = 0.0
 
@@ -93,3 +109,64 @@ class GridWorld:
 
     def state_id(self) -> Tuple[int, int]:
         return self.agent_position
+
+def create_grid_model():
+    model = keras.Sequential([
+        keras.layers.Dense(128, activation='relu', input_dim=25),
+        keras.layers.Dense(256, activation='relu'),
+        keras.layers.Dense(256, activation='relu'),
+        keras.layers.Dense(4)
+    ])
+    return model
+
+if __name__ == "__main__":
+    env = GridWorld(5, 5)
+    model = create_grid_model()
+    target_model = keras.models.clone_model(model)
+    target_model.set_weights(model.get_weights())
+
+    """trained_model, target_model = double_dqn_no_replay(
+        online_model=model,
+        target_model=target_model,
+        env=env,
+        num_episodes=100000,
+        gamma=0.99,
+        alpha=0.0001,
+        start_epsilon=1.0,
+        end_epsilon=0.01,
+        update_target_steps=1000,
+        save_path="ddqn_noreplay_gridworld",
+        input_dim=25,
+        interval=1000
+    )"""
+
+    """trained_model = deep_q_learning(
+        model=model,
+        target_model=target_model,
+        env=env,
+        num_episodes=100000,
+        gamma=0.99,
+        alpha=0.0001,
+        start_epsilon=1.0,
+        end_epsilon=0.01,
+        memory_size=32,
+        batch_size=16,
+        update_target_steps=1000,
+        save_path ='dqn_replay_gridworld.h5',
+        input_dim=25,
+        interval=1000
+    )"""
+
+    model, target_model = dqn_no_replay(
+        model=model,
+        target_model=target_model,
+        env=env,
+        num_episodes=100000,
+        gamma=0.99,
+        start_epsilon=1.0,
+        end_epsilon=0.01,
+        update_frequency=1000,
+        save_path="dqn_noreplay_gridworld",
+        input_dim=25,
+        interval=1000
+    )

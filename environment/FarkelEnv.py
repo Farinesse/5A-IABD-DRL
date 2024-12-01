@@ -2,23 +2,24 @@ import numpy as np
 import random
 from gymnasium import spaces
 from tensorflow.python import keras
-
+import tensorflow as tf
+import keras
+from algos.DQN.ddqn import double_dqn_no_replay
 from algos.DQN.ddqn_exp_replay import double_dqn_with_replay
 from algos.DQN.deep_qlearning import deep_q_learning
+from functions.outils import plot_csv_data
 
 
 class FarkleEnv:
     def __init__(self, num_players=2, target_score=10000):
-        self.num_players = int(num_players)
+        self.num_players = num_players
         self.target_score = target_score
-        self.observation_space = spaces.Box(
-            low=np.array([0, 0, 0] + [0] * self.num_players + [0] * 6 + [0]),
-            high=np.array([self.num_players - 1, target_score, 6] + [target_score] * self.num_players + [6] * 6 + [1]),
-            dtype=np.int32
-        )
         self.action_space = spaces.Discrete(128)
         self.reset()
         self.stop = False
+
+    def env_description(self):
+        return f"FarkleEnv - Target score: {self.target_score}"
 
     def reset(self, seed=None):
         if seed is not None:
@@ -73,8 +74,7 @@ class FarkleEnv:
             binary = format(action, '07b')
             action_list = [int(b) for b in binary]
             if self._validate_dice_selection(self.dice_roll,
-                                             action_list[:len(self.dice_roll)] + [0] * (6 - len(self.dice_roll)) + [
-                                                 action_list[-1]]):
+                                             action_list):
                 valid_mask[action] = 1
                 has_valid_action = True
 
@@ -96,8 +96,10 @@ class FarkleEnv:
         return valid_mask
 
     def _validate_dice_selection(self, dice_roll, action):
-
         if len(action) < len(dice_roll):
+            return False
+
+        if 1 in action[len(dice_roll):6]:
             return False
 
         if action == [1] * 7:
@@ -168,6 +170,7 @@ class FarkleEnv:
         return score
 
     def step(self, action):
+        #print(self.scores,self.round_score,self.remaining_dice,self.dice_roll,action)
         action_list = action
         kept_dice = [self.dice_roll[i] for i in range(len(self.dice_roll)) if action_list[i] == 1]
 
@@ -175,10 +178,8 @@ class FarkleEnv:
 
         if new_score == 0 and self.remaining_dice == 6:
             self.round_score = self.round_score + 500
-            self.next_player()
-            if self.current_player == 1 and not self.game_over:
-                # Jouer le tour complet du joueur 2
-                self.play_random_turn()
+            self.dice_roll = self.roll_dice(self.remaining_dice)
+
             return self.get_observation(), 500, False, False, {"stopped": True}
 
         new_score = self._calculate_score(kept_dice, not (self.stop))
@@ -187,9 +188,7 @@ class FarkleEnv:
             lost_points = self.round_score
             self.round_score = 0
             self.next_player()
-            if self.current_player == 1 and not self.game_over:
-                # Jouer le tour complet du joueur 2
-                self.play_random_turn()
+
             return self.get_observation(), -lost_points, False, False, {"farkle": True, "lost_points": lost_points}
 
         self.round_score += new_score
@@ -206,9 +205,7 @@ class FarkleEnv:
                 self.game_over = True
                 return self.get_observation(), reward, True, False, {"win": True}
             self.next_player()
-            if self.current_player == 1 and not self.game_over:
-                # Jouer le tour complet du joueur 2
-                self.play_random_turn()
+
             return self.get_observation(), reward, False, False, {"stopped": True}
 
         self.dice_roll = self.roll_dice(self.remaining_dice)
@@ -246,6 +243,13 @@ class FarkleEnv:
             return [int(b) for b in format(random_action, '07b')]
         else:
             return [0] * 6 + [1]
+    def decode_action_1(self, action_id):
+        """Conversion ID -> action binaire."""
+        return [int(b) for b in format(action_id, '07b')]
+
+    def decode_action_1(self, action_id):
+        """Conversion ID -> action binaire."""
+        return [int(b) for b in format(action_id, '07b')]
 
 
 class FarkleDQNEnv(FarkleEnv):
@@ -271,19 +275,76 @@ class FarkleDQNEnv(FarkleEnv):
         """Conversion ID -> action binaire."""
         return [int(b) for b in format(action_id, '07b')]
 
+    """
     def score(self) -> float:
+    
+        #Retourne un score entre -1.0 et 1.0 en fonction de l'état du jeu.
+        
+        # Si le jeu est terminé
+        if self.game_over:
+            # Vérifier le score du joueur actuel
+            if self.scores[0] >= self.target_score:
+                return 1.0  # Le joueur 1 a gagné
+            elif self.num_players > 1 and self.scores[1] >= self.target_score:
+                return -1.0  # Le joueur 2 a gagné (si 2 joueurs)
+            else:
+                return 0.0  # Match nul ou fin de partie sans vainqueur
 
+        # Si le jeu n'est pas terminé, retour du score normalisé
+        # Le score est basé sur la proportion du score actuel du joueur par rapport à l'objectif
+        return 0.0
+        #self.scores[self.current_player] / self.target_score
+    """
+
+    def score(self, testing=False, info={}) -> float:
+        """
+        Retourne un score avec récompenses intermédiaires
+        """
         # Si le jeu est terminé
         if self.game_over:
             if self.scores[0] >= self.target_score:
                 return 1.0  # Victoire
             elif self.num_players > 1 and self.scores[1] >= self.target_score:
                 return -1.0  # Défaite
-            return 0.0  # Match nul ou autre condition
 
-        # Si le jeu n'est pas terminé, vous pouvez choisir de retourner 0
-        return 0.0
+        if testing:
+            return 0.0
 
+        # Récompenses intermédiaires
+        reward = 0.0
+
+        # 1. Progression vers l'objectif (normalisée)
+        progress = self.scores[0] / self.target_score
+        reward += 0.3 * progress  # Bonus pour la progression globale
+
+        # 2. Bonus/Malus pour le round_score
+        if "farkle" in info and info["farkle"]:
+            # Pénalité plus forte si on perd beaucoup de points
+            lost_points = info["lost_points"]
+            if lost_points > 1000:
+                reward -= 0.5  # Grosse pénalité
+            elif lost_points > 500:
+                reward -= 0.3  # Pénalité moyenne
+            else:
+                reward -= 0.1  # Petite pénalité
+        else:
+            # Bonus pour bon score
+            if self.round_score > 1000:
+                reward += 0.2  # Gros bonus
+            elif self.round_score > 500:
+                reward += 0.1  # Bonus moyen
+
+        # 3. Pénalité pour risque excessif avec gros score
+        if self.remaining_dice == 1 and self.round_score > 500:
+            reward -= 0.15  # Pénalité plus forte si on risque un gros score
+        elif self.remaining_dice == 1:
+            reward -= 0.05  # Pénalité normale
+
+        # 4. Bonus pour efficacité
+        if self.remaining_dice == 6:
+            reward += 0.05
+
+        return reward
     def is_game_over(self) -> bool:
         """
         Indique si le jeu est terminé.
@@ -300,7 +361,13 @@ class FarkleDQNEnv(FarkleEnv):
 
         # Convertir l'ID en action binaire
         action = self.decode_action(action_id)
-        return super().step(action)
+        observation, reward, done, truncated, info = super().step(action)
+        if not done and self.current_player == 1:
+            """action_id = self.get_random_action()
+            action = self.decode_action(action_id)
+            super().step(action)"""
+            self.play_random_turn()
+        return observation, reward, done, truncated, info
 
     def get_random_action(self):
         """Retourne un ID d'action valide."""
@@ -318,58 +385,56 @@ class FarkleDQNEnv(FarkleEnv):
         print(f"Scores des joueurs: {self.scores}")
         print(f"Jeu terminé: {self.game_over}")
 
+    def copy(self):
+        """Crée une copie de l'environnement FarkleDQNEnv."""
+        # Crée un nouvel environnement
+        new_env = FarkleDQNEnv(num_players=self.num_players, target_score=self.target_score)
+        # Duplique l'état de l'environnement actuel
+        new_env.scores = self.scores.copy()
+        new_env.current_player = self.current_player
+        new_env.round_score = self.round_score
+        new_env.remaining_dice = self.remaining_dice
+        new_env.dice_roll = self.dice_roll.copy()
+        new_env.game_over = self.game_over
+        new_env.last_action_stop = self.last_action_stop
+        return new_env
 
-def create_farkle_model():
-    """Crée le modèle pour Farkle avec la bonne taille d'entrée/sortie."""
-    model = keras.Sequential([
-        keras.layers.Dense(128, activation='relu', input_dim=12),  # 3 + num_players + 6 + 1
-        keras.layers.Dense(512, activation='relu'),
-        keras.layers.Dense(256, activation='relu'),
-        keras.layers.Dense(128)  # Nombre d'actions possibles dans Farkle
-    ])
-    return model
+def create_farkle_model(state_dim, action_dim):
+    # Smaller network with proper initialization
+    return keras.Sequential(
+        [
+            keras.layers.Dense(128, activation='relu', input_dim=state_dim),
+            keras.layers.Dense(256, activation='relu'),
+            keras.layers.Dense(128, activation='relu'),
+            keras.layers.Dense(action_dim)
+        ]
+    )
 
 
 if __name__ == "__main__":
-    env = FarkleEnv()
 
-    env = FarkleDQNEnv(target_score=2000)
-    model = create_farkle_model()
+    env = FarkleDQNEnv(num_players = 2, target_score=5000)
+    model = create_farkle_model(state_dim=12,action_dim=128)
     target_model = keras.models.clone_model(model)
     target_model.set_weights(model.get_weights())
 
-    '''
     trained_model = deep_q_learning(
-                model=model,
-                target_model=target_model,
-                env=env,
-                num_episodes=10,
-                gamma=0.99,
-                alpha=0.001,
-                start_epsilon=1.0,
-                end_epsilon=0.01,#
-                memory_size=512,
-                batch_size=128,
-                update_target_steps=500
-            )
-    
-    
-    final_online_model, final_target_model = double_dqn_no_replay(
-        online_model=model,
-        target_model=model,
+        model=model,
+        target_model=target_model,
         env=env,
-        num_episodes=50000,
+        num_episodes=10000,
         gamma=0.99,
         alpha=0.0001,
-        start_epsilon=1,
-        end_epsilon=0.0001,
-        update_target_steps=1000,
-        save_path="ddqn_model_farkel_test2"
-
+        start_epsilon=1.0,
+        end_epsilon=0.01,
+        memory_size=1000,
+        batch_size=64,
+        update_target_steps=100,
+        save_path ='../models/models/dqn_replay/dqn_replay_model_farkel_10000_tests/dqn_replay_model_farkel_1000_test_1000_0-99_0-001_1-0_0-01_32_8_100_512relu12dim_256relu_dropout0.2_256relu_dropout0.2_128.h5',
+        input_dim=12,
     )
-    '''
 
-    final_online_model, final_target_model = double_dqn_with_replay(
+    """trained_model, _ = double_dqn_with_replay(
         online_model=model,
         target_model=target_model,
         env=env,
@@ -377,12 +442,36 @@ if __name__ == "__main__":
         gamma=0.99,
         alpha=0.0001,
         start_epsilon=1.0,
-        end_epsilon=0.01,  #
-        update_target_steps=100,
-        batch_size=32,
-        memory_size=128,
-        save_path='double_dqn_with_exp_rep_model_tictactoe_test_ouss'
-    )
-    #rajouter une fonction dans l'algo pour calculer les metriques (en testant l'env sur 1000 parties)
-    #verefier t'as fonction de save s elle marche ou pas
+        end_epsilon=0.01,
+        memory_size=32,
+        batch_size=16,
+        update_target_steps=1000,
+        save_path ='farkle5000_ddqn_replay_100000episodes.h5',
+        input_dim=12,
+    )"""
 
+    trained_model, _ = double_dqn_no_replay(
+        online_model=model,
+        target_model=target_model,
+        env=env,
+        num_episodes=1000,
+        gamma=0.99,
+        alpha=0.0001,
+        start_epsilon=1.0,
+        end_epsilon=0.01,
+        update_target_steps=100,
+        save_path ='farkle5000_100000_ddqn_noreplay',
+        input_dim=12,
+        interval = 100
+    )
+
+    """agent = REINFORCEBaseline(
+        state_dim=12,
+        action_dim=128,
+        alpha_theta=0.001,
+        alpha_w=0.001,
+        gamma=0.99,
+        path='farkle5000_reinforce_baseline_100000episodes.h5'
+    )
+
+    agent.train(env, episodes=100000)"""

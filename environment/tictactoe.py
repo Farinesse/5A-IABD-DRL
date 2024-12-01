@@ -1,6 +1,13 @@
 import random
 import numpy as np
 from typing import List, Tuple
+import keras
+
+from algos.DQN.ddqn import double_dqn_no_replay
+from algos.DQN.ddqn_exp_replay import double_dqn_with_replay
+from algos.DQN.deep_qlearning import deep_q_learning
+from algos.DQN.dqn import dqn_no_replay
+
 
 NUM_ACTIONS = 9
 NUM_STATE_FEATURES = 27
@@ -12,6 +19,10 @@ class TicTacToe:
         self._player = 0
         self._is_game_over = False
         self._score = 0.0
+
+    def env_description(self) -> str:
+        """Renvoie une description de l'environnement."""
+        return "TicTacToe"
 
     def reset(self):
         self._board = np.zeros((NUM_ACTIONS,))
@@ -43,6 +54,13 @@ class TicTacToe:
     def action_mask(self) -> np.ndarray:
         return np.where(self._board == 0, 1, 0).astype(np.float32)
 
+    def copy(self):
+        """Créer une copie de l'environnement."""
+        new_env = TicTacToe()
+        new_env._board = self._board.copy()  # Copie du plateau
+        new_env._player = self._player  # Copie du joueur courant
+        new_env._is_game_over = self._is_game_over  # Copie de l'état de la partie
+        return new_env
     def step(self, action: int):
         if self._is_game_over:
             raise ValueError("Game is over, please reset the environment.")
@@ -101,7 +119,7 @@ class TicTacToe:
     def is_game_over(self) -> bool:
         return self._is_game_over
 
-    def score(self) -> float:
+    def score(self, testing=None) -> float:
         return self._score
 
 
@@ -112,3 +130,114 @@ class TicTacToe:
         print(f"Score : {self._score}")
         print(f"Joueur {'X' if self._player == 0 else 'O'} à jouer")
         print(f"Jeu terminé : {self._is_game_over}")
+
+def create_ttt_model():
+    model = keras.Sequential([
+        keras.layers.Dense(128, activation='relu', input_dim=27),
+        keras.layers.Dense(256, activation='relu'),
+        keras.layers.Dense(9)
+    ])
+    return model
+
+
+if __name__ == "__main__":
+
+    env = TicTacToe()
+    model = create_ttt_model()
+    target_model = keras.models.clone_model(model)
+    target_model.set_weights(model.get_weights())
+
+    """
+    trained_model = deep_q_learning(
+        model=model,
+        target_model=target_model,
+        env=env,
+        num_episodes=10000,
+        gamma=0.99,
+        alpha=0.0001,
+        start_epsilon=1.0,
+        end_epsilon=0.01,
+        memory_size=16,
+        batch_size=8,
+        update_target_steps=100,
+        save_path="dqn_model_ttt_test_10000_0-99_0-0001_1-0_0-01_16_8_100.h5",
+        input_dim=27
+    )"""
+
+    trained_model, target_model = double_dqn_no_replay(
+        online_model=model,
+        target_model=target_model,
+        env=env,
+        num_episodes=1000,
+        gamma=0.99,
+        alpha=0.0001,
+        start_epsilon=1.0,
+        end_epsilon=0.01,
+        update_target_steps=100,
+        save_path="ddqn_noreplay_tictactoe",
+        input_dim=27,
+        interval=100
+    )
+
+    """trained_model, target_model = double_dqn_with_replay(
+        online_model=model,
+        target_model=target_model,
+        env=env,
+        num_episodes=10000,
+        gamma=0.99,
+        alpha=0.0001,
+        start_epsilon=1.0,
+        end_epsilon=0.01,
+        memory_size=16,
+        batch_size=8,
+        update_target_steps=100,
+        save_path="../models/models/ddqn_replay/ddqn_replay_model_ttt_tests/ddqn_with_replay_model_ttt_test_10000_0-99_0-0001_1-0_0-01_16_8_100.h5",
+        input_dim=27
+    )
+
+
+    plot_csv_data(
+        "../models/models/ttt/ddqn_model_ttt_test_10000_0-99_0-0001_1-0_0-01_16_8_100.h5_metrics.csv")
+    """
+
+    """trained_model = deep_q_learning(
+        model=model,
+        target_model=target_model,
+        env=env,
+        num_episodes=10000,
+        gamma=0.99,
+        alpha=0.0001,
+        start_epsilon=1.0,
+        end_epsilon=0.01,
+        memory_size=32,
+        batch_size=16,
+        update_target_steps=100,
+        save_path ='dqn_replay_model_ttt_test_10000_0-99_0-0001_1-0_32_16_0-01_16_8_100.h5',
+        input_dim=27,
+    )"""
+
+    """agent = REINFORCEBaseline(
+        state_dim=27,
+        action_dim=9,
+        alpha_theta=0.0001,
+        alpha_w=0.001,
+        gamma=0.99,
+        path='ReinforceBaseline_model_ttt_test_10000_0-99_0-0001_0-001_128_512_256.h5_metrics'
+    )
+
+    agent.train(env, episodes=10000)
+    plot_csv_data(agent.path + "_metrics.csv")"""
+
+    """model, target_model = dqn_no_replay(
+        model=model,
+        target_model=target_model,
+        env=env,
+        num_episodes=100000,
+        gamma=0.99,
+        start_epsilon=1.0,
+        end_epsilon=0.01,
+        update_frequency=1000,
+        save_path="dqn_noreplay_tictactoe",
+        input_dim=27,
+        interval=1000
+    )"""

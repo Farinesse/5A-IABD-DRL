@@ -1,9 +1,18 @@
-import keras
 import random
+import secrets
+import keras
 import numpy as np
 import tensorflow as tf
-from tqdm import tqdm
 from collections import deque
+from tqdm import tqdm
+from functions.outils import (
+    log_metrics_to_dataframe,
+    play_with_dqn,
+    epsilon_greedy_action,
+    plot_csv_data,
+    save_model,
+    dqn_model_predict as model_predict, save_files
+)
 
 
 @tf.function(reduce_retracing=True)
@@ -12,41 +21,17 @@ def gradient_step(
         s,
         a,
         target,
-        optimizer
+        optimizer,
+        input_dim
 ):
     with tf.GradientTape() as tape:
-        s = tf.ensure_shape(s, [12])  # Dynamically use input_dim
+        s = tf.ensure_shape(s, [input_dim])  # Dynamically use input_dim
         a = tf.cast(a, dtype=tf.int32)
         q_s_a = model(tf.expand_dims(s, 0))[0][a]
         loss = tf.square(q_s_a - target)
     gradients = tape.gradient(loss, model.trainable_variables)
     optimizer.apply_gradients(zip(gradients, model.trainable_variables))
     return loss
-
-
-@tf.function(reduce_retracing=True)
-def model_predict(
-        model,
-        s
-):
-    s = tf.ensure_shape(s, [None])  # Assurer une forme constante
-    return model(tf.expand_dims(s, 0))[0]
-
-
-def epsilon_greedy_action(
-        q_s: tf.Tensor,
-        mask: tf.Tensor,
-        available_actions: np.ndarray,
-        epsilon: float
-) -> int:
-    if np.random.rand() < epsilon:
-        return np.random.choice(available_actions)
-    else:
-        # inverted_mask = tf.constant(1.0) - mask
-
-        masked_q_s = q_s * mask + (1.0 - mask) * tf.float32.min
-
-        return int(tf.argmax(masked_q_s, axis=0))
 
 
 def debug_action_selection(
@@ -80,28 +65,6 @@ def debug_action_selection(
     return action
 
 
-def save_model(
-        model,
-        file_path
-):
-    """
-    Sauvegarde le modèle dans un fichier.
-
-    :param model: Le modèle à sauvegarder
-    :param file_path: Le chemin du fichier où sauvegarder le modèle
-    """
-    try:
-        model.save(file_path)
-        print(f"Modèle sauvegardé avec succès dans {file_path}")
-    except Exception as e:
-        print(f"Erreur lors de la sauvegarde du modèle : {e}")
-    try:
-        model.save(file_path)
-        print(f"Modèle sauvegardé avec succès dans {file_path}")
-    except Exception as e:
-        print(f"Erreur lors de la sauvegarde du modèle : {e}")
-
-
 def deep_q_learning(
         model,
         target_model,
@@ -114,45 +77,52 @@ def deep_q_learning(
         memory_size=512,
         batch_size=32,
         update_target_steps=1000,
-        epsilon_decay=0.9,
-        save_path='dqn_model_farkel.h5'
+        save_path = None,
+        input_dim = None,
+        interval = 10
 ):
     optimizer = keras.optimizers.SGD(
-        learning_rate=alpha,  # Légèrement plus élevé que votre valeur précédente
-        momentum=0.999,  # Ajout de momentum pour une convergence plus rapide
+        learning_rate=alpha,
+        momentum=0.99,  # Ajout de momentum pour une convergence plus rapide
         nesterov=True,  # Utilisation de Nesterov momentum pour une meilleure performance
-        weight_decay=1e-4  # Légèrement augmenté pour une meilleure régularisation
+        weight_decay=1e-4 # Ajout de régularisation L2 pour éviter le surapprentissage
     )
 
-    # optimizer = tf.keras.optimizers.Adam(learning_rate=alpha)  # Ajuste le taux d'apprentissage
+    # optimizer = keras.optimizers.Adam(learning_rate=alpha)
 
     memory = deque(maxlen=memory_size)
     epsilon = start_epsilon
-    total_score = 0.0
     total_loss = 0.0
+    results_df = None
 
     for ep_id in tqdm(range(num_episodes)):
-        if ep_id % 100 == 0 and ep_id > 0:
-            print(f"Mean Score: {total_score / 100}, Mean Loss: {total_loss / 100}, Epsilon: {epsilon}")
-            total_score = 0.0
+        if (ep_id + 1) % interval == 0 and ep_id > 0:
+            results_df = log_metrics_to_dataframe(
+                function = play_with_dqn,
+                model = model,
+                predict_func = model_predict,
+                env = env,
+                episode_index = ep_id,
+                games = 100,
+                dataframe = results_df
+            )
+
+            print(f"Mean Loss: {total_loss / interval}, Epsilon: {epsilon}")
             total_loss = 0.0
 
         env.reset()
         if env.is_game_over():
             continue
 
-        s = env.state_description()
-        s_tensor = tf.convert_to_tensor(s, dtype=tf.float32)
-        # print(s_tensor)
-
         while not env.is_game_over():
+            s = env.state_description()
+            s_tensor = tf.convert_to_tensor(s, dtype=tf.float32)
             mask = env.action_mask()
             mask_tensor = tf.convert_to_tensor(mask, dtype=tf.float32)
 
             q_s = model_predict(model, s_tensor)
             a = epsilon_greedy_action(q_s, mask_tensor, env.available_actions_ids(), epsilon)
 
-            # Assurez-vous que l'action choisie est valide
             if a not in env.available_actions_ids():
                 print(f"Action {a} invalide, prise aléatoire à la place.")
                 a = np.random.choice(env.available_actions_ids())
@@ -160,6 +130,7 @@ def deep_q_learning(
             prev_score = env.score()
             env.step(a)
             r = env.score() - prev_score
+
             s_prime = env.state_description()
             s_prime_tensor = tf.convert_to_tensor(s_prime, dtype=tf.float32)
 
@@ -177,23 +148,31 @@ def deep_q_learning(
                         q_next = model_predict(target_model, next_state)
                         target = reward + gamma * tf.reduce_max(q_next * next_mask_tensor)
 
-                    loss = gradient_step(model, state, action, target, optimizer)
+                    loss = gradient_step(model, state, action, target, optimizer, input_dim)
                     total_loss += loss.numpy()
 
-            s_tensor = s_prime_tensor
-
-        total_score += env.score()
         progress = ep_id / num_episodes
         epsilon = (1.0 - progress) * start_epsilon + progress * end_epsilon
 
         if ep_id % update_target_steps == 0:
             target_model.set_weights(model.get_weights())
 
-
-
-    # Sauvegarde du modèle à la fin de l'entraînement
-    save_model(model, save_path)
+    if save_path is not None:
+        save_files(
+            model,
+            "DQN EXP REPLAY",
+            results_df,
+            env,
+            num_episodes,
+            gamma,
+            alpha,
+            start_epsilon,
+            end_epsilon,
+            update_target_steps,
+            optimizer,
+            save_path=save_path,
+            memory_size=memory_size,
+            batch_size=batch_size
+        )
 
     return model
-
-

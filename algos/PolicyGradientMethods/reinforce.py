@@ -1,11 +1,17 @@
+import time
+from statistics import mean
+
 import keras
 import numpy as np
 import tensorflow as tf
 from tqdm import tqdm
 
+from environment.line_word import LineWorld
+from functions.outils import log_metrics_to_dataframe, plot_csv_data, play_with_reinforce, save_files
+
 
 class REINFORCE:
-    def __init__(self, state_dim, action_dim, alpha=0.0001, gamma=0.99):
+    def __init__(self, state_dim, action_dim, alpha=0.0001, gamma=0.99, path=None):
         self.state_dim = state_dim
         self.action_dim = action_dim
         self.alpha = alpha  # step size α
@@ -13,6 +19,7 @@ class REINFORCE:
         self.policy = self._build_policy()
         self.optimizer = tf.keras.optimizers.Adam(learning_rate=self.alpha)
         self.reward_buffer = []
+        self.path = path
 
     def _build_policy(self):
         # π(a|s,θ) - policy parameterization
@@ -22,6 +29,32 @@ class REINFORCE:
             keras.layers.Dense(256, activation='relu'),
             keras.layers.Dense(self.action_dim, activation='softmax')  # Sortie en distribution de probabilités
         ])
+
+    def select_action(self, state, valid_actions):
+        """
+        Sélectionne une action selon la politique courante avec exploration epsilon-greedy
+        Args:
+            state: État courant
+            valid_actions: Liste des actions valides
+        Returns:
+            L'action sélectionnée
+        """
+        state_tensor = tf.convert_to_tensor(np.array(state).reshape(1, -1), dtype=tf.float32)
+
+        # π(a|s,θ) - Calcul des probabilités d'action
+        probs = self.policy(state_tensor, training=False)[0].numpy()
+
+        # Masquer les actions invalides
+        mask = np.ones_like(probs) * float('-inf')
+        mask[valid_actions] = 0
+        masked_probs = tf.nn.softmax(probs + mask).numpy()
+
+        # Exploration epsilon-greedy
+        epsilon = max(0.01, 0.1 * (1 - len(self.reward_buffer) / 8000))
+        if np.random.random() < epsilon:
+            return np.random.choice(valid_actions)
+        else:
+            return np.random.choice(self.action_dim, p=masked_probs)
 
     def compute_returns(self, rewards):
         # Calcul de Gt selon la formule Σ(k=t+1 to T) γ^(k-t-1) * Rk
@@ -55,20 +88,7 @@ class REINFORCE:
             valid_actions = env.available_actions_ids()
             state_tensor = tf.convert_to_tensor(np.array(state).reshape(1, -1), dtype=tf.float32)
 
-            # π(a|s,θ) - Calcul des probabilités d'action
-            probs = self.policy(state_tensor, training=False)[0].numpy()
-
-            # Masquer les actions invalides
-            mask = np.ones_like(probs) * float('-inf')
-            mask[valid_actions] = 0
-            masked_probs = tf.nn.softmax(probs + mask).numpy()
-
-            # Sélection d'action selon π(a|s,θ)
-            epsilon = max(0.01, 0.1 * (1 - len(self.reward_buffer) / 8000))  # Décroissance d'epsilon
-            if np.random.random() < epsilon:
-                action = np.random.choice(valid_actions)
-            else:
-                action = np.random.choice(self.action_dim, p=masked_probs)
+            action = self.select_action(state, valid_actions)
 
             # Exécuter l'action et observer R, S'
             env.step(action)
@@ -113,76 +133,54 @@ class REINFORCE:
         return sum(rewards), loss.numpy()
 
     def train(self, env, episodes=20000):
-        history = []
-        window_size = 500
+        interval = 100
+        results_df = None
 
         for episode in tqdm(range(episodes), desc="Training Episodes"):
             env.reset()
-            total_reward, loss = self.train_episode(env)
-            history.append(total_reward)
+            _, loss = self.train_episode(env)
 
-            if (episode + 1) % 100 == 0:
-                recent_rewards = history[-window_size:]
-                avg_reward = np.mean(recent_rewards)
-                win_rate = np.mean([r > 0 for r in recent_rewards])
-                print(f"\nEpisode {episode + 1}")
-                print(f"Moyenne des récompenses: {avg_reward:.2f}")
-                print(f"Taux de victoire: {win_rate:.2%}")
+            if (episode + 1) % interval == 0 and episode > 0:
+
+                results_df = log_metrics_to_dataframe(
+                    function = play_with_reinforce,
+                    model = self.policy,
+                    predict_func = None,
+                    env = env,
+                    episode_index = episode,
+                    games = 100,
+                    dataframe = results_df
+                )
                 print(f"Loss: {loss:.6f}")
 
-        self.save_model('tiktactoe_reinforce_model.h5')
-        return history
+        if self.path is not None:
+            save_files(
+                online_model=self.policy,
+                algo_name="REINFORCE",
+                results_df=results_df,
+                env=env,
+                num_episodes=episodes,
+                gamma=self.gamma,
+                alpha=self.alpha,
+                optimizer=self.optimizer,
+                save_path=self.path
+            )
+            results_df.to_csv(f"{self.path}_metrics.csv", index=False)
 
     def save_model(self, filepath):
-        self.policy.save(filepath)
+        """Sauvegarde complète du modèle et des hyperparamètres"""
+        model_info = {
+            'model': self.policy,
+            'hyperparameters': {
+                'state_dim': self.state_dim,
+                'action_dim': self.action_dim,
+                'alpha': self.alpha,
+                'gamma': self.gamma
+            },
+            'optimizer_config': self.optimizer.get_config()
+        }
 
 
-def play_with_reinforce(env, model, episodes=1, display=True):
-    total_rewards = 0
-
-    for episode in range(episodes):
-        env.reset()
-        done = False
-        episode_reward = 0
-
-        while not done:
-            state = env.state_description()
-            state_tensor = tf.convert_to_tensor(state, dtype=tf.float32)
-            valid_actions = env.available_actions_ids()
-
-            probs = model(tf.expand_dims(state_tensor, 0), training=False)[0]
-            mask = np.ones_like(probs.numpy()) * float('-inf')
-            mask[valid_actions] = 0
-            masked_probs = tf.nn.softmax(probs + mask).numpy()
-
-            # En évaluation, on prend l'action la plus probable
-            if len(valid_actions) > 0:
-                action = valid_actions[np.argmax(masked_probs[valid_actions])]
-            else:
-                print("Aucune action valide disponible!")
-                break
-
-            prev_score = env.score()
-            env.step(action)
-            reward = env.score() - prev_score
-            episode_reward += reward
-            done = env.is_game_over()
-
-            if display:
-                print("\nÉtat actuel:")
-                env.display()
-                print(f"Action choisie: {action}")
-                print(f"Récompense: {reward}")
-                print(f"Score cumulé: {episode_reward}")
-                print("Probabilités des actions:", masked_probs[valid_actions])
-
-        total_rewards += episode_reward
-        print(f"\nÉpisode {episode + 1}/{episodes} terminé")
-        print(f"Récompense totale de l'épisode: {episode_reward}")
-
-    mean_score = total_rewards / episodes
-    print(f"\nScore moyen sur {episodes} épisodes: {mean_score}")
-    return mean_score
 
 
 if __name__ == "__main__":
@@ -191,14 +189,15 @@ if __name__ == "__main__":
     tf.get_logger().setLevel('ERROR')
 
     env = TicTacToe()
+    #env = LineWorld()
+
     agent = REINFORCE(
         state_dim=27,
-        action_dim=9,
+        action_dim=128,
         alpha=0.001,
-        gamma=0.99
+        gamma=0.99,
+        path='line_world_model.pkl'
     )
 
-    history = agent.train(env, episodes=10000)
-    env.reset()
-    model = keras.models.load_model('reinforce_model.h5')
-    mean_score = play_with_reinforce(env=env, model=model, episodes=100, display=True)
+    agent.train(env, episodes=100)
+    plot_csv_data(agent.path + "_metrics.csv")
