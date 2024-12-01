@@ -78,7 +78,7 @@ def play_with_q_agent(env_type, random_agent_fn, *env_args, if2X2=False):
     print("Jeu terminé. Score final:", score)
 
 
-def play_with_dqn(env, model, random_agent=None, episodes=1):
+def play_with_dqn(env, model, random_agent=None, episodes=100):
     total_rewards = 0  # Initialiser le total des récompenses pour calculer le score moyen
 
     for episode in range(episodes):

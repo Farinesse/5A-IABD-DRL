@@ -1,44 +1,36 @@
+import pickle
 import keras
 import numpy as np
 import tensorflow as tf
 from tensorflow.python.keras import losses
 
-from functions.outils import epsilon_greedy_action, load_model_pkl
-from algos.DQN.ddqn import model_predict as predict_func
+
+@tf.function(reduce_retracing=True)
+def predict_func(model, s):
+    s = tf.ensure_shape(s, [None])
+    output = model(tf.expand_dims(s, 0))
+    return output
 
 
-def create_model():
-    """
-    Crée le modèle DQN avec l'architecture spécifiée:
-    512relu12dim_256relu_dropout0.2_256relu_dropout0.2_128
-    """
-    model = keras.Sequential([
-        # Première couche - 512 neurones avec input_shape=12
-        keras.layers.Dense(512, activation='relu', input_shape=(12,)),
+def epsilon_greedy_action_bis(q_s: tf.Tensor, mask: tf.Tensor, available_actions: np.ndarray, epsilon: float) -> int:
+    if np.random.rand() < epsilon:
+        return np.random.choice(available_actions)
+    else:
+        masked_q_s = q_s * mask + (1.0 - mask) * tf.float32.min
+        # Modification ici pour gérer correctement le tensor
+        return int(tf.argmax(masked_q_s[0]).numpy())  # Ajout de [0] et .numpy()
 
-        keras.layers.Dense(256, activation='relu'),
-        keras.layers.Dropout(0.2),
 
-        keras.layers.Dense(256, activation='relu'),
-        keras.layers.Dropout(0.2),
-
-        keras.layers.Dense(128)
-    ])
-    return model
-
-def load_model(model_path):
-
+def load_model_pkl(file_path):
+    #file_path = r'C:\Users\farin\PycharmProjects\5A-IABD-DRL\environment\farkle5000_100000_ddqn_noreplay_3d00ef49.pkl'
     try:
-
-        loaded_model = load_model_pkl(model_path)
-        print(f"Modèle chargé avec succès à partir de {model_path} au format")
-        return loaded_model
-    except ValueError as ve:
-        print(f"Erreur lors du chargement du modèle : {ve}")
-    except ImportError as ie:
-        print(f"Erreur d'importation (vérifiez TensorFlow et h5py) : {ie}")
+        with open(file_path, "rb") as f:
+            model = pickle.load(f)
+            print(type(model))
+            return model
     except Exception as e:
-        print(f"Erreur inattendue lors du chargement du modèle : {e}")
+        print(f"Erreur : {e}")
+        return None
 
 
 def action_agent(env, model):
@@ -53,6 +45,9 @@ def action_agent(env, model):
 
     # Prédire l'action
     q_s = predict_func(model, s_tensor)
-    a = epsilon_greedy_action(q_s.numpy(), mask_tensor, env.get_valid_actions(), 0.000001)
 
-    return env.decode_action_1(a)  # Changé de decode_action_1 à decode_action```
+    a = epsilon_greedy_action_bis(q_s.numpy(), mask_tensor, env.get_valid_actions(), 0.000001)
+    print('state', env.state_description())
+    print('action', env.decode_action_1(a))
+    return env.decode_action_1(a)
+

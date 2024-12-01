@@ -15,14 +15,7 @@ from functions.outils import (
 
 
 @tf.function(reduce_retracing=True)
-def gradient_step(
-        model,
-        s,
-        a,
-        target,
-        optimizer,
-        input_dim
-):
+def gradient_step(model,s,a,target,optimizer,input_dim):
     with tf.GradientTape() as tape:
         s = tf.ensure_shape(s, [input_dim])  # Dynamically use input_dim
         a = tf.cast(a, dtype=tf.int32)

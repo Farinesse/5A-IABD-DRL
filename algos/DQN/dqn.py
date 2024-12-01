@@ -1,5 +1,4 @@
 import secrets
-
 import keras
 import tensorflow as tf
 from tqdm import tqdm
@@ -11,6 +10,7 @@ from functions.outils import (
     save_model,
     dqn_model_predict as model_predict, save_files
 )
+
 
 @tf.function
 def gradient_step(model, s, a, target, optimizer, input_dim):
