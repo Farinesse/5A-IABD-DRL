@@ -1,12 +1,7 @@
-import time
-from statistics import mean
-
 import keras
 import numpy as np
 import tensorflow as tf
 from tqdm import tqdm
-
-from environment.line_word import LineWorld
 from functions.outils import log_metrics_to_dataframe, plot_csv_data, play_with_reinforce, save_files
 
 
@@ -49,12 +44,7 @@ class REINFORCE:
         mask[valid_actions] = 0
         masked_probs = tf.nn.softmax(probs + mask).numpy()
 
-        # Exploration epsilon-greedy
-        epsilon = max(0.01, 0.1 * (1 - len(self.reward_buffer) / 8000))
-        if np.random.random() < epsilon:
-            return np.random.choice(valid_actions)
-        else:
-            return np.random.choice(self.action_dim, p=masked_probs)
+        return np.random.choice(self.action_dim, p=masked_probs)
 
     def compute_returns(self, rewards):
         # Calcul de Gt selon la formule Σ(k=t+1 to T) γ^(k-t-1) * Rk
@@ -132,8 +122,7 @@ class REINFORCE:
 
         return sum(rewards), loss.numpy()
 
-    def train(self, env, episodes=20000):
-        interval = 100
+    def train(self, env, episodes=20000, interval=1000):
         results_df = None
 
         for episode in tqdm(range(episodes), desc="Training Episodes"):
@@ -148,7 +137,7 @@ class REINFORCE:
                     predict_func = None,
                     env = env,
                     episode_index = episode,
-                    games = 100,
+                    games = 1000,
                     dataframe = results_df
                 )
                 print(f"Loss: {loss:.6f}")

@@ -7,6 +7,11 @@ import keras
 from algos.DQN.ddqn import double_dqn_no_replay
 from algos.DQN.ddqn_exp_replay import double_dqn_with_replay
 from algos.DQN.deep_qlearning import deep_q_learning
+from algos.PolicyGradientMethods.one_step_actor_critic import OneStepActorCritic
+from algos.PolicyGradientMethods.ppo import PPOActorCritic
+from algos.PolicyGradientMethods.reinforce import REINFORCE
+from algos.PolicyGradientMethods.reinforceBC import REINFORCEWithCritic
+from algos.PolicyGradientMethods.reinforce_meanbase import REINFORCEMeanBaseline
 from functions.outils import plot_csv_data
 
 
@@ -405,10 +410,12 @@ def create_farkle_model(state_dim, action_dim):
         [
             keras.layers.Dense(128, activation='relu', input_dim=state_dim),
             keras.layers.Dense(256, activation='relu'),
+            keras.layers.Dense(256, activation='relu'),
             keras.layers.Dense(128, activation='relu'),
             keras.layers.Dense(action_dim)
         ]
     )
+
 
 
 if __name__ == "__main__":
@@ -418,7 +425,7 @@ if __name__ == "__main__":
     target_model = keras.models.clone_model(model)
     target_model.set_weights(model.get_weights())
 
-    trained_model = deep_q_learning(
+    """trained_model = deep_q_learning(
         model=model,
         target_model=target_model,
         env=env,
@@ -432,7 +439,7 @@ if __name__ == "__main__":
         update_target_steps=100,
         save_path ='../models/models/dqn_replay/dqn_replay_model_farkel_10000_tests/dqn_replay_model_farkel_1000_test_1000_0-99_0-001_1-0_0-01_32_8_100_512relu12dim_256relu_dropout0.2_256relu_dropout0.2_128.h5',
         input_dim=12,
-    )
+    )"""
 
     """trained_model, _ = double_dqn_with_replay(
         online_model=model,
@@ -450,7 +457,7 @@ if __name__ == "__main__":
         input_dim=12,
     )"""
 
-    trained_model, _ = double_dqn_no_replay(
+    """trained_model, _ = double_dqn_no_replay(
         online_model=model,
         target_model=target_model,
         env=env,
@@ -463,15 +470,49 @@ if __name__ == "__main__":
         save_path ='farkle5000_100000_ddqn_noreplay',
         input_dim=12,
         interval = 100
-    )
+    )"""
 
-    """agent = REINFORCEBaseline(
+    """REINFORCEWithCritic(
         state_dim=12,
         action_dim=128,
-        alpha_theta=0.001,
-        alpha_w=0.001,
+        alpha_theta=0.0001,
+        alpha_w=0.0001,
         gamma=0.99,
-        path='farkle5000_reinforce_baseline_100000episodes.h5'
-    )
+        path='reinforce_mb_critic_farkle'
+    ).train(env, episodes=100000, interval=1000)"""
 
-    agent.train(env, episodes=100000)"""
+    """
+    REINFORCEMeanBaseline(
+        state_dim=12,
+        action_dim=128,
+        alpha=0.00001,
+        gamma=0.99,
+        path='reinforce_mb_farkle'
+    ).train(env, episodes=100000, interval=1000)
+    """
+
+    REINFORCE(
+        state_dim=12,
+        action_dim=128,
+        alpha=0.0001,
+        gamma=0.99,
+        path='reinforce_farkle'
+    ).train(env, episodes=100000, interval=1000)
+
+    """PPOActorCritic(
+        state_dim=12,
+        action_dim=128,
+        clip_epsilon=0.2,
+        gamma=0.99,
+        alpha=0.0001,
+        path='ppo_farkle'
+    ).train(env, episodes=100000, interval=1000)"""
+
+    """OneStepActorCritic(
+        state_dim=12,
+        action_dim=128,
+        alpha_theta=0.0001,
+        alpha_w=0.0001,
+        gamma=0.99,
+        path='1_step_actor_critic_farkle'
+    ).train(env, episodes=100000, interval=1000)"""

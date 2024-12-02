@@ -8,6 +8,10 @@ from numpy._typing import _64Bit
 from algos.DQN.ddqn import double_dqn_no_replay
 from algos.DQN.deep_qlearning import deep_q_learning
 from algos.DQN.dqn import dqn_no_replay
+from algos.PolicyGradientMethods.ppo import PPOActorCritic
+from algos.PolicyGradientMethods.reinforce import REINFORCE
+from algos.PolicyGradientMethods.reinforceBC import REINFORCEWithCritic
+from algos.PolicyGradientMethods.reinforce_meanbase import REINFORCEMeanBaseline
 from functions.outils import plot_csv_data
 
 NUM_ACTIONS = 3  # 0: rester sur place, 1: gauche, 2: droite
@@ -126,7 +130,7 @@ if __name__ == "__main__":
     )"""
 
 
-    trained_model, target_model = dqn_no_replay(
+    """trained_model, target_model = dqn_no_replay(
         model=model,
         target_model=target_model,
         env=env,
@@ -138,7 +142,7 @@ if __name__ == "__main__":
         save_path="dqn_noreplay_lineworld",
         input_dim=10,
         interval=1000
-    )
+    )"""
 
     """trained_model = deep_q_learning(
         model=model,
@@ -156,3 +160,37 @@ if __name__ == "__main__":
         input_dim=10,
         interval=1000
     )"""
+
+    """REINFORCEMeanBaseline(
+        state_dim=10,
+        action_dim=3,
+        alpha=0.0001,
+        gamma=0.99,
+        path='reinforce_mb_line'
+    ).train(env, episodes=10000, interval=100)"""
+
+    """REINFORCE(
+        state_dim=10,
+        action_dim=3,
+        alpha=0.0001,
+        gamma=0.99,
+        path='reinforce_line'
+    ).train(env, episodes=10000, interval=100)"""
+
+    """REINFORCEWithCritic(
+        state_dim=10,
+        action_dim=3,
+        alpha_theta=0.0001,
+        alpha_w=0.0001,
+        gamma=0.99,
+        path='reinforce_mb_critic_line'
+    ).train(env, episodes=10000, interval=100)"""
+
+    """PPOActorCritic(
+        state_dim=10,
+        action_dim=3,
+        clip_epsilon=0.2,
+        gamma=0.99,
+        alpha=0.0001,
+        path='ppo_line'
+    ).train(env, episodes=10000, interval=100)"""

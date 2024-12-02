@@ -148,9 +148,7 @@ class PPOActorCritic:
 
         return episode_reward, float(actor_loss), float(critic_loss)
 
-    def train(self, env, episodes=10000):
-        """Boucle d'entraînement principale"""
-        interval = 100
+    def train(self, env, episodes=10000, interval=1000):
         results_df = None
 
         for episode in tqdm(range(episodes), desc="Training"):
@@ -183,11 +181,7 @@ class PPOActorCritic:
                 gamma=self.gamma,
                 alpha=self.clip_epsilon,
                 optimizer=self.actor_optimizer,
-                save_path=self.path,
-                custom_metrics={
-                    'clip_epsilon': self.clip_epsilon,
-                    'critic_loss': critic_loss
-                }
+                save_path=self.path
             )
 
         return results_df

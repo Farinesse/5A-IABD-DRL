@@ -1,11 +1,8 @@
 import tensorflow as tf
-import keras
 import numpy as np
 from tqdm import tqdm
 import time
 from statistics import mean
-
-from environment.line_word import LineWorld
 from functions.outils import log_metrics_to_dataframe, plot_csv_data, save_files
 
 
@@ -71,7 +68,7 @@ class REINFORCEMeanBaseline:
 
             # Exécuter l'action
             env.step(action)
-            reward = env.score() if env.is_game_over() else 0
+            reward = env.score(testing=True) if env.is_game_over() else 0
             next_state = env.state_description()
             done = env.is_game_over()
 
@@ -115,8 +112,7 @@ class REINFORCEMeanBaseline:
 
         return sum(rewards), float(loss)
 
-    def train(self, env, episodes=20000):
-        interval = 100
+    def train(self, env, episodes=20000, interval=1000):
         results_df = None
 
         for episode in tqdm(range(episodes), desc="Training Episodes"):
@@ -131,7 +127,7 @@ class REINFORCEMeanBaseline:
                     predict_func=None,
                     env=env,
                     episode_index=episode,
-                    games=100,
+                    games=1000,
                     dataframe=results_df
                 )
                 print(f"Loss: {loss:.6f}")
@@ -199,21 +195,3 @@ def play_with_reinforce_baseline(env, model, predict_func=None, episodes=100):
         mean(step_times),
         episode_scores.count(1.0) / episodes
     )
-
-
-if __name__ == "__main__":
-    from environment.tictactoe import TicTacToe
-
-    tf.get_logger().setLevel('ERROR')
-    env = LineWorld(10)
-
-    agent = REINFORCEMeanBaseline(
-        state_dim=10,
-        action_dim=3,
-        alpha=0.001,
-        gamma=0.99,
-        path='tictactoe_reinforce_baseline'
-    )
-
-    agent.train(env, episodes=200)
-    plot_csv_data(agent.path + "_metrics.csv")

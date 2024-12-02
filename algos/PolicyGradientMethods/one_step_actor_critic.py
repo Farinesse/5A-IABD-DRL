@@ -10,7 +10,7 @@ from collections import defaultdict
 from algos.PolicyGradientMethods.reinforce import play_with_reinforce
 from environment.line_word import LineWorld
 from environment.tictactoe import TicTacToe
-from functions.outils import log_metrics_to_dataframe, plot_csv_data
+from functions.outils import log_metrics_to_dataframe, plot_csv_data, save_files
 
 
 class OneStepActorCritic:
@@ -157,9 +157,7 @@ class OneStepActorCritic:
         return total_reward, np.mean([s['policy_loss'] for s in episode_steps]), np.mean(
             [s['value_loss'] for s in episode_steps])
 
-    def train(self, env, episodes=100000):
-        """Entraînement avec suivi des métriques"""
-        interval = 100
+    def train(self, env, episodes=100000, interval=1000):
         results_df = None
 
         for episode in tqdm(range(episodes), desc="Training Episodes"):
@@ -184,15 +182,21 @@ class OneStepActorCritic:
                 print(f"Epsilon: {self.epsilon:.4f}")
 
         if self.path is not None:
-            self.save_models()
-            results_df.to_csv(f"{self.path}_metrics.csv", index=False)
+            save_files(
+                online_model=self.actor,
+                algo_name="1_STEP_ACTOR_CRITIC",
+                results_df=results_df,
+                env=env,
+                num_episodes=episodes,
+                gamma=self.gamma,
+                alpha=self.alpha_theta,
+                optimizer=self.policy_optimizer,
+                save_path=self.path
+            )
+
 
         return results_df
 
-    def save_models(self):
-        if self.path is not None:
-            self.policy.save(f"{self.path}_policy_.h5")
-            self.value.save(f"{self.path}_value.h5")
 
 
 def play_with_actor_critic(env, model, predict_func=None, episodes=100):

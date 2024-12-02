@@ -7,7 +7,10 @@ from algos.DQN.ddqn import double_dqn_no_replay
 from algos.DQN.ddqn_exp_replay import double_dqn_with_replay
 from algos.DQN.deep_qlearning import deep_q_learning
 from algos.DQN.dqn import dqn_no_replay
-
+from algos.PolicyGradientMethods.ppo import PPOActorCritic
+from algos.PolicyGradientMethods.reinforce import REINFORCE
+from algos.PolicyGradientMethods.reinforceBC import REINFORCEWithCritic
+from algos.PolicyGradientMethods.reinforce_meanbase import REINFORCEMeanBaseline
 
 NUM_ACTIONS = 9
 NUM_STATE_FEATURES = 27
@@ -164,7 +167,7 @@ if __name__ == "__main__":
         input_dim=27
     )"""
 
-    trained_model, target_model = double_dqn_no_replay(
+    """trained_model, target_model = double_dqn_no_replay(
         online_model=model,
         target_model=target_model,
         env=env,
@@ -177,7 +180,7 @@ if __name__ == "__main__":
         save_path="ddqn_noreplay_tictactoe",
         input_dim=27,
         interval=100
-    )
+    )"""
 
     """trained_model, target_model = double_dqn_with_replay(
         online_model=model,
@@ -241,3 +244,37 @@ if __name__ == "__main__":
         input_dim=27,
         interval=1000
     )"""
+
+    """REINFORCEMeanBaseline(
+        state_dim=27,
+        action_dim=9,
+        alpha=0.0001,
+        gamma=0.99,
+        path='reinforce_mb_tictactoe'
+    ).train(env, episodes=100000, interval=1000)"""
+
+    REINFORCE(
+        state_dim=27,
+        action_dim=9,
+        alpha=0.0001,
+        gamma=0.99,
+        path='reinforce_tictactoe'
+    ).train(env, episodes=100000, interval=1000)
+
+    """REINFORCEWithCritic(
+        state_dim=27,
+        action_dim=9,
+        alpha_theta=0.0001,
+        alpha_w=0.0001,
+        gamma=0.99,
+        path='reinforce_mb_critic_tictactoe'
+    ).train(env, episodes=100000, interval=1000)"""
+
+    """PPOActorCritic(
+        state_dim=27,
+        action_dim=9,
+        clip_epsilon=0.2,
+        gamma=0.99,
+        alpha=0.0001,
+        path='ppo_tictactoe'
+    ).train(env, episodes=100000, interval=1000)"""

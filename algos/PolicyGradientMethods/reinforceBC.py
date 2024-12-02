@@ -1,12 +1,7 @@
 import tensorflow as tf
 import numpy as np
 from tqdm import tqdm
-import time
 import pickle
-from statistics import mean
-
-from environment.FarkelEnv import FarkleDQNEnv
-from environment.tictactoe import TicTacToe
 from functions.outils import save_files, play_with_reinforce_critic, log_metrics_to_dataframe
 
 
@@ -172,9 +167,7 @@ class REINFORCEWithCritic:
         self.reward_buffer.append(total_reward)
         return total_reward, float(policy_loss), float(critic_loss)
 
-    def train(self, env, episodes=10000):
-        """Boucle d'entraînement principale"""
-        interval = 100
+    def train(self, env, episodes=10000, interval=1000):
         results_df = None
 
         for episode in tqdm(range(episodes), desc="Training"):
@@ -190,7 +183,7 @@ class REINFORCEWithCritic:
                     predict_func=None,
                     env=env,
                     episode_index=episode,
-                    games=100,
+                    games=1000,
                     dataframe=results_df
                 )
 
@@ -275,27 +268,3 @@ class REINFORCEWithCritic:
         except Exception as e:
             print(f"Erreur lors du chargement du modèle : {e}")
             return None
-
-
-if __name__ == "__main__":
-    import pandas as pd
-    from environment.line_word import LineWorld
-
-    # Configuration
-    env = TicTacToe()
-    #env = FarkleDQNEnv(num_players=2, target_score=5000)
-    agent = REINFORCEWithCritic(
-        state_dim=27,
-        action_dim=9,
-        alpha_theta=0.0003,
-        alpha_w=0.001,
-        gamma=0.99,
-        path='Farkel_reinforce'
-    )
-
-    # Entraînement avec suivi des métriques
-    metrics_df = agent.train(env, episodes=200)
-
-    # Afficher un résumé des métriques
-    print("\nRésumé des métriques:")
-    print(metrics_df.describe())

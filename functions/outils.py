@@ -739,7 +739,7 @@ def play_with_ppo(env, model, predict_func=None, episodes=100):
             action = valid_actions[np.argmax(masked_probs[valid_actions])]
 
             env.step(action)
-            reward = env.score()
+            reward = env.score(testing=True)
             done = env.is_game_over()
             state = env.state_description()
             episode_reward += reward
