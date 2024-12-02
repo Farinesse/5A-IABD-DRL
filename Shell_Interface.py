@@ -67,8 +67,8 @@ class DRLInterface:
                 "Double Deep Q-Learning with Experience Replay": r"",
                 "REINFORCE": r"",
                 "REINFORCE with Mean Baseline": r"",
-                "REINFORCE with Baseline Learned by a Critic": r"C:\Users\farin\PycharmProjects\5A-IABD-DRL\algos\PolicyGradientMethods\models\Farkel_reinforce_final.pkl",
-                "PPO": r"",
+                "REINFORCE with Baseline Learned by a Critic": r"models/farkle/reinforce_mb_critic_farkle_9a85a598.pkl",
+                "PPO": r"models/farkle/ppo_farkle_1cdf12d9.pkl",
                 "Random Rollout": r"",
                 "MCTS (UCT)": r""
             },
@@ -77,9 +77,9 @@ class DRLInterface:
                 "Deep Q-Learning_with Experience Replay" : r"models/TicTacToe/dqn_exp_replay_tictactoe_3add75b2.pkl",
                 "Double Deep Q-Learning": r"models/TicTacToe/ddqn_noreplay_tictactoe_2c91a69d.pkl",
                 "Double Deep Q-Learning with Experience Replay": r"models/TicTacToe/ddqn_exp_replay_tictactoe_f15bde40.pkl",
-                "REINFORCE": r"",
-                "REINFORCE with Mean Baseline": r"",
-                "REINFORCE with Baseline Learned by a Critic": r"",
+                "REINFORCE": r"algos/PolicyGradientMethods/tictactoe_reinforce_b2ebe91f/tictactoe_reinforce_b2ebe91f.pkl",
+                "REINFORCE with Mean Baseline": r"algos/PolicyGradientMethods/tictactoe_reinforce_baseline_0d96bfaa/tictactoe_reinforce_baseline_0d96bfaa.pkl",
+                "REINFORCE with Baseline Learned by a Critic": r"algos/PolicyGradientMethods/tictactoe_reinforce_b2ebe91f/tictactoe_reinforce_b2ebe91f.pkl",
                 "PPO": r"",
                 "Random Rollout": r"",
                 "MCTS (UCT)": r""
@@ -94,7 +94,7 @@ class DRLInterface:
                 "REINFORCE with Baseline Learned by a Critic": r"",
                 "PPO": r"",
                 "Random Rollout": r"",
-                "MCTS (UCT)": r""
+                "MCTS (UCT)": r"algos/Model Based/mcts_LineWorld_100_1000_model.pkl"
             },
             "GridWorld": {
                 "Deep Q-Learning": r"models/grid/dqn_noreplay_gridworld_1482d4bb.pkl",
@@ -156,12 +156,13 @@ class DRLInterface:
         choice = input(Fore.YELLOW + "\nVotre choix : ")
         return self.environments.get(choice)
 
-    def play_farkle(self, player1_type: str, player2_type: str, path_model: Optional[str] = None) -> None:
+    def play_farkle(self, player1_type: str, player2_type: str, path_model: Optional[str] = None, type_model = None) -> None:
         """Lance une partie de Farkle"""
         main_gui(
             player1_type=player1_type,
             player2_type=player2_type,
-            path_model=path_model
+            path_model=path_model,
+            type_model = type_model
         )
     def choose_algorithm(self) -> Optional[str]:
         print(Fore.BLUE + "\n=== Choisissez un Algorithme ===")
@@ -176,7 +177,7 @@ class DRLInterface:
 
 
     def handle_lineworld(self) -> None:
-        line_world = LineWorld(length=5)
+        line_world = LineWorld(length=10)
         print(Fore.BLUE + "\n=== Choisissez le Type de Joueur ===")
         print(Fore.MAGENTA + "1." + Fore.WHITE + " Human")
         print(Fore.MAGENTA + "2." + Fore.WHITE + " Random")
@@ -198,7 +199,12 @@ class DRLInterface:
                     model = load_model_pkl(model_path)
                     print(model_path)
                     print(model.summary())
-                    play_with_agent_lineworld(line_world, model, num_games=100)
+                    if algo in ["Deep Q-Learning", "Double Deep Q-Learning with Experience Replay",
+                                "Deep Q-Learning_with Experience Replay", "Double Deep Q-Learning"]:
+                        type_model = "dqn"
+                    else:  # REINFORCE et variantes
+                        type_model = "reinforce"
+                    play_with_agent_lineworld(line_world, model, num_games=100,type_model=type_model)
                 else:
                     print(Fore.RED + f"Modèle non trouvé!")
                     print(Fore.YELLOW + "Utilisation du mode random à la place")
@@ -226,7 +232,12 @@ class DRLInterface:
                 if os.path.exists(model_path):
                     model = load_model_pkl(model_path)
                     print(model.summary())
-                    play_with_agent_gridworld(grid_world, model, num_games=100)
+                    if algo in ["Deep Q-Learning", "Double Deep Q-Learning with Experience Replay",
+                                "Deep Q-Learning_with Experience Replay", "Double Deep Q-Learning"]:
+                        type_model = "dqn"
+                    else:  # REINFORCE et variantes
+                        type_model = "reinforce"
+                    play_with_agent_gridworld(grid_world, model, num_games=100,type_model=type_model)
                 else:
                     print(Fore.RED + f"Modèle non trouvé!")
                     print(Fore.YELLOW + "Utilisation du mode random à la place")
@@ -247,10 +258,19 @@ class DRLInterface:
             if algo:
                 model_path = self.get_model_path(algo, "Farkle")
                 if model_path:  # Vérification du chemin valide
+                    type_model = None
+                    if algo in ["Deep Q-Learning", "Double Deep Q-Learning with Experience Replay",
+                     "Deep Q-Learning_with Experience Replay", "Double Deep Q-Learning"] :
+                        type_model = "dqn"
+                    elif algo in ["REINFORCE", "REINFORCE with Mean Baseline",
+                                       "REINFORCE with Baseline Learned by a Critic","PPO"]:
+                        type_model = "reinforce"
+                    else:
+                        raise ValueError(f"Unknown algorithm: {algo}")
                     if mode == "2":
-                        self.play_farkle("agent", "random", model_path)
+                        self.play_farkle("agent", "random", model_path,type_model)
                     elif mode == "3":
-                        self.play_farkle("human", "agent", model_path)
+                        self.play_farkle("human", "agent", model_path,type_model)
                 else:
                     print(Fore.YELLOW + "Utilisation du mode random à la place.")
                     self.play_farkle("random", "random")
@@ -272,7 +292,12 @@ class DRLInterface:
                 model_path = self.get_model_path(algo, "TicTacToe")
                 if os.path.exists(model_path):
                     model = load_model_pkl(model_path)
-                    play_agent_vs_random_tictactoe(tic_tac_toe, model, num_games=100)
+                    if algo in ["Deep Q-Learning", "Double Deep Q-Learning with Experience Replay",
+                                "Deep Q-Learning_with Experience Replay", "Double Deep Q-Learning"]:
+                        type_model = "dqn"
+                    else:  # REINFORCE et variantes
+                        type_model = "reinforce"
+                    play_agent_vs_random_tictactoe(tic_tac_toe, model, num_games=100,type_model=type_model)
                 else:
                     print(Fore.RED + f"Modèle {algo} non trouvé!")
                     play(tic_tac_toe, human_move, lambda x: x.action_space.sample())

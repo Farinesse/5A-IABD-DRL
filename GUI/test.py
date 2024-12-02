@@ -17,7 +17,6 @@ def epsilon_greedy_action_bis(q_s: tf.Tensor, mask: tf.Tensor, available_actions
         return np.random.choice(available_actions)
     else:
         masked_q_s = q_s * mask + (1.0 - mask) * tf.float32.min
-        # Modification ici pour gérer correctement le tensor
         return int(tf.argmax(masked_q_s[0]).numpy())  # Ajout de [0] et .numpy()
 
 
@@ -47,7 +46,34 @@ def action_agent(env, model):
     q_s = predict_func(model, s_tensor)
 
     a = epsilon_greedy_action_bis(q_s.numpy(), mask_tensor, env.get_valid_actions(), 0.000001)
-    print('state', env.state_description())
+    print('state', env.get_dice_roll())
     print('action', env.decode_action_1(a))
     return env.decode_action_1(a)
 
+
+def action_agent_policygradient(env, model):
+
+    # Obtenir la description de l'état actuel
+    state = env.state_description()
+    state_tensor = tf.convert_to_tensor(state, dtype=tf.float32)
+
+
+    valid_actions = np.where(env.get_valid_actions() == 1)[0]
+
+
+    probs = model(state_tensor[None])[0].numpy()
+
+    mask = np.ones_like(probs) * float('-inf')
+    mask[valid_actions] = 0
+
+
+    masked_probs = tf.nn.softmax(probs + mask).numpy()
+
+
+    action = valid_actions[np.argmax(masked_probs[valid_actions])]
+
+    # Debug prints (optionnels)
+    print('state:', env.get_dice_roll())
+    print('selected action:', env.decode_action_1(action))
+
+    return env.decode_action_1(action)

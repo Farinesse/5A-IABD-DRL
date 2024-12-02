@@ -33,7 +33,8 @@ class FarkleEnv:
         self.game_over = False
         self.last_action_stop = False
         return self.get_observation(), {}
-
+    def get_dice_roll(self):
+        return self.dice_roll
     def get_observation(self):
         """Retourne une observation de l'état actuel sous forme de vecteur."""
         # Assurons-nous que dice_roll a toujours 6 éléments
