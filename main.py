@@ -2,11 +2,10 @@ import os
 import sys
 import time
 import pyfiglet
-import tkinter as tk
-import tensorflow as tf
-import numpy as np
-from colorama import Fore, Style, init
-from typing import Optional, Dict, Any
+from colorama import Fore, init
+from typing import Optional, Dict
+
+from algos.model_based.mtcs_utc import MCTS
 
 # Add project root to path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -17,9 +16,8 @@ from environment.FarkelEnv import FarkleDQNEnv
 from environment.line_word import LineWorld
 from environment.grid_word import GridWorld
 
-# Import GUI and utilities
 from GUI.Farkel_GUI import main_gui
-from GUI.test import predict_func, load_model_pkl
+from GUI.test import load_model_pkl
 from functions.outils import (
     human_move, play, play_agent_vs_random_tictactoe,
     play_grid_world, human_move_line_world,
@@ -29,7 +27,7 @@ from functions.random import (
     random_agent_line_world, random_agent_grid_world
 )
 
-# Initialisation de colorama
+
 init(autoreset=True)
 
 
@@ -148,6 +146,17 @@ class DRLInterface:
         print(Fore.MAGENTA + "4." + Fore.WHITE + " Quitter")
         return input(Fore.YELLOW + "\nChoisissez une option : ")
 
+    def get_model_type(self, algo: str, model) -> str:
+        """Détermine le type de modèle et affiche le résumé si nécessaire."""
+        if algo == "MCTS (UCT)":
+            return "mcts"
+        elif algo in ["Deep Q-Learning", "Double Deep Q-Learning with Experience Replay",
+                      "Deep Q-Learning_with Experience Replay", "Double Deep Q-Learning"]:
+            print(model.summary())
+            return "dqn"
+        else:  # REINFORCE et variantes
+            print(model.summary())
+            return "reinforce"
     def choose_environment(self) -> Optional[str]:
         print(Fore.BLUE + "\n=== Choisissez un Environnement ===")
         for key, env in self.environments.items():
@@ -156,12 +165,13 @@ class DRLInterface:
         choice = input(Fore.YELLOW + "\nVotre choix : ")
         return self.environments.get(choice)
 
-    def play_farkle(self, player1_type: str, player2_type: str, path_model: Optional[str] = None) -> None:
+    def play_farkle(self, player1_type: str, player2_type: str, path_model: Optional[str] = None, type_model = None) -> None:
         """Lance une partie de Farkle"""
         main_gui(
             player1_type=player1_type,
             player2_type=player2_type,
-            path_model=path_model
+            path_model=path_model,
+            type_model = type_model
         )
     def choose_algorithm(self) -> Optional[str]:
         print(Fore.BLUE + "\n=== Choisissez un Algorithme ===")
@@ -173,36 +183,34 @@ class DRLInterface:
             return None
         return self.algorithms.get(choice)
 
-
-
     def handle_lineworld(self) -> None:
-        line_world = LineWorld(length=10)
+        line_world = LineWorld(length=5)
         print(Fore.BLUE + "\n=== Choisissez le Type de Joueur ===")
         print(Fore.MAGENTA + "1." + Fore.WHITE + " Human")
         print(Fore.MAGENTA + "2." + Fore.WHITE + " Random")
         print(Fore.MAGENTA + "3." + Fore.WHITE + " Agent")
-        mode = input(Fore.YELLOW + "\nVotre choix : ")
+        print(Fore.MAGENTA + "4." + Fore.WHITE + " MCTS")
 
+        mode = input(Fore.YELLOW + "\nVotre choix : ")
         if mode == "1":
-            # Mode Human
-            play_line_grid_world(line_world, player_human=human_move_line_world,print_game=True)
+            play_line_grid_world(line_world, player_human=human_move_line_world, print_game=True)
         elif mode == "2":
-            # Mode Random
             play_line_grid_world(line_world, player_random=random_agent_line_world, print_game=True)
-        elif mode == "3":
-            # Mode Agent
-            algo = self.choose_algorithm()
-            if algo and algo != "Random":
-                model_path = self.get_model_path(algo, "LineWorld")
-                if os.path.exists(model_path):
-                    model = load_model_pkl(model_path)
-                    print(model_path)
-                    print(model.summary())
-                    play_with_agent_lineworld(line_world, model, num_games=100)
-                else:
-                    print(Fore.RED + f"Modèle non trouvé!")
-                    print(Fore.YELLOW + "Utilisation du mode random à la place")
-                    play_line_grid_world(line_world, player_random=random_agent_line_world)
+        elif mode in ["3", "4"]:
+            if mode == "4":
+                n_simulations = int(input(Fore.YELLOW + "Nombre de simulations MCTS (default: 100): ") or "100")
+                model = MCTS.load(self.get_model_path("MCTS (UCT)", "LineWorld"))
+                model.n_simulations = n_simulations
+                type_model = "mcts"
+            else:
+                algo = self.choose_algorithm()
+                if algo and algo != "Random":
+                    model_path = self.get_model_path(algo, "LineWorld")
+                    if os.path.exists(model_path):
+                        model = load_model_pkl(model_path)
+                        type_model = self.get_model_type(algo, model)
+
+            play_with_agent_lineworld(line_world, model, num_games=100, type_model=type_model)
 
     def handle_gridworld(self) -> None:
         grid_world = GridWorld(width=5, height=5)
@@ -210,27 +218,28 @@ class DRLInterface:
         print(Fore.MAGENTA + "1." + Fore.WHITE + " Human")
         print(Fore.MAGENTA + "2." + Fore.WHITE + " Random")
         print(Fore.MAGENTA + "3." + Fore.WHITE + " Agent")
-        mode = input(Fore.YELLOW + "\nVotre choix : ")
+        print(Fore.MAGENTA + "4." + Fore.WHITE + " MCTS")
 
+        mode = input(Fore.YELLOW + "\nVotre choix : ")
         if mode == "1":
-            # Mode Human
-            play_line_grid_world(grid_world, player_human =human_move_grid_world, print_game=True)
+            play_line_grid_world(grid_world, player_human=human_move_grid_world, print_game=True)
         elif mode == "2":
-            # Mode Random
             play_line_grid_world(grid_world, player_random=random_agent_grid_world, print_game=True)
-        elif mode == "3":
-            # Mode Agent
-            algo = self.choose_algorithm()
-            if algo and algo != "Random":
-                model_path = self.get_model_path(algo, "GridWorld")
-                if os.path.exists(model_path):
-                    model = load_model_pkl(model_path)
-                    print(model.summary())
-                    play_with_agent_gridworld(grid_world, model, num_games=100)
-                else:
-                    print(Fore.RED + f"Modèle non trouvé!")
-                    print(Fore.YELLOW + "Utilisation du mode random à la place")
-                    play_line_grid_world(grid_world, player_random= random_agent_grid_world, print_game=True)
+        elif mode in ["3", "4"]:
+            if mode == "4":
+                n_simulations = int(input(Fore.YELLOW + "Nombre de simulations MCTS (default: 100): ") or "100")
+                model = MCTS.load(self.get_model_path("MCTS (UCT)", "GridWorld"))
+                model.n_simulations = n_simulations
+                type_model = "mcts"
+            else:
+                algo = self.choose_algorithm()
+                if algo and algo != "Random":
+                    model_path = self.get_model_path(algo, "GridWorld")
+                    if os.path.exists(model_path):
+                        model = load_model_pkl(model_path)
+                        type_model = self.get_model_type(algo, model)
+
+            play_with_agent_gridworld(grid_world, model, num_games=100, type_model=type_model)
 
     def handle_farkle(self) -> None:
         print(Fore.BLUE + "\n=== Choisissez un Mode de Jeu ===")
@@ -247,10 +256,19 @@ class DRLInterface:
             if algo:
                 model_path = self.get_model_path(algo, "Farkle")
                 if model_path:  # Vérification du chemin valide
+                    type_model = None
+                    if algo in ["Deep Q-Learning", "Double Deep Q-Learning with Experience Replay",
+                     "Deep Q-Learning_with Experience Replay", "Double Deep Q-Learning"] :
+                        type_model = "dqn"
+                    elif algo in ["REINFORCE", "REINFORCE with Mean Baseline",
+                                       "REINFORCE with Baseline Learned by a Critic","PPO"]:
+                        type_model = "reinforce"
+                    else:
+                        raise ValueError(f"Unknown algorithm: {algo}")
                     if mode == "2":
-                        self.play_farkle("agent", "random", model_path)
+                        self.play_farkle("agent", "random", model_path,type_model)
                     elif mode == "3":
-                        self.play_farkle("human", "agent", model_path)
+                        self.play_farkle("human", "agent", model_path,type_model)
                 else:
                     print(Fore.YELLOW + "Utilisation du mode random à la place.")
                     self.play_farkle("random", "random")
@@ -262,20 +280,26 @@ class DRLInterface:
         print(Fore.BLUE + "\n=== Choisissez un Mode de Jeu ===")
         print(Fore.MAGENTA + "1." + Fore.WHITE + " Human vs Random")
         print(Fore.MAGENTA + "2." + Fore.WHITE + " Human vs Agent")
-        mode = input(Fore.YELLOW + "\nVotre choix : ")
+        print(Fore.MAGENTA + "3." + Fore.WHITE + " Human vs MCTS")
 
+        mode = input(Fore.YELLOW + "\nVotre choix : ")
         if mode == "1":
             play(tic_tac_toe, human_move, lambda x: x.action_space.sample())
-        elif mode == "2":
-            algo = self.choose_algorithm()
-            if algo:
-                model_path = self.get_model_path(algo, "TicTacToe")
-                if os.path.exists(model_path):
-                    model = load_model_pkl(model_path)
-                    play_agent_vs_random_tictactoe(tic_tac_toe, model, num_games=100)
-                else:
-                    print(Fore.RED + f"Modèle {algo} non trouvé!")
-                    play(tic_tac_toe, human_move, lambda x: x.action_space.sample())
+        elif mode in ["2", "3"]:
+            if mode == "3":
+                n_simulations = int(input(Fore.YELLOW + "Nombre de simulations MCTS (default: 100): ") or "100")
+                model = MCTS.load(self.get_model_path("MCTS (UCT)", "TicTacToe"))
+                model.n_simulations = n_simulations
+                type_model = "mcts"
+            else:
+                algo = self.choose_algorithm()
+                if algo:
+                    model_path = self.get_model_path(algo, "TicTacToe")
+                    if os.path.exists(model_path):
+                        model = load_model_pkl(model_path)
+                        type_model = self.get_model_type(algo, model)
+
+            play_agent_vs_random_tictactoe(tic_tac_toe, model, num_games=100, type_model=type_model)
 
     def run_play_mode(self) -> None:
         print(Fore.GREEN + "\n=== Mode Jouer ===")

@@ -4,6 +4,7 @@ from tqdm import tqdm
 import time
 from statistics import mean
 
+from environment.tictactoe import TicTacToe
 from functions.outils import log_metrics_to_dataframe, play_with_ppo, save_files
 
 
@@ -162,7 +163,7 @@ class PPOActorCritic:
                     predict_func=None,
                     env=env,
                     episode_index=episode,
-                    games=100,
+                    games=1000,
                     dataframe=results_df
                 )
                 print(f"\n{'=' * 50}")
@@ -215,14 +216,15 @@ class PPOActorCritic:
 if __name__ == "__main__":
     from environment.line_word import LineWorld
 
-    env = LineWorld(10)
+    #env = LineWorld(10)
+    env = TicTacToe()
     agent = PPOActorCritic(
-        state_dim=10,
-        action_dim=3,
+        state_dim=27,
+        action_dim=9,
         clip_epsilon=0.2,
         gamma=0.99,
-        alpha=0.0003,
-        path='ppo_actor_critic'
+        alpha=0.00001,
+        path='tictactoe_ppo_actor_critic'
     )
 
-    agent.train(env, episodes=200)
+    agent.train(env, episodes=100000)

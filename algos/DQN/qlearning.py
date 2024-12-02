@@ -7,15 +7,7 @@ def tabular_q_learning(env_type,
                        epsilon: float = 0.1,
                        gamma: float = 0.999,
                        nb_iter: int = 100000):
-    """
-    Implémentation de l'algorithme Tabular Q-Learning pour un environnement générique.
-    :param env_type: Le type d'environnement (doit implémenter GameEnv)
-    :param alpha: Taux d'apprentissage
-    :param epsilon: Taux d'exploration pour epsilon-greedy
-    :param gamma: Facteur de discount
-    :param nb_iter: Nombre d'itérations d'entraînement
-    :return: La politique Pi apprise et le modèle Q (la table Q apprise)
-    """
+
     Q = {}  # Table Q
 
     env = env_type()  # Initialisation de l'environnement
@@ -40,12 +32,12 @@ def tabular_q_learning(env_type,
                 best_a_index = np.argmax(q_s)
                 a = aa[best_a_index]
 
-            prev_score = env.score()  # Récupérer le score précédent
-            env.step(a)  # Exécuter l'action
-            r = env.score() - prev_score  # Calculer la récompense immédiate
+            prev_score = env.score()
+            env.step(a)
+            r = env.score() - prev_score
 
-            s_p = env.state_id()  # Identification du nouvel état
-            aa_p = env.available_actions_ids()  # Nouvelles actions possibles
+            s_p = env.state_id()
+            aa_p = env.available_actions_ids()
 
             # Calcul de la cible pour la mise à jour de Q
             if env.is_game_over():

@@ -4,7 +4,6 @@ import os
 import pickle
 import secrets
 import time
-
 import keras
 import numpy as np
 import pandas as pd
@@ -827,7 +826,7 @@ def plot_mcts_metrics(file_path, title="MCTS Training Metrics", agent=None, cust
     plt.show()
 
 
-def play_agent_vs_random_tictactoe(env, model, num_games: int = 100) -> None:
+def play_agent_vs_random_tictactoe(env, model, num_games: int = 100,type_model = "dqn") -> None:
     try:
         wins = 0
         losses = 0
@@ -842,16 +841,30 @@ def play_agent_vs_random_tictactoe(env, model, num_games: int = 100) -> None:
             while not game_done:
                 # Tour de l'agent
                 state = env.state_description()
-                s_tensor = tf.convert_to_tensor(state, dtype=tf.float32)
-                mask = env.action_mask()
+                if type_model == "dqn":
+                    s_tensor = tf.convert_to_tensor(state, dtype=tf.float32)
+                    mask = env.action_mask()
 
-                q_s = dqn_model_predict(model, s_tensor)
-                print(q_s,mask,s_tensor)
+                    q_s = dqn_model_predict(model, s_tensor)
+                    print(q_s,mask,s_tensor)
 
-                masked_q_values = q_s[0].numpy() * mask - 1e9 * (1 - mask)
-                action = np.argmax(masked_q_values)
+                    masked_q_values = q_s[0].numpy() * mask - 1e9 * (1 - mask)
+                    action = np.argmax(masked_q_values)
+                elif type_model == "mcts":
+                    action = model.select_action(env)
+                else:  # reinforce
+                    state_tensor = tf.convert_to_tensor(state, dtype=tf.float32)
+                    action_mask = env.action_mask()
+                    valid_actions = env.available_actions_ids()
+                    probs = model(state_tensor[None])[0].numpy()
+                    mask = np.ones_like(probs) * float('-inf')
+                    mask[valid_actions] = 0
+                    masked_probs = tf.nn.softmax(probs + mask).numpy()
 
-                reward = env.step(action)
+                    action = valid_actions[np.argmax(masked_probs[valid_actions])]
+
+
+                env.step(action)
                 env.display()
                 game_done = env.is_game_over()
 
@@ -879,12 +892,9 @@ def play_agent_vs_random_tictactoe(env, model, num_games: int = 100) -> None:
         print(Fore.YELLOW + "Le modèle n'a pas pu être chargé")
 
 
-def play_with_agent_gridworld(env, model, num_games: int = 100) -> None:
+def play_with_agent_gridworld(env, model, num_games: int = 100, type_model="dqn") -> None:
     try:
-        wins = 0
-        losses = 0
-        draws = 0
-
+        wins, losses, draws = 0, 0, 0
         print(Fore.CYAN + f"\n=== Agent vs Random sur {num_games} parties ===")
 
         for game in range(num_games):
@@ -894,25 +904,37 @@ def play_with_agent_gridworld(env, model, num_games: int = 100) -> None:
 
             while not game_done:
                 state = env.state_description()
-                s_tensor = tf.convert_to_tensor(state, dtype=tf.float32)
-                mask = env.action_mask()
-                mask_array = np.array(mask, dtype=np.float32)
 
-                q_s = dqn_model_predict(model, s_tensor)
-                print(q_s, mask, s_tensor)
+                # Sélection de l'action selon le type de modèle
+                if type_model == "dqn":
+                    s_tensor = tf.convert_to_tensor(state, dtype=tf.float32)
+                    mask = env.action_mask()
+                    mask_array = np.array(mask, dtype=np.float32)
+                    q_s = dqn_model_predict(model, s_tensor)
+                    print(q_s, mask, s_tensor)
+                    masked_q_values = q_s[0].numpy() * mask_array - 1e9 * (1 - mask_array)
+                    action = np.argmax(masked_q_values)
+                elif type_model == "mcts":
+                    action = model.select_action(env)
+                else:  # reinforce
+                    state_tensor = tf.convert_to_tensor(state, dtype=tf.float32)
+                    action_mask = env.action_mask()
+                    valid_actions = env.available_actions_ids()
+                    probs = model(state_tensor[None])[0].numpy()
+                    mask = np.ones_like(probs) * float('-inf')
+                    mask[valid_actions] = 0
+                    masked_probs = tf.nn.softmax(probs + mask).numpy()
 
-                masked_q_values = q_s[0].numpy() * mask_array - 1e9 * (1 - mask_array)
-                action = np.argmax(masked_q_values)
+                    action = valid_actions[np.argmax(masked_probs[valid_actions])]
 
                 reward = env.step(action)
                 env.display()
                 game_done = env.is_game_over()
 
-                # Gestion de la récompense qui peut être None
                 if reward is not None:
                     cumulative_reward += reward
 
-            # Évaluation de la performance à la fin de la partie
+            # Évaluation de la performance
             if cumulative_reward > 0:
                 wins += 1
             elif cumulative_reward < 0:
@@ -923,6 +945,7 @@ def play_with_agent_gridworld(env, model, num_games: int = 100) -> None:
             if (game + 1) % 10 == 0:
                 print(Fore.GREEN + f"\rParties jouées : {game + 1}/{num_games}", end="")
 
+        # Affichage des résultats
         print(Fore.GREEN + "\n\nRésultats :")
         print(f"Victoires : {wins} ({wins / num_games * 100:.1f}%)")
         print(f"Défaites : {losses} ({losses / num_games * 100:.1f}%)")
@@ -933,13 +956,10 @@ def play_with_agent_gridworld(env, model, num_games: int = 100) -> None:
         print(Fore.YELLOW + "Le modèle n'a pas pu être chargé")
 
 
-def play_with_agent_lineworld(env, model, num_games: int = 100) -> None:
+def play_with_agent_lineworld(env, model, num_games: int = 100, type_model="dqn") -> None:
     try:
-        wins = 0
-        losses = 0
-        draws = 0
-
-        print(f"\n=== Agent vs Random sur {num_games} parties ===")
+        wins, losses, draws = 0, 0, 0
+        print(f"\n=== Agent de {type_model} sur {num_games} parties ===")
 
         for game in range(num_games):
             env.reset()
@@ -948,28 +968,33 @@ def play_with_agent_lineworld(env, model, num_games: int = 100) -> None:
 
             while not game_done:
                 state = env.state_description()
-                s_tensor = tf.convert_to_tensor(state, dtype=tf.float32)
-                env.display()
-                mask = env.action_mask()
-                print(f"Mask: {mask}")
-                print(f"State tensor: {s_tensor}")
 
-                try:
+                if type_model == "dqn":
+                    s_tensor = tf.convert_to_tensor(state, dtype=tf.float32)
+                    mask = env.action_mask()
                     q_s = dqn_model_predict(model, s_tensor)
-                    print(f"Q-values: {q_s}")
+                    print(q_s, mask, s_tensor)
                     masked_q_values = q_s[0].numpy() * mask - 1e9 * (1 - mask)
                     action = np.argmax(masked_q_values)
-                    reward = env.step(action)
-                    game_done = env.is_game_over()
+                elif type_model == "mcts":
+                    action = model.select_action(env)
+                else:  # reinforce
+                    state_tensor = tf.convert_to_tensor(state, dtype=tf.float32)
+                    action_mask = env.action_mask()
+                    valid_actions = env.available_actions_ids()
+                    probs = model(state_tensor[None])[0].numpy()
+                    mask = np.ones_like(probs) * float('-inf')
+                    mask[valid_actions] = 0
+                    masked_probs = tf.nn.softmax(probs + mask).numpy()
+                    action = valid_actions[np.argmax(masked_probs[valid_actions])]
 
-                    # Accumulation des récompenses non-nulles
-                    if reward is not None:
-                        cumulative_reward += reward
-                except Exception as e:
-                    print(f"Erreur lors de la prédiction du modèle : {e}")
-                    break
+                reward = env.step(action)
+                env.display()
+                game_done = env.is_game_over()
 
-            # Évaluation de la performance
+                if reward is not None:
+                    cumulative_reward += reward
+
             if cumulative_reward > 0:
                 wins += 1
             elif cumulative_reward < 0:
@@ -977,12 +1002,10 @@ def play_with_agent_lineworld(env, model, num_games: int = 100) -> None:
             else:
                 draws += 1
 
-            # Affichage de la progression
             if (game + 1) % 10 == 0:
                 print(f"\rParties jouées : {game + 1}/{num_games} (Victoires: {wins}, Pertes: {losses}, Nuls: {draws})",
                       end="")
 
-        # Statistiques finales
         print("\n\nRésultats finaux :")
         print(f"Victoires : {wins} ({wins / num_games * 100:.1f}%)")
         print(f"Défaites : {losses} ({losses / num_games * 100:.1f}%)")
@@ -992,3 +1015,9 @@ def play_with_agent_lineworld(env, model, num_games: int = 100) -> None:
     except Exception as e:
         print(f"\nErreur lors du chargement du modèle : {e}")
         print("Le modèle n'a pas pu être chargé")
+def action_agent_mcts(env, mcts_agent):
+    """
+    Adapte l'agent MCTS pour l'utiliser comme action_agent
+    """
+    action = mcts_agent.select_action(env)
+    return env.decode_action_1(action)

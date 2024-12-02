@@ -26,24 +26,19 @@ class REINFORCEWithCritic:
         self.critic_optimizer = tf.keras.optimizers.Adam(learning_rate=alpha_w, clipnorm=0.5)
 
     def _build_policy(self):
-        """Construction du réseau de politique (pas de softmax en sortie)"""
         return tf.keras.Sequential([
             tf.keras.layers.Input(shape=(self.state_dim,)),
-            tf.keras.layers.Dense(128, activation='relu', kernel_initializer='glorot_normal'),
-            tf.keras.layers.Dense(256, activation='relu', kernel_initializer='glorot_normal'),
-            tf.keras.layers.Dense(256, activation='relu', kernel_initializer='glorot_normal'),
-            tf.keras.layers.Dense(128, activation='relu', kernel_initializer='glorot_normal'),
-            tf.keras.layers.Dense(self.action_dim)  # Logits bruts
+            tf.keras.layers.Dense(64, activation='relu', kernel_initializer='glorot_normal'),
+            tf.keras.layers.Dense(64, activation='relu', kernel_initializer='glorot_normal'),
+            tf.keras.layers.Dense(self.action_dim)
         ])
 
     def _build_critic(self):
-        """Construction du réseau critique"""
         return tf.keras.Sequential([
             tf.keras.layers.Input(shape=(self.state_dim,)),
-            tf.keras.layers.Dense(128, activation='relu', kernel_initializer='glorot_normal'),
-            tf.keras.layers.Dense(256, activation='relu', kernel_initializer='glorot_normal'),
-            tf.keras.layers.Dense(128, activation='relu', kernel_initializer='glorot_normal'),
-            tf.keras.layers.Dense(1)  # Valeur d'état
+            tf.keras.layers.Dense(64, activation='relu', kernel_initializer='glorot_normal'),
+            tf.keras.layers.Dense(64, activation='relu', kernel_initializer='glorot_normal'),
+            tf.keras.layers.Dense(1)
         ])
 
     def select_action(self, state_tensor, action_mask, valid_actions):
@@ -146,8 +141,8 @@ class REINFORCEWithCritic:
 
             # Pondération temporelle et clipping
             gamma_t = tf.pow(self.gamma, timesteps)
-            advantages = tf.clip_by_value(advantages * gamma_t, -10.0, 10.0)
-
+            # Dans train_episode
+            advantages = tf.clip_by_value(advantages * gamma_t, -5.0, 5.0)  # -10,10 est trop large
             # Policy gradient avec baseline
             logits = self.policy(states)
             probabilities = tf.nn.softmax(logits)

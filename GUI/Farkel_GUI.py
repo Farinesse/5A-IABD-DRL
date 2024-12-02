@@ -3,12 +3,12 @@ from tkinter import messagebox
 from tkinter import ttk
 from PIL import Image, ImageTk, ImageOps
 
-from GUI.test import load_model_pkl, action_agent
+from GUI.test import load_model_pkl, action_agent, action_agent_policygradient
 from environment.FarkelEnv import FarkleEnv
 
 
 class FarkleGUI:
-    def __init__(self, master, players=2, agent=False, path_model=None, player_types=None):
+    def __init__(self, master, players=2, agent=False, path_model=None, player_types=None, type_model = None):
         self.master = master
         self.master.title("Farkle - Jeu de Dés")
         self.master.geometry("800x600")
@@ -22,6 +22,7 @@ class FarkleGUI:
             print("Warning: Failed to load model, agent will use random actions")
         self.dice_images = {}
         self.selected_dice = []
+        self.type_model = type_model
 
         self.create_widgets()
         self.load_dice_images()
@@ -147,7 +148,14 @@ class FarkleGUI:
 
     def play_agent(self):
         """Exécute le tour de l'agent."""
-        action = action_agent(self.env, self.model)
+        if self.type_model == "dqn":
+            action = action_agent(self.env, self.model)
+        elif self.type_model == "reinforce":
+            action = action_agent_policygradient(self.env, self.model)
+        else : 
+            print("erreur action Agent")
+            action = None
+
         observation, reward, done, _, info = self.env.step(action)
 
         self.update_display()
@@ -246,14 +254,15 @@ class FarkleGUI:
             self.master.quit()
 
 
-def main_gui(player1_type="random", player2_type="random", path_model=None):
+def main_gui(player1_type="random", player2_type="random", path_model=None, type_model = None):
     root = tk.Tk()
     app = FarkleGUI(
         root,
         players=2,
         agent=(player1_type == "agent" or player2_type == "agent"),
         path_model=path_model,
-        player_types=[player1_type, player2_type]
+        player_types=[player1_type, player2_type],
+        type_model = type_model
     )
     root.mainloop()
 
