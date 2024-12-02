@@ -15,8 +15,6 @@ from statistics import mean
 from colorama import Fore
 from tqdm import tqdm
 
-from GUI.test import predict_func, epsilon_greedy_action_bis
-
 @tf.function
 def dqn_model_predict(model, s):
     """Prédiction des Q-valeurs pour un état donné."""
@@ -847,7 +845,7 @@ def play_agent_vs_random_tictactoe(env, model, num_games: int = 100) -> None:
                 s_tensor = tf.convert_to_tensor(state, dtype=tf.float32)
                 mask = env.action_mask()
 
-                q_s = predict_func(model, s_tensor)
+                q_s = dqn_model_predict(model, s_tensor)
                 print(q_s,mask,s_tensor)
 
                 masked_q_values = q_s[0].numpy() * mask - 1e9 * (1 - mask)
@@ -900,7 +898,7 @@ def play_with_agent_gridworld(env, model, num_games: int = 100) -> None:
                 mask = env.action_mask()
                 mask_array = np.array(mask, dtype=np.float32)
 
-                q_s = predict_func(model, s_tensor)
+                q_s = dqn_model_predict(model, s_tensor)
                 print(q_s, mask, s_tensor)
 
                 masked_q_values = q_s[0].numpy() * mask_array - 1e9 * (1 - mask_array)
@@ -957,7 +955,7 @@ def play_with_agent_lineworld(env, model, num_games: int = 100) -> None:
                 print(f"State tensor: {s_tensor}")
 
                 try:
-                    q_s = predict_func(model, s_tensor)
+                    q_s = dqn_model_predict(model, s_tensor)
                     print(f"Q-values: {q_s}")
                     masked_q_values = q_s[0].numpy() * mask - 1e9 * (1 - mask)
                     action = np.argmax(masked_q_values)

@@ -2,14 +2,8 @@ import pickle
 import keras
 import numpy as np
 import tensorflow as tf
+from functions.outils import dqn_model_predict as predict_func, epsilon_greedy_action
 from tensorflow.python.keras import losses
-
-
-@tf.function(reduce_retracing=True)
-def predict_func(model, s):
-    s = tf.ensure_shape(s, [None])
-    output = model(tf.expand_dims(s, 0))
-    return output
 
 
 def epsilon_greedy_action_bis(q_s: tf.Tensor, mask: tf.Tensor, available_actions: np.ndarray, epsilon: float) -> int:
@@ -46,7 +40,7 @@ def action_agent(env, model):
     # Prédire l'action
     q_s = predict_func(model, s_tensor)
 
-    a = epsilon_greedy_action_bis(q_s.numpy(), mask_tensor, env.get_valid_actions(), 0.000001)
+    a = epsilon_greedy_action(q_s.numpy(), mask_tensor, env.get_valid_actions(), 0.000001)
     print('state', env.state_description())
     print('action', env.decode_action_1(a))
     return env.decode_action_1(a)

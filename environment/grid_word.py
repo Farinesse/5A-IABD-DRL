@@ -161,12 +161,13 @@ if __name__ == "__main__":
         model=model,
         target_model=target_model,
         env=env,
-        num_episodes=100000,
+        num_episodes=10000,
         gamma=0.99,
+        alpha=0.0001,
         start_epsilon=1.0,
         end_epsilon=0.01,
         update_frequency=1000,
         save_path="dqn_noreplay_gridworld",
         input_dim=25,
-        interval=1000
+        interval=100
     )

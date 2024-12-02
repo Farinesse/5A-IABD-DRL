@@ -96,7 +96,7 @@ class FarkleGUI:
 
     def load_dice_images(self):
         for i in range(1, 7):
-            img = Image.open(f"C:/Users/farin/PycharmProjects/5A-IABD-DRL/Images/dice{i}.png")
+            img = Image.open(f"/Users/smveer/PycharmProjects/5A-IABD-DRL/Images/dice{i}.png")
             img = img.resize((60, 60))
             self.dice_images[i] = ImageTk.PhotoImage(img)
             selected_img = ImageOps.expand(img, border=3, fill='red')
