@@ -230,17 +230,17 @@ if __name__ == "__main__":
     # Configuration
     #env = LineWorld(10)
     env = TicTacToe()
-    env = GridWorld(5, 5)
+    #env = GridWorld(5, 5)
     #env = FarkleDQNEnv(target_score=5000)
 
     save_path = f"models/mcts_{env.__class__.__name__}_100_sims"
 
 
-    mcts_agent = MCTS(n_simulations=100, C=1.2)
+    mcts_agent = MCTS(n_simulations=20, C=1.2)
     metrics_df = mcts_agent.train(
         env=env,
-        episodes=1000,
-        interval=100,
+        episodes=100,
+        interval=10,
         save_path=save_path
     )
 
