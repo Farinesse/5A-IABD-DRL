@@ -3,8 +3,6 @@ import numpy as np
 from tqdm import tqdm
 import time
 from statistics import mean
-
-from environment.tictactoe import TicTacToe
 from functions.outils import log_metrics_to_dataframe, play_with_ppo, save_files
 
 
@@ -212,19 +210,3 @@ class PPOActorCritic:
 
         return rewards
 
-
-if __name__ == "__main__":
-    from environment.line_word import LineWorld
-
-    #env = LineWorld(10)
-    env = TicTacToe()
-    agent = PPOActorCritic(
-        state_dim=27,
-        action_dim=9,
-        clip_epsilon=0.2,
-        gamma=0.99,
-        alpha=0.00001,
-        path='tictactoe_ppo_actor_critic'
-    )
-
-    agent.train(env, episodes=100000)
