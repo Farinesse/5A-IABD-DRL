@@ -25,8 +25,8 @@ class REINFORCE:
         # π(a|s,θ) - policy parameterization
         return keras.Sequential([
             keras.layers.Dense(128, activation='relu', input_dim=self.state_dim),
-            keras.layers.Dense(512, activation='relu'),
             keras.layers.Dense(256, activation='relu'),
+            keras.layers.Dense(64, activation='relu'),
             keras.layers.Dense(self.action_dim, activation='softmax')  # Sortie en distribution de probabilités
         ])
 
@@ -49,12 +49,7 @@ class REINFORCE:
         mask[valid_actions] = 0
         masked_probs = tf.nn.softmax(probs + mask).numpy()
 
-        # Exploration epsilon-greedy
-        epsilon = max(0.01, 0.1 * (1 - len(self.reward_buffer) / 8000))
-        if np.random.random() < epsilon:
-            return np.random.choice(valid_actions)
-        else:
-            return np.random.choice(self.action_dim, p=masked_probs)
+        return np.random.choice(self.action_dim, p=masked_probs)
 
     def compute_returns(self, rewards):
         # Calcul de Gt selon la formule Σ(k=t+1 to T) γ^(k-t-1) * Rk
@@ -133,7 +128,7 @@ class REINFORCE:
         return sum(rewards), loss.numpy()
 
     def train(self, env, episodes=20000):
-        interval = 100
+        interval = 1000
         results_df = None
 
         for episode in tqdm(range(episodes), desc="Training Episodes"):
@@ -148,7 +143,7 @@ class REINFORCE:
                     predict_func = None,
                     env = env,
                     episode_index = episode,
-                    games = 100,
+                    games = 1000,
                     dataframe = results_df
                 )
                 print(f"Loss: {loss:.6f}")
@@ -193,11 +188,11 @@ if __name__ == "__main__":
 
     agent = REINFORCE(
         state_dim=27,
-        action_dim=128,
-        alpha=0.001,
+        action_dim=9,
+        alpha=0.0001,
         gamma=0.99,
-        path='line_world_model.pkl'
+        path='tictactoe_reinforce_model'
     )
 
-    agent.train(env, episodes=100)
-    plot_csv_data(agent.path + "_metrics.csv")
+    agent.train(env, episodes=100000)
+    #plot_csv_data(agent.path + "_metrics.csv")
