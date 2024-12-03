@@ -5,6 +5,8 @@ import pyfiglet
 from colorama import Fore, init
 from typing import Optional, Dict
 
+from tensorflow.python.keras.testing_utils import get_model_type
+
 from algos.model_based.mtcs_utc import MCTS
 
 # Add project root to path
@@ -21,7 +23,8 @@ from GUI.test import load_model_pkl
 from functions.outils import (
     human_move, play, play_agent_vs_random_tictactoe,
     play_grid_world, human_move_line_world,
-    human_move_grid_world, play_line_grid_world, play_with_agent_gridworld, play_with_agent_lineworld
+    human_move_grid_world, play_line_grid_world, play_with_agent_gridworld, play_with_agent_lineworld, play_with_dqn,
+    dqn_model_predict, play_with_reinforce, play_with_mcts
 )
 from functions.random import (
     random_agent_line_world, random_agent_grid_world
@@ -186,7 +189,7 @@ class DRLInterface:
         return self.algorithms.get(choice)
 
     def handle_lineworld(self) -> None:
-        line_world = LineWorld(length=5)
+        line_world = LineWorld(length=10)
         print(Fore.BLUE + "\n=== Choisissez le Type de Joueur ===")
         print(Fore.MAGENTA + "1." + Fore.WHITE + " Human")
         print(Fore.MAGENTA + "2." + Fore.WHITE + " Random")
@@ -330,11 +333,64 @@ class DRLInterface:
         print(Fore.GREEN + "\n=== Mode Test ===")
         env = self.choose_environment()
         if env:
+            if env == "Farkle":
+                env = FarkleDQNEnv()
+            elif env == "LineWorld":
+                env = LineWorld(length=10)
+            elif env == "GridWorld":
+                env = GridWorld(width=5, height=5)
+            elif env == "TicTacToe":
+                env = TicTacToe()
+
             algo = self.choose_algorithm()
             if algo:
-                print(Fore.CYAN + f"\nTest de {algo} dans l'environnement {env}")
+                print(Fore.CYAN + f"\nTest de {algo} dans l'environnement {env.__class__.__name__}")
                 self.loading_animation("Préparation du test", 5)
-                # TODO: Implémenter la logique de test
+                model_path = input("Chemain du model (format pkl): ")
+                episodes = int(input("Nombre d'épisodes: "))
+                if algo in [
+                    "Tabular Q-Learning",
+                    "Deep Q-Learning",
+                    "Deep Q-Learning_with Experience Replay",
+                    "Double Deep Q-Learning with Experience Replay",
+                    "Double Deep Q-Learning"
+                ]:
+                    model = load_model_pkl(model_path)
+                    mean_score, mean_time_per_episode, mean_steps_per_episode, mean_time_per_step, win_rate = play_with_dqn(env, model, dqn_model_predict, episodes=episodes)
+                    print(
+                        f"Score moyen: {mean_score}\n"
+                        f"Temps moyen par épisode: {mean_time_per_episode}\n"
+                        f"Nombre moyen de pas par épisode: {mean_steps_per_episode}\n"
+                        f"Temps moyen par pas: {mean_time_per_step}\n"
+                        f"Taux de victoire: {win_rate}"
+                    )
+                elif algo in [
+                    "REINFORCE",
+                    "REINFORCE with Mean Baseline",
+                    "REINFORCE with Baseline Learned by a Critic",
+                    "PPO",
+                    "1SAC"
+                ]:
+                    model = load_model_pkl(model_path)
+                    mean_score, mean_time_per_episode, mean_steps_per_episode, mean_time_per_step, win_rate = play_with_reinforce(env, model, None, episodes=episodes)
+                    print(
+                        f"Score moyen: {mean_score}\n"
+                        f"Temps moyen par épisode: {mean_time_per_episode}\n"
+                        f"Nombre moyen de pas par épisode: {mean_steps_per_episode}\n"
+                        f"Temps moyen par pas: {mean_time_per_step}\n"
+                        f"Taux de victoire: {win_rate}"
+                    )
+                elif algo == "MCTS (UCT)":
+                    model = MCTS.load(model_path)
+                    mean_score, mean_time_per_episode, mean_steps_per_episode, mean_time_per_step, win_rate = play_with_mcts(env, model, episodes=episodes)
+                    print(
+                        f"Score moyen: {mean_score}\n"
+                        f"Temps moyen par épisode: {mean_time_per_episode}\n"
+                        f"Nombre moyen de pas par épisode: {mean_steps_per_episode}\n"
+                        f"Temps moyen par pas: {mean_time_per_step}\n"
+                        f"Taux de victoire: {win_rate}"
+                    )
+                    pass
 
     def run(self) -> None:
         while True:

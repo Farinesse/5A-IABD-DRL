@@ -630,7 +630,6 @@ def play_with_mcts(env, agent, episodes=100):
 
             action = agent.select_action(env)
             env.step(action)
-            env.display()
             nb_turns += 1
 
         end_time = time.time()
