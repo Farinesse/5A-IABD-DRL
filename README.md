@@ -55,6 +55,8 @@ Pour chaque environnement et algorithme, vous pouvez spécifier le chemin vers v
 - Matplotlib
 - Colorama
 - Pyfiglet
+- TQDM
+- Gymnasium
 
 ## Installation
 ```bash
@@ -62,7 +64,7 @@ Pour chaque environnement et algorithme, vous pouvez spécifier le chemin vers v
 git clone [url-du-repo]
 
 # Installer les dépendances
-pip install tensorflow numpy pandas matplotlib colorama pyfiglet
+pip install tensorflow numpy pandas matplotlib colorama pyfiglet tqdm gymnasium
 ```
 
 ## Structure du Projet
@@ -128,19 +130,3 @@ python main.py
 - `.csv` : Fichiers de métriques
 - `.png` : Visualisations générées
 
-## Notes
-- Les modèles sont sauvegardés automatiquement avec un identifiant unique
-- Les métriques sont sauvegardées dans le même dossier que les modèles
-- Certains algorithmes peuvent nécessiter un temps de calcul significatif
-
-## Dépannage
-Si vous rencontrez des erreurs :
-1. Vérifiez que tous les chemins de modèles sont corrects
-2. Assurez-vous que les dépendances sont correctement installées
-3. Vérifiez les permissions d'accès aux dossiers de sauvegarde
-
-## Contribution
-Pour contribuer au projet :
-1. Fork le repository
-2. Créez une branche pour votre fonctionnalité
-3. Soumettez une pull request
