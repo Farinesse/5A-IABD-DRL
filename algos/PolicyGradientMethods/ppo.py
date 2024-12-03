@@ -14,11 +14,8 @@ class PPOActorCritic:
         self.gamma = gamma
         self.path = path
 
-        # Initialisation des réseaux
         self.actor = self._build_actor()
         self.critic = self._build_critic()
-
-        # Optimiseurs avec gradient clipping
         self.actor_optimizer = tf.keras.optimizers.Adam(learning_rate=alpha, clipnorm=0.5)
         self.critic_optimizer = tf.keras.optimizers.Adam(learning_rate=alpha, clipnorm=0.5)
 
@@ -42,15 +39,11 @@ class PPOActorCritic:
 
     def select_action(self, state_tensor, action_mask, valid_actions):
         """Sélectionne une action selon la politique"""
-        # Obtenir les probabilités d'action
         probs = self.actor(state_tensor[None])[0].numpy()
-
-        # Masquer les actions invalides
         mask = np.ones_like(probs) * float('-inf')
         mask[valid_actions] = 0
         masked_probs = tf.nn.softmax(probs + mask).numpy()
 
-        # Renormaliser si nécessaire
         masked_probs = masked_probs / (np.sum(masked_probs) + 1e-8)
 
         return np.random.choice(len(masked_probs), p=masked_probs)
@@ -64,7 +57,7 @@ class PPOActorCritic:
             returns.insert(0, discounted_sum)
 
         returns = np.array(returns, dtype=np.float32)
-        # Normalisation
+
         if len(returns) > 1:
             returns = (returns - returns.mean()) / (returns.std() + 1e-8)
         return returns
@@ -108,10 +101,8 @@ class PPOActorCritic:
         old_action_probs = tf.convert_to_tensor(old_action_probs, dtype=tf.float32)
         returns = self.compute_returns(rewards)
 
-        # Plusieurs époques de mise à jour PPO
-        for _ in range(3):  # Nombre d'époques PPO
+        for _ in range(3):
             with tf.GradientTape() as tape:
-                # Calcul des valeurs par le critique
                 values = tf.squeeze(self.critic(states))
                 critic_loss = 0.5 * tf.reduce_mean(tf.square(returns - values))
 
@@ -119,15 +110,11 @@ class PPOActorCritic:
             self.critic_optimizer.apply_gradients(zip(critic_grads, self.critic.trainable_variables))
 
             with tf.GradientTape() as tape:
-                # Nouvelles probabilités d'action
                 action_probs = self.actor(states)
                 actions_onehot = tf.one_hot(actions, self.action_dim)
                 new_action_probs = tf.reduce_sum(action_probs * actions_onehot, axis=1)
-
-                # Ratio des probabilités pour PPO
                 ratio = new_action_probs / (old_action_probs + 1e-8)
 
-                # Calcul des avantages
                 advantages = returns - tf.stop_gradient(values)
                 advantages = (advantages - tf.reduce_mean(advantages)) / (tf.math.reduce_std(advantages) + 1e-8)
 
@@ -169,7 +156,6 @@ class PPOActorCritic:
                 print(f"Actor Loss: {actor_loss:.6f}")
                 print(f"Critic Loss: {critic_loss:.6f}")
 
-        # Utiliser save_files à la fin de l'entraînement
         if self.path is not None:
             save_files(
                 online_model=self.actor,

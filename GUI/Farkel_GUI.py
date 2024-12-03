@@ -1,4 +1,5 @@
 import tkinter as tk
+from time import sleep
 from tkinter import messagebox
 from tkinter import ttk
 from PIL import Image, ImageTk, ImageOps
@@ -110,6 +111,8 @@ class FarkleGUI:
             self.play_random()
         elif player_type == "agent":
             self.play_agent()
+        sleep(1)
+
 
     def take_action(self, stop):
         """Gère l'action du joueur."""

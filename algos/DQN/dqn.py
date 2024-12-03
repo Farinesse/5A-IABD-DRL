@@ -66,9 +66,9 @@ def dqn_no_replay(
     epsilon = start_epsilon
     total_loss = 0.0
     results_df = None
-    steps = 0  # Compteur global des étapes
+    steps = 0
 
-    target_model.set_weights(model.get_weights())  # Initialisation du modèle cible
+    target_model.set_weights(model.get_weights())
 
     for ep_id in tqdm(range(num_episodes)):
         env.reset()
@@ -107,10 +107,8 @@ def dqn_no_replay(
             if steps % update_frequency == 0:
                 soft_update_target_network(model, target_model)
 
-        # Mise à jour d'epsilon
         epsilon = max(end_epsilon, start_epsilon * (1 - ep_id / num_episodes))
 
-        # Sauvegarde périodique et affichage des métriques
         if (ep_id + 1) % interval == 0 and ep_id > 0:
             results_df = log_metrics_to_dataframe(
                 function=play_with_dqn,

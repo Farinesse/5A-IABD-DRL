@@ -36,7 +36,7 @@ class MCTS:
         self.root = None
         self.n_simulations = n_simulations
         self.C = C
-        self.actions_taken = []  # Liste pour sauvegarder les actions prises
+        self.actions_taken = []
 
     def select_action(self, env) -> Any:
         """Sélectionne la meilleure action selon MCTS."""

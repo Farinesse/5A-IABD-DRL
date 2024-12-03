@@ -8,23 +8,21 @@ def tabular_q_learning(env_type,
                        gamma: float = 0.999,
                        nb_iter: int = 100000):
 
-    Q = {}  # Table Q
+    Q = {}
 
-    env = env_type()  # Initialisation de l'environnement
+    env = env_type()
 
-    for it in tqdm(range(nb_iter)):  # Boucle sur le nombre d'itérations
+    for it in tqdm(range(nb_iter)):
         env.reset()
 
         while not env.is_game_over():
-            s = env.state_id()  # Identification de l'état actuel
+            s = env.state_id()
 
-            aa = env.available_actions_ids()  # Actions possibles
+            aa = env.available_actions_ids()
 
-            # Si l'état n'est pas déjà dans Q, on initialise la table Q pour cet état à 0
             if s not in Q:
                 Q[s] = {a: 0.0 for a in aa}
 
-            # Choix de l'action selon la stratégie epsilon greedy
             if np.random.random() < epsilon:
                 a = np.random.choice(aa)
             else:
@@ -39,7 +37,6 @@ def tabular_q_learning(env_type,
             s_p = env.state_id()
             aa_p = env.available_actions_ids()
 
-            # Calcul de la cible pour la mise à jour de Q
             if env.is_game_over():
                 target = r
             else:
@@ -49,10 +46,8 @@ def tabular_q_learning(env_type,
                 max_a_p = np.max(q_s_p)
                 target = r + gamma * max_a_p
 
-            # Mise à jour de la valeur Q
             Q[s][a] = (1 - alpha) * Q[s][a] + alpha * target
 
-    # Construction de la politique Pi à partir de la table Q apprise
     Pi = {}
     for s in Q.keys():
         best_a = None
@@ -65,4 +60,4 @@ def tabular_q_learning(env_type,
 
         Pi[s] = best_a
 
-    return Pi, Q  # Retourne la politique Pi et la table Q comme modèle
+    return Pi, Q

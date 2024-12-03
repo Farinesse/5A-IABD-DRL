@@ -15,16 +15,12 @@ class OneStepActorCritic:
         self.gamma = gamma
         self.path = path
 
-        # Initialize networks with gradient clipping
         self.policy = self._build_policy()
         self.value = self._build_value()
-
-        # Add optimizers with gradient clipping
         self.policy_optimizer = tf.keras.optimizers.Adam(learning_rate=alpha_theta, clipnorm=1.0)
         self.value_optimizer = tf.keras.optimizers.Adam(learning_rate=alpha_w, clipnorm=1.0)
 
     def _build_policy(self):
-        # Smaller network with proper initialization
         return tf.keras.Sequential([
             tf.keras.layers.Input(shape=(self.state_dim,)),
             tf.keras.layers.Dense(64, activation='relu',
@@ -39,7 +35,6 @@ class OneStepActorCritic:
         ])
 
     def _build_value(self):
-        # Smaller network with proper initialization
         return tf.keras.Sequential([
             tf.keras.layers.Input(shape=(self.state_dim,)),
             tf.keras.layers.Dense(64, activation='relu',
@@ -73,17 +68,14 @@ class OneStepActorCritic:
             action = self.select_action(s_tensor, action_mask)
 
             prev_score = env.score()
-            #_, _, _, _, info = env.step(action)
             env.step(action)
             next_state = env.state_description()
-            #reward = env.score(info=info) - prev_score
             reward = env.score() - prev_score
             done = env.is_game_over()
 
             next_state_tensor = tf.convert_to_tensor(next_state, dtype=tf.float32)
 
             with tf.GradientTape(persistent=True) as tape:
-                # Value network update
                 current_value = self.value(s_tensor[None])
 
                 next_value = tf.zeros_like(current_value) if done else self.value(next_state_tensor[None])
