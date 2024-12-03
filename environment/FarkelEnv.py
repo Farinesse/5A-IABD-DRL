@@ -12,6 +12,7 @@ from algos.PolicyGradientMethods.ppo import PPOActorCritic
 from algos.PolicyGradientMethods.reinforce import REINFORCE
 from algos.PolicyGradientMethods.reinforceBC import REINFORCEWithCritic
 from algos.PolicyGradientMethods.reinforce_meanbase import REINFORCEMeanBaseline
+from algos.model_based.mtcs_utc import MCTS
 from functions.outils import plot_csv_data
 
 
@@ -492,13 +493,13 @@ if __name__ == "__main__":
     ).train(env, episodes=100000, interval=1000)
     """
 
-    REINFORCE(
+    """REINFORCE(
         state_dim=12,
         action_dim=128,
         alpha=0.0001,
         gamma=0.99,
         path='reinforce_farkle'
-    ).train(env, episodes=100000, interval=1000)
+    ).train(env, episodes=100000, interval=1000)"""
 
     """PPOActorCritic(
         state_dim=12,
@@ -509,11 +510,18 @@ if __name__ == "__main__":
         path='ppo_farkle'
     ).train(env, episodes=100000, interval=1000)"""
 
-    """OneStepActorCritic(
+    OneStepActorCritic(
         state_dim=12,
         action_dim=128,
         alpha_theta=0.0001,
         alpha_w=0.0001,
         gamma=0.99,
         path='1_step_actor_critic_farkle'
-    ).train(env, episodes=100000, interval=1000)"""
+    ).train(env, episodes=100000, interval=1000)
+
+    """MCTS(n_simulations=10).train(
+        env=env,
+        episodes=1000,
+        interval=100,
+        save_path="mcts_utc_farkle"
+    )"""

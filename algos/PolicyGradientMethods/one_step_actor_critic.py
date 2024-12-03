@@ -3,13 +3,6 @@ from statistics import mean
 import tensorflow as tf
 import numpy as np
 from tqdm import tqdm
-import pandas as pd
-import os
-from collections import defaultdict
-
-from algos.PolicyGradientMethods.reinforce import play_with_reinforce
-from environment.line_word import LineWorld
-from environment.tictactoe import TicTacToe
 from functions.outils import log_metrics_to_dataframe, plot_csv_data, save_files
 
 
@@ -21,11 +14,6 @@ class OneStepActorCritic:
         self.alpha_w = alpha_w
         self.gamma = gamma
         self.path = path
-
-        # Modified exploration parameters
-        self.epsilon = 1.0
-        self.epsilon_decay = 0.9997
-        self.epsilon_min = 0.05
 
         # Initialize networks with gradient clipping
         self.policy = self._build_policy()
@@ -65,17 +53,9 @@ class OneStepActorCritic:
                                   bias_initializer='zeros')
         ])
 
-    def select_action(self, state_tensor, action_mask, exploration=True):
-        """Modified action selection with epsilon-greedy and numerically stable masking."""
-        valid_actions = env.available_actions_ids()
+    def select_action(self, state_tensor, action_mask):
         action_mask = np.array(action_mask)
-
-        if exploration and np.random.random() < self.epsilon:
-            env.display()
-            return np.random.choice(valid_actions)
-
         q_s = self.policy(state_tensor[None])[0].numpy()
-        # Add small epsilon to avoid log(0)
         masked_q_s = q_s * action_mask + np.finfo(float).eps * (1 - action_mask)
         return int(np.argmax(masked_q_s))
 
@@ -86,12 +66,6 @@ class OneStepActorCritic:
         done = False
         total_reward = 0
         episode_steps = []
-
-        # Modified epsilon decay
-        self.epsilon = max(
-            self.epsilon_min,
-            self.epsilon * self.epsilon_decay
-        )
 
         while not done:
             action_mask = env.action_mask()
@@ -118,10 +92,7 @@ class OneStepActorCritic:
                 value_loss = 0.5 * tf.reduce_mean(tf.square(td_error))
 
                 # Policy network update with numerical stability
-                #env.display()
-                #print(action_mask)
                 action_probs = self.policy(s_tensor[None])
-                #print("action prop", action_probs)
                 action_mask_tensor = tf.convert_to_tensor(action_mask, dtype=tf.float32)
                 masked_probs = action_probs * action_mask_tensor
                 normalized_probs = masked_probs / (tf.reduce_sum(masked_probs, axis=1, keepdims=True) + 1e-8)
@@ -179,11 +150,10 @@ class OneStepActorCritic:
                 print(f"Episode {episode + 1}")
                 print(f"Policy Loss: {policy_loss:.6f}")
                 print(f"Value Loss: {value_loss:.6f}")
-                print(f"Epsilon: {self.epsilon:.4f}")
 
         if self.path is not None:
             save_files(
-                online_model=self.actor,
+                online_model=self.policy,
                 algo_name="1_STEP_ACTOR_CRITIC",
                 results_df=results_df,
                 env=env,
@@ -252,25 +222,3 @@ def play_with_actor_critic(env, model, predict_func=None, episodes=100):
         mean(step_times),
         episode_scores.count(1.0) / episodes
     )
-
-
-if __name__ == "__main__":
-    from environment.FarkelEnv import FarkleDQNEnv
-
-    #env = FarkleDQNEnv(target_score=5000)
-    env = LineWorld(10)
-
-    #env = TicTacToe()
-    agent = OneStepActorCritic(
-        state_dim=10,
-        action_dim=3,
-        alpha_theta=0.0001,
-        alpha_w=0.001,
-        gamma=0.99,
-        path='./actor_critic_model/Lineworld_1_10000_5000_0.0001_0.99'
-    )
-
-    print("Starting training...")
-    results_df = agent.train(env, episodes=10000)
-    plot_csv_data(agent.path + "_metrics.csv")
-    print("\nTraining completed!")

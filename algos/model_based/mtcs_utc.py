@@ -1,18 +1,12 @@
 import os
 import pickle
-
+import secrets
 import numpy as np
 from math import sqrt, log
 from typing import Dict, Any
-
 import pandas as pd
 from tqdm import tqdm
-
-from environment.FarkelEnv import FarkleDQNEnv
-from environment.grid_word import GridWorld
-from environment.line_word import LineWorld
-from environment.tictactoe import TicTacToe
-from functions.outils import log_metrics_to_dataframe_mcts, play_with_mcts, plot_mcts_metrics
+from functions.outils import log_metrics_to_dataframe_mcts, play_with_mcts, plot_mcts_metrics, plot_csv_data
 
 
 class Node:
@@ -88,35 +82,7 @@ class MCTS:
 
     def _copy_env(self, env) -> Any:
         """Crée une copie de l'environnement."""
-        if isinstance(env, LineWorld):
-            new_env = LineWorld(len(env.all_position))
-            new_env.agent_position = env.agent_position
-            new_env.all_position = env.all_position.copy()
-            new_env.terminal_position = env.terminal_position.copy()
-            new_env.game_over = env.game_over
-            new_env.score_val = env.score_val
-        elif isinstance(env, TicTacToe):
-            new_env = TicTacToe()
-            new_env._board = env._board.copy()
-            new_env._player = env._player
-            new_env._is_game_over = env._is_game_over
-        elif isinstance(env,FarkleDQNEnv) :
-            new_env = FarkleDQNEnv(env.num_players, env.target_score)
-            new_env.scores = env.scores.copy()
-            new_env.current_player = env.current_player
-            new_env.round_score = env.round_score
-            new_env.remaining_dice = env.remaining_dice
-            new_env.dice_roll = env.dice_roll.copy()
-            new_env.game_over = env.game_over
-            new_env.last_action_stop = env.last_action_stop
-        elif isinstance(env,GridWorld) :
-            new_env = GridWorld(env.width, env.height)
-            new_env.agent_position = env.agent_position
-            new_env.all_position = env.all_position.copy()
-            new_env.terminal_position = env.terminal_position.copy()
-            new_env.game_over = env.game_over
-            new_env.score_val = env.score_val
-        return new_env
+        return env.copy()
 
     def _is_fully_expanded(self, node: Node, env) -> bool:
         """Vérifie si tous les coups valides ont été explorés."""
@@ -165,12 +131,6 @@ class MCTS:
                     dataframe=results_df
                 )
 
-                if save_path:
-                    # Sauvegarde du modèle
-                    self.save(f"{save_path}_ep{episode}.pkl")
-                    # Sauvegarde des métriques
-                    results_df.to_csv(f"{save_path}_metrics.csv", index=False)
-
             env.reset()
             while not env.is_game_over():
                 action = self.select_action(env)
@@ -178,13 +138,51 @@ class MCTS:
                     break
                 env.step(action)
 
-        # Sauvegarde finale
-        if save_path:
-            self.save(f"{save_path}_final.pkl")
-            if results_df is not None:
-                results_df.to_csv(f"{save_path}_final_metrics.csv", index=False)
+        if save_path is not None:
+            if save_path.endswith(".pkl"):
+                save_path = f'{save_path[:-4]}_{secrets.token_hex(4)}.pkl'
+            else:
+                save_path = f'{save_path}_{secrets.token_hex(4)}.pkl'
 
-        return results_df
+            dirn = save_path.replace(".pkl", "")
+
+            if not os.path.exists(dirn):
+                try:
+                    os.makedirs(dirn)
+                    print(f"Directory created: {dirn}")
+                except OSError as e:
+                    print(f"Error creating directory {dirn}: {e}")
+            else:
+                print(f"Directory already exists: {dirn}")
+
+
+            save_path = f'{dirn}/{save_path}'
+
+            csv = f'{save_path}_metrics.csv'
+
+            print(f"Saving model to {save_path}")
+            self.save(f"{save_path}")
+
+            print(f"Saving results to {csv}")
+            results_df.to_csv(csv, index=False)
+
+            print(f"Plotting training metrics to {csv}.png")
+            plot_csv_data(
+                f"{save_path}_final_metrics.csv",
+                model = None,
+                title = f"Training Metrics MTCS UTC - {env.env_description()} - {save_path}",
+                custom_dict = {
+                    "Episodes": episodes,
+                    'n_simulations': self.n_simulations,
+                    'C': self.C,
+                    'root': self.root
+                },
+                algo_name = "MTCS UTC",
+                env_descr = env.env_description()
+            )
+
+            return results_df
+
 
 
     def save(self, filepath: str):
@@ -223,29 +221,3 @@ class MCTS:
         mcts.root = model_state['root']
         mcts.actions_taken = model_state['actions_taken']
         return mcts
-
-
-
-if __name__ == "__main__":
-    # Configuration
-    #env = LineWorld(10)
-    env = TicTacToe()
-    #env = GridWorld(5, 5)
-    #env = FarkleDQNEnv(target_score=5000)
-
-    save_path = f"models/mcts_{env.__class__.__name__}_100_sims"
-
-
-    mcts_agent = MCTS(n_simulations=20, C=1.2)
-    metrics_df = mcts_agent.train(
-        env=env,
-        episodes=100,
-        interval=10,
-        save_path=save_path
-    )
-
-    # Plot des résultats
-    plot_mcts_metrics(
-        f"{save_path}_final_metrics.csv",
-        title=f"MCTS Training on {env.__class__.__name__}"
-    )

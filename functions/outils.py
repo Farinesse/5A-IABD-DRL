@@ -1015,6 +1015,8 @@ def play_with_agent_lineworld(env, model, num_games: int = 100, type_model="dqn"
     except Exception as e:
         print(f"\nErreur lors du chargement du modèle : {e}")
         print("Le modèle n'a pas pu être chargé")
+
+
 def action_agent_mcts(env, mcts_agent):
     """
     Adapte l'agent MCTS pour l'utiliser comme action_agent

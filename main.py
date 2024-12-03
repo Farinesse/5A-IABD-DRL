@@ -51,8 +51,9 @@ class DRLInterface:
             "8": "REINFORCE with Mean Baseline",
             "9": "REINFORCE with Baseline Learned by a Critic",
             "10": "PPO",
-            "11": "Random Rollout",
-            "12": "MCTS (UCT)"
+            "11": "1SAC",
+            "12": "Random Rollout",
+            "13": "MCTS (UCT)"
         }
 
         # Dictionnaire des chemins de modèles
@@ -67,6 +68,7 @@ class DRLInterface:
                 "REINFORCE with Mean Baseline": r"models/farkle/reinforce_mb_farkle_918db84f/reinforce_mb_farkle_918db84f.pkl",
                 "REINFORCE with Baseline Learned by a Critic": r"models/farkle/reinforce_mb_critic_farkle_9a85a598/reinforce_mb_critic_farkle_9a85a598.pkl",
                 "PPO": r"models/farkle/ppo_farkle_1cdf12d9/ppo_farkle_1cdf12d9.pkl",
+                "1SAC": r"models/farkle/1_step_actor_critic_farkle_22cc4053/1_step_actor_critic_farkle_22cc4053.pkl",
                 "Random Rollout": r"",
                 "MCTS (UCT)": r""
             },
@@ -261,7 +263,7 @@ class DRLInterface:
                      "Deep Q-Learning_with Experience Replay", "Double Deep Q-Learning"] :
                         type_model = "dqn"
                     elif algo in ["REINFORCE", "REINFORCE with Mean Baseline",
-                                       "REINFORCE with Baseline Learned by a Critic","PPO"]:
+                                       "REINFORCE with Baseline Learned by a Critic", "PPO", "1SAC"]:
                         type_model = "reinforce"
                     else:
                         raise ValueError(f"Unknown algorithm: {algo}")

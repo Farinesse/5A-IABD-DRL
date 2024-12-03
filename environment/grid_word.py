@@ -7,6 +7,7 @@ from typing import List, Tuple
 from algos.DQN.ddqn import double_dqn_no_replay
 from algos.DQN.deep_qlearning import deep_q_learning
 from algos.DQN.dqn import dqn_no_replay
+from algos.PolicyGradientMethods.one_step_actor_critic import OneStepActorCritic
 from algos.PolicyGradientMethods.ppo import PPOActorCritic
 from algos.PolicyGradientMethods.reinforce import REINFORCE
 from algos.PolicyGradientMethods.reinforceBC import REINFORCEWithCritic
@@ -192,20 +193,29 @@ if __name__ == "__main__":
         path='reinforce_grid'
     ).train(env, episodes=10000, interval=100)"""
 
-    REINFORCEWithCritic(
+    """REINFORCEWithCritic(
         state_dim=25,
         action_dim=4,
         alpha_theta=0.0001,
         alpha_w=0.0001,
         gamma=0.99,
         path='reinforce_mb_critic_grid'
-    ).train(env, episodes=10000, interval=100)
+    ).train(env, episodes=10000, interval=100)"""
 
-    PPOActorCritic(
+    """PPOActorCritic(
         state_dim=25,
         action_dim=4,
         clip_epsilon=0.2,
         gamma=0.99,
         alpha=0.0001,
         path='ppo_grid'
-    ).train(env, episodes=10000, interval=100)
+    ).train(env, episodes=10000, interval=100)"""
+
+    OneStepActorCritic(
+        state_dim=25,
+        action_dim=4,
+        alpha_theta=0.0001,
+        alpha_w=0.0001,
+        gamma=0.99,
+        path='1_step_actor_critic_grid'
+    ).train(env, episodes=1000, interval=100)
